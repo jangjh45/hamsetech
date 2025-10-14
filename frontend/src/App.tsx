@@ -10,6 +10,7 @@ import NoticeDetailPage from './pages/NoticeDetail'
 import NoticeEditorPage from './pages/NoticeEditor'
 import NoticesPage from './pages/Notices'
 import ForgotPasswordPage from './pages/ForgotPassword'
+import DeliveryPage from './pages/Delivery'
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/notice/new" element={<NoticeEditorPage />} />
         <Route path="/notice/:id/edit" element={<NoticeEditorPage />} />
         <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
+        <Route path="/delivery" element={<DeliveryPage />} />
       </Routes>
     </div>
   )

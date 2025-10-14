@@ -7,7 +7,7 @@ export default function Header() {
   const [authed, setAuthed] = useState(!!getToken())
   const [admin, setAdmin] = useState(isAdmin())
   const [displayName, setDisplayName] = useState<string | null>(getDisplayName())
-  const [theme, setTheme] = useState<string>(() => (localStorage.getItem('theme') || prefersDark() ? 'dark' : 'light'))
+  const [theme, setTheme] = useState<string>(() => (localStorage.getItem('theme') || 'light'))
 
   useEffect(() => {
     const off = onAuthChange(() => {
@@ -38,6 +38,7 @@ export default function Header() {
       <nav className="navbar">
         <Link to="/">홈</Link>
         <Link to="/notices">공지사항</Link>
+        <Link to="/delivery">적재 시뮬레이터</Link>
         {admin && <Link to="/admin">관리자</Link>}
         <div className="spacer" />
         <button className="btn ghost" onClick={toggleTheme}>{theme === 'dark' ? '라이트 모드' : '다크 모드'}</button>
@@ -50,13 +51,9 @@ export default function Header() {
   )
 }
 
-function prefersDark() {
-  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-}
-
 function applyTheme(mode: string) {
   const root = document.documentElement
-  const theme = mode || (prefersDark() ? 'dark' : 'light')
+  const theme = mode || 'light'
   root.setAttribute('data-theme', theme)
 }
 
