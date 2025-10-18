@@ -27,7 +27,17 @@ export default function LoginPage() {
         navigate('/')
       }
     } catch (err: any) {
-      setError(err.message || 'login failed')
+      // 로그인 실패 시 더 친화적인 오류 메시지 표시
+      const errorMessage = err.message || '로그인에 실패했습니다.'
+      if (errorMessage.includes('세션이 만료되었습니다')) {
+        setError('로그인 세션이 만료되었습니다. 다시 로그인해주세요.')
+      } else if (errorMessage.includes('아이디 또는 비밀번호가 올바르지 않습니다')) {
+        setError('아이디 또는 비밀번호가 올바르지 않습니다.')
+      } else if (errorMessage.includes('Failed to execute')) {
+        setError('로그인 중 오류가 발생했습니다. 다시 시도해주세요.')
+      } else {
+        setError(errorMessage)
+      }
     }
   }
 

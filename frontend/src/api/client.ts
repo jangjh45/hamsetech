@@ -22,20 +22,30 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
   if (token) headers.set('Authorization', `Bearer ${token}`)
   const res = await fetch(url, { ...init, headers, credentials: 'include', mode: 'cors' as RequestMode })
   
-  // 토큰 만료 감지 (401 Unauthorized 또는 403 Forbidden)
-  if (!res.ok && (res.status === 401 || res.status === 403)) {
+  // 응답 본문을 한 번만 읽기 위한 함수
+  const readResponseBody = async () => {
     const contentType = res.headers.get('Content-Type') || ''
-    let message = ''
     if (contentType.includes('application/json')) {
       try {
-        const data = await res.json()
-        message = (data && (data.error || data.message)) || ''
-        if (!message) message = JSON.stringify(data)
+        return await res.json()
       } catch {
-        message = await res.text()
+        return await res.text()
       }
     } else {
-      message = await res.text()
+      return await res.text()
+    }
+  }
+  
+  // 토큰 만료 감지 (401 Unauthorized 또는 403 Forbidden)
+  if (!res.ok && (res.status === 401 || res.status === 403)) {
+    const bodyData = await readResponseBody()
+    let message = ''
+    
+    if (typeof bodyData === 'object' && bodyData !== null) {
+      message = (bodyData as any).error || (bodyData as any).message || ''
+      if (!message) message = JSON.stringify(bodyData)
+    } else {
+      message = String(bodyData)
     }
     
     // 토큰이 있는 경우 만료로 간주하고 자동 로그아웃 처리
@@ -51,26 +61,30 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
       
       throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.')
     }
-  }
-  
-  if (!res.ok) {
-    const contentType = res.headers.get('Content-Type') || ''
-    let message = ''
-    if (contentType.includes('application/json')) {
-      try {
-        const data = await res.json()
-        message = (data && (data.error || data.message)) || ''
-        if (!message) message = JSON.stringify(data)
-      } catch {
-        message = await res.text()
-      }
-    } else {
-      message = await res.text()
-    }
+    
+    // 토큰이 없는 경우 일반 오류로 처리
     const err = new Error(message || `HTTP ${res.status}`)
     try { console.error('apiFetch error', { url, status: res.status, message }) } catch {}
     throw err
   }
+  
+  if (!res.ok) {
+    const bodyData = await readResponseBody()
+    let message = ''
+    
+    if (typeof bodyData === 'object' && bodyData !== null) {
+      message = (bodyData as any).error || (bodyData as any).message || ''
+      if (!message) message = JSON.stringify(bodyData)
+    } else {
+      message = String(bodyData)
+    }
+    
+    const err = new Error(message || `HTTP ${res.status}`)
+    try { console.error('apiFetch error', { url, status: res.status, message }) } catch {}
+    throw err
+  }
+  
+  // 성공 응답 처리
   const contentType = res.headers.get('Content-Type') || ''
   if (contentType.includes('application/json')) return res.json()
   return res.text()
