@@ -1,4 +1,9 @@
-import { getToken } from '../auth/token'
+import { getToken, clearToken } from '../auth/token'
+
+// 토큰 만료 이벤트 발생 함수
+function dispatchTokenExpired() {
+  window.dispatchEvent(new CustomEvent('token-expired'))
+}
 
 export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   let base = (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_BASE) || ''
@@ -16,6 +21,38 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
   }
   if (token) headers.set('Authorization', `Bearer ${token}`)
   const res = await fetch(url, { ...init, headers, credentials: 'include', mode: 'cors' as RequestMode })
+  
+  // 토큰 만료 감지 (401 Unauthorized 또는 403 Forbidden)
+  if (!res.ok && (res.status === 401 || res.status === 403)) {
+    const contentType = res.headers.get('Content-Type') || ''
+    let message = ''
+    if (contentType.includes('application/json')) {
+      try {
+        const data = await res.json()
+        message = (data && (data.error || data.message)) || ''
+        if (!message) message = JSON.stringify(data)
+      } catch {
+        message = await res.text()
+      }
+    } else {
+      message = await res.text()
+    }
+    
+    // 토큰이 있는 경우 만료로 간주하고 자동 로그아웃 처리
+    if (token) {
+      console.warn('토큰이 만료되었습니다. 자동 로그아웃 처리합니다.', { url, status: res.status, message })
+      clearToken()
+      dispatchTokenExpired()
+      
+      // 로그인 페이지로 리다이렉트 (현재 페이지가 로그인 페이지가 아닌 경우에만)
+      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+        window.location.href = '/login'
+      }
+      
+      throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.')
+    }
+  }
+  
   if (!res.ok) {
     const contentType = res.headers.get('Content-Type') || ''
     let message = ''

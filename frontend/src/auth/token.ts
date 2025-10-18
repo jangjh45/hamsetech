@@ -57,5 +57,27 @@ export function onAuthChange(listener: () => void) {
   return () => window.removeEventListener('auth-changed', handler)
 }
 
+// 토큰 만료 이벤트 리스너
+export function onTokenExpired(listener: () => void) {
+  const handler = () => listener()
+  window.addEventListener('token-expired', handler)
+  return () => window.removeEventListener('token-expired', handler)
+}
+
+// 토큰 만료 시 자동 로그아웃 처리
+export function setupAutoLogout() {
+  const handleTokenExpired = () => {
+    console.log('토큰이 만료되어 자동 로그아웃됩니다.')
+    clearToken()
+    
+    // 현재 페이지가 로그인 페이지가 아닌 경우에만 리다이렉트
+    if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+      window.location.href = '/login'
+    }
+  }
+  
+  return onTokenExpired(handleTokenExpired)
+}
+
 
 

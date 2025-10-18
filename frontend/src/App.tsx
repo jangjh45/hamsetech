@@ -1,5 +1,6 @@
 import './App.css'
 import { Route, Routes } from 'react-router-dom'
+import { useEffect } from 'react'
 import RegisterPage from './pages/Register'
 import LoginPage from './pages/Login'
 import AdminPage from './pages/Admin'
@@ -11,8 +12,15 @@ import NoticeEditorPage from './pages/NoticeEditor'
 import NoticesPage from './pages/Notices'
 import ForgotPasswordPage from './pages/ForgotPassword'
 import DeliveryPage from './pages/Delivery'
+import { setupAutoLogout } from './auth/token'
 
 export default function App() {
+  // 전역 토큰 만료 처리 설정
+  useEffect(() => {
+    const cleanup = setupAutoLogout()
+    return cleanup
+  }, [])
+
   return (
     <div style={{ padding: 24 }}>
       <Header />

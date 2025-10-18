@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../api/client'
-import { getUsername as getMe, getToken, getRoles, saveAuth } from '../auth/token'
+import { getUsername as getMe, getToken, getRoles, saveAuth, onTokenExpired } from '../auth/token'
 
 export default function AdminPage() {
   const [msg, setMsg] = useState('loading...')
   const [error, setError] = useState('')
   const [users, setUsers] = useState<any[]>([])
   const [q, setQ] = useState('')
+  const [tokenExpired, setTokenExpired] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -20,6 +21,16 @@ export default function AdminPage() {
     } else {
       setMsg(`현재 로그인된 계정${me ? ` (${me})` : ''}은 관리자 권한이 없습니다.`)
     }
+  }, [])
+
+  // 토큰 만료 이벤트 리스너 설정
+  useEffect(() => {
+    const unsubscribe = onTokenExpired(() => {
+      setTokenExpired(true)
+      setError('세션이 만료되었습니다. 다시 로그인해주세요.')
+    })
+    
+    return unsubscribe
   }, [])
 
   async function loadUsers(query = q) {
@@ -66,6 +77,19 @@ export default function AdminPage() {
           <h1 className="title" style={{ marginBottom: 6, textAlign: 'left' }}>관리자</h1>
           <p className="subtitle">ADMIN 권한이 있어야 접근할 수 있습니다</p>
         </div>
+        {tokenExpired && (
+          <div style={{ 
+            padding: '12px 16px', 
+            backgroundColor: '#fee2e2', 
+            border: '1px solid #fca5a5', 
+            borderRadius: '8px', 
+            marginBottom: '16px',
+            color: '#dc2626'
+          }}>
+            <strong>세션 만료 알림</strong><br />
+            로그인 세션이 만료되었습니다. 잠시 후 로그인 페이지로 이동됩니다.
+          </div>
+        )}
         {error ? <p className="error">{error}</p> : <p className="subtitle" style={{ marginTop: 0 }}>{msg}</p>}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, marginBottom: 12 }}>
