@@ -9,6 +9,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([])
   const [q, setQ] = useState('')
   const [tokenExpired, setTokenExpired] = useState(false)
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -45,6 +46,16 @@ export default function AdminPage() {
 
   useEffect(() => { loadUsers('') }, [])
 
+  // 화면 크기 변경 감지
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   async function grant(id: number) {
     try {
       await apiFetch(`/api/admin/users/${id}/grant-admin`, { method: 'POST' })
@@ -71,10 +82,19 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="container" style={{ display: 'flex', justifyContent: 'center' }}>
-      <div className="panel" style={{ maxWidth: 900, width: '100%', margin: '16px auto 32px' }}>
+    <div className="container" style={{ 
+      display: 'flex', 
+      justifyContent: 'center',
+      padding: isMobile ? '16px' : '24px'
+    }}>
+      <div className="panel" style={{ 
+        maxWidth: 900, 
+        width: '100%', 
+        margin: '16px auto 32px',
+        textAlign: isMobile ? 'center' : 'left'
+      }}>
         <div style={{ marginBottom: 12 }}>
-          <h1 className="title" style={{ marginBottom: 6, textAlign: 'left' }}>관리자</h1>
+          <h1 className="title" style={{ marginBottom: 6, textAlign: isMobile ? 'center' : 'left' }}>관리자</h1>
           <p className="subtitle">ADMIN 권한이 있어야 접근할 수 있습니다</p>
         </div>
         {tokenExpired && (
@@ -92,54 +112,160 @@ export default function AdminPage() {
         )}
         {error ? <p className="error">{error}</p> : <p className="subtitle" style={{ marginTop: 0 }}>{msg}</p>}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, marginBottom: 12 }}>
-          <input className="input" placeholder="사용자 검색" value={q} onChange={(e) => setQ(e.target.value)} style={{ flex: 1 }} />
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 8, 
+          marginTop: 16, 
+          marginBottom: 12,
+          flexDirection: isMobile ? 'column' : 'row'
+        }}>
+          <input 
+            className="input" 
+            placeholder="사용자 검색" 
+            value={q} 
+            onChange={(e) => setQ(e.target.value)} 
+            style={{ flex: 1, width: isMobile ? '100%' : 'auto' }} 
+          />
           <button className="btn ghost" onClick={() => loadUsers(q)}>검색</button>
         </div>
 
         <div className="card" style={{ padding: 0 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '60px 270px 150px 240px 120px', alignItems: 'center', gap: 8, padding: '10px 12px', height: 50, borderBottom: '1px solid var(--border)', color: 'var(--muted)', fontSize: 14 }}>
-            <div style={{ textAlign: 'right', paddingRight: 8 }}>ID</div>
-            <div>사용자명</div>
-            <div>역할</div>
-            <div style={{ textAlign: 'center' }}>이름/닉네임 관리</div>
-            <div style={{ textAlign: 'center' }}>권한</div>
-          </div>
-          {users.length === 0 && (
-            <div style={{ padding: 16, textAlign: 'center', color: 'var(--muted)' }}>사용자가 없습니다.</div>
-          )}
-          {users.map((u: any) => {
-            const roles = u.roles || []
-            const isAdmin = roles.includes('ADMIN')
-            const isSuperAdmin = roles.includes('SUPER_ADMIN')
-            return (
-              <div key={u.id} style={{ display: 'grid', gridTemplateColumns: '60px 270px 150px 240px 120px', alignItems: 'center', gap: 8, padding: '10px 12px', height: 50, borderBottom: '1px solid var(--border)', overflow: 'hidden' }}>
-                <div style={{ textAlign: 'right', paddingRight: 8 }}>{u.id}</div>
-                <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{u.username}{u.displayName ? ` (${u.displayName})` : ''}</div>
-                <div style={{ color: 'var(--muted)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }} title={(roles || []).join(', ')}>{roles.join(', ')}</div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
-                  {(() => {
-                    let inputEl: HTMLInputElement | null = null;
-                    return (
-                      <>
-                        <input ref={(el) => { inputEl = el }} className="input" placeholder="이름/닉네임" defaultValue={u.displayName || ''} style={{ width: 100 }} />
-                        <button className="btn ghost" onClick={async () => { try { const val = (inputEl && inputEl.value) || ''; await apiFetch(`/api/admin/users/${u.id}/display-name`, { method: 'PUT', body: JSON.stringify({ displayName: val }) }); await loadUsers(); } catch (e:any) { setError(e.message) } }}>저장</button>
-                      </>
-                    )
-                  })()}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
-                  {!isSuperAdmin && (
-                    isAdmin ? (
-                      <button className="btn ghost" style={{ width: 120 }} onClick={() => revoke(u.id)}>ADMIN 해제</button>
-                    ) : (
-                      <button className="btn ghost" style={{ width: 120 }} onClick={() => grant(u.id)}>ADMIN 부여</button>
-                    )
-                  )}
-                </div>
+          {isMobile ? (
+            // 모바일 레이아웃
+            <>
+              {users.length === 0 && (
+                <div style={{ padding: 16, textAlign: 'center', color: 'var(--muted)' }}>사용자가 없습니다.</div>
+              )}
+              {users.map((u: any) => {
+                const roles = u.roles || []
+                const isAdmin = roles.includes('ADMIN')
+                const isSuperAdmin = roles.includes('SUPER_ADMIN')
+                return (
+                  <div key={u.id} style={{ 
+                    padding: '16px', 
+                    borderBottom: '1px solid var(--border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12
+                  }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center' 
+                    }}>
+                      <span style={{ 
+                        color: 'var(--muted)', 
+                        fontSize: '12px' 
+                      }}>ID: {u.id}</span>
+                      <span style={{ 
+                        color: 'var(--muted)', 
+                        fontSize: '12px' 
+                      }}>{roles.join(', ')}</span>
+                    </div>
+                    <div style={{ fontWeight: 'bold', marginBottom: 4 }}>
+                      {u.username}{u.displayName ? ` (${u.displayName})` : ''}
+                    </div>
+                    <div style={{ 
+                      display: 'flex', 
+                      flexDirection: 'column',
+                      gap: 8
+                    }}>
+                      <div style={{ 
+                        display: 'flex', 
+                        gap: 8, 
+                        alignItems: 'center',
+                        flexDirection: 'column'
+                      }}>
+                        {(() => {
+                          let inputEl: HTMLInputElement | null = null;
+                          return (
+                            <>
+                              <input 
+                                ref={(el) => { inputEl = el }} 
+                                className="input" 
+                                placeholder="이름/닉네임" 
+                                defaultValue={u.displayName || ''} 
+                                style={{ width: '100%' }} 
+                              />
+                              <button 
+                                className="btn ghost" 
+                                onClick={async () => { 
+                                  try { 
+                                    const val = (inputEl && inputEl.value) || ''; 
+                                    await apiFetch(`/api/admin/users/${u.id}/display-name`, { method: 'PUT', body: JSON.stringify({ displayName: val }) }); 
+                                    await loadUsers(); 
+                                  } catch (e:any) { setError(e.message) } 
+                                }}
+                                style={{ width: '100%' }}
+                              >
+                                이름 저장
+                              </button>
+                            </>
+                          )
+                        })()}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        {!isSuperAdmin && (
+                          isAdmin ? (
+                            <button className="btn ghost" style={{ width: '100%' }} onClick={() => revoke(u.id)}>ADMIN 해제</button>
+                          ) : (
+                            <button className="btn ghost" style={{ width: '100%' }} onClick={() => grant(u.id)}>ADMIN 부여</button>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </>
+          ) : (
+            // 데스크톱 레이아웃
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '60px 270px 150px 240px 120px', alignItems: 'center', gap: 8, padding: '10px 12px', height: 50, borderBottom: '1px solid var(--border)', color: 'var(--muted)', fontSize: 14 }}>
+                <div style={{ textAlign: 'right', paddingRight: 8 }}>ID</div>
+                <div>사용자명</div>
+                <div>역할</div>
+                <div style={{ textAlign: 'center' }}>이름/닉네임 관리</div>
+                <div style={{ textAlign: 'center' }}>권한</div>
               </div>
-            )
-          })}
+              {users.length === 0 && (
+                <div style={{ padding: 16, textAlign: 'center', color: 'var(--muted)' }}>사용자가 없습니다.</div>
+              )}
+              {users.map((u: any) => {
+                const roles = u.roles || []
+                const isAdmin = roles.includes('ADMIN')
+                const isSuperAdmin = roles.includes('SUPER_ADMIN')
+                return (
+                  <div key={u.id} style={{ display: 'grid', gridTemplateColumns: '60px 270px 150px 240px 120px', alignItems: 'center', gap: 8, padding: '10px 12px', height: 50, borderBottom: '1px solid var(--border)', overflow: 'hidden' }}>
+                    <div style={{ textAlign: 'right', paddingRight: 8 }}>{u.id}</div>
+                    <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{u.username}{u.displayName ? ` (${u.displayName})` : ''}</div>
+                    <div style={{ color: 'var(--muted)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }} title={(roles || []).join(', ')}>{roles.join(', ')}</div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
+                      {(() => {
+                        let inputEl: HTMLInputElement | null = null;
+                        return (
+                          <>
+                            <input ref={(el) => { inputEl = el }} className="input" placeholder="이름/닉네임" defaultValue={u.displayName || ''} style={{ width: 100 }} />
+                            <button className="btn ghost" onClick={async () => { try { const val = (inputEl && inputEl.value) || ''; await apiFetch(`/api/admin/users/${u.id}/display-name`, { method: 'PUT', body: JSON.stringify({ displayName: val }) }); await loadUsers(); } catch (e:any) { setError(e.message) } }}>저장</button>
+                          </>
+                        )
+                      })()}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      {!isSuperAdmin && (
+                        isAdmin ? (
+                          <button className="btn ghost" style={{ width: 120 }} onClick={() => revoke(u.id)}>ADMIN 해제</button>
+                        ) : (
+                          <button className="btn ghost" style={{ width: 120 }} onClick={() => grant(u.id)}>ADMIN 부여</button>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </>
+          )}
         </div>
       </div>
     </div>
