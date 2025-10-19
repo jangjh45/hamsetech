@@ -10,6 +10,7 @@ import {
   type PackingScenario, 
   type CreateScenarioRequest 
 } from '../api/scenarios'
+import { isAuthenticated, onAuthChange } from '../auth/token'
 
 type ItemRow = { id: number; name: string; w: string; h: string; qty: string }
 
@@ -29,6 +30,12 @@ export default function DeliveryPage() {
     { id: 2, name: '박스B', w: '600', h: '400', qty: '1' },
   ])
 
+  // 로그인 상태
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(isAuthenticated())
+  
+  // 모바일 반응형 상태
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768)
+
   // 시나리오 관련 상태
   const [scenarios, setScenarios] = useState<PackingScenario[]>([])
   const [favoriteScenarios, setFavoriteScenarios] = useState<PackingScenario[]>([])
@@ -37,6 +44,7 @@ export default function DeliveryPage() {
   const [scenarioName, setScenarioName] = useState<string>('')
   const [scenarioDescription, setScenarioDescription] = useState<string>('')
   const [editingScenario, setEditingScenario] = useState<PackingScenario | null>(null)
+  const [showNameError, setShowNameError] = useState<boolean>(false)
 
   const binW = useMemo(() => parseInt(binWStr || '0', 10), [binWStr])
   const binH = useMemo(() => parseInt(binHStr || '0', 10), [binHStr])
@@ -70,10 +78,30 @@ export default function DeliveryPage() {
     setItems(next)
   }
 
-  // 시나리오 로드
+  // 로그인 상태 변경 감지
   useEffect(() => {
-    loadScenarios()
+    const off = onAuthChange(() => {
+      setIsLoggedIn(isAuthenticated())
+    })
+    return () => off()
   }, [])
+
+  // 화면 크기 변경 감지
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // 시나리오 로드 (로그인된 경우에만)
+  useEffect(() => {
+    if (isLoggedIn) {
+      loadScenarios()
+    }
+  }, [isLoggedIn])
 
   async function loadScenarios() {
     try {
@@ -89,8 +117,12 @@ export default function DeliveryPage() {
   }
 
   async function saveScenario() {
-    if (!scenarioName.trim()) return
+    if (!scenarioName.trim()) {
+      setShowNameError(true)
+      return
+    }
 
+    setShowNameError(false)
     try {
       const request: CreateScenarioRequest = {
         name: scenarioName.trim(),
@@ -170,6 +202,7 @@ export default function DeliveryPage() {
     setEditingScenario(null)
     setScenarioName('')
     setScenarioDescription('')
+    setShowNameError(false)
     setShowScenarioModal(true)
   }
 
@@ -177,31 +210,60 @@ export default function DeliveryPage() {
     setEditingScenario(scenario)
     setScenarioName(scenario.name)
     setScenarioDescription(scenario.description || '')
+    setShowNameError(false)
     setShowLoadModal(false) // 불러오기 모달 닫기
     setShowScenarioModal(true)
   }
 
   return (
-    <div className="container">
-      <div className="panel" style={{ maxWidth: 1100, margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div>
-            <h1 className="title" style={{ margin: 0 }}>적재 시뮬레이터</h1>
-            <p className="subtitle" style={{ margin: 0 }}>트럭 적재함과 물품 크기를 입력해 적재 배치를 확인하세요.</p>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn ghost" onClick={() => setShowLoadModal(true)}>
-              📁 불러오기
-            </button>
-            <button className="btn" onClick={openSaveModal}>
-              💾 저장하기
-            </button>
-          </div>
+    <div className="container" style={{ 
+      display: 'flex', 
+      justifyContent: 'center',
+      alignItems: 'flex-start',
+      minHeight: '100vh',
+      padding: isMobile ? '16px' : '24px'
+    }}>
+      <div className="panel" style={{ 
+        maxWidth: 1100, 
+        margin: '0 auto', 
+        width: '100%',
+        textAlign: isMobile ? 'center' : 'left'
+      }}>
+        <div style={{ marginBottom: 16 }}>
+          <h1 className="title" style={{ margin: 0 }}>적재 시뮬레이터</h1>
+          <p className="subtitle" style={{ margin: '4px 0 0 0' }}>트럭 적재함과 물품 크기를 입력해 적재 배치를 확인하세요.</p>
         </div>
 
         <section className="card" style={{ padding: 16, marginBottom: 16 }}>
-          <h3>트럭 적재함 (단위: mm)</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: isMobile ? 'column' : 'row',
+            justifyContent: 'space-between', 
+            alignItems: isMobile ? 'stretch' : 'center', 
+            gap: isMobile ? 12 : 0,
+            marginBottom: 16 
+          }}>
+            <h3 style={{ margin: 0 }}>트럭 적재함 (단위: mm)</h3>
+            {isLoggedIn && (
+              <div style={{ 
+                display: 'flex', 
+                gap: 8,
+                flexDirection: isMobile ? 'column' : 'row'
+              }}>
+                <button className="btn ghost" onClick={() => setShowLoadModal(true)}>
+                  📁 불러오기
+                </button>
+                <button className="btn" onClick={openSaveModal}>
+                  💾 저장하기
+                </button>
+              </div>
+            )}
+          </div>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(220px, 1fr))', 
+            gap: 12 
+          }}>
             <label className="field">가로(W, mm)
               <input className="input" inputMode="numeric" value={binWStr} onChange={e => setBinWStr(normalizeNumericInput(e.target.value))} placeholder="예: 1200" />
             </label>
@@ -218,12 +280,22 @@ export default function DeliveryPage() {
         </section>
 
         <section className="card" style={{ padding: 16, marginBottom: 16 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: isMobile ? 'column' : 'row',
+            justifyContent: 'space-between', 
+            alignItems: isMobile ? 'stretch' : 'center',
+            gap: isMobile ? 12 : 0
+          }}>
             <h3 style={{ margin: 0 }}>물품 목록</h3>
             <button className="btn" onClick={addItem}>행 추가</button>
           </div>
           <div style={{ overflowX: 'auto', marginTop: 12 }}>
-            <table className="table" style={{ width: '100%' }}>
+            <table className="table" style={{ 
+              width: '100%', 
+              minWidth: isMobile ? '600px' : 'auto',
+              fontSize: isMobile ? '14px' : '16px'
+            }}>
               <thead>
                 <tr>
                   <th>ID</th>
@@ -239,10 +311,22 @@ export default function DeliveryPage() {
                   <tr key={it.id}>
                     <td>{it.id}</td>
                     <td><input className="input" value={it.name} onChange={e => updateItem(idx, { name: e.target.value })} placeholder="예: 박스A" /></td>
-                    <td><input className="input" style={{ maxWidth: 140 }} inputMode="numeric" value={it.w} onChange={e => updateItem(idx, { w: normalizeNumericInput(e.target.value) })} /></td>
-                    <td><input className="input" style={{ maxWidth: 140 }} inputMode="numeric" value={it.h} onChange={e => updateItem(idx, { h: normalizeNumericInput(e.target.value) })} /></td>
-                    <td><input className="input" style={{ maxWidth: 120 }} inputMode="numeric" value={it.qty} onChange={e => updateItem(idx, { qty: normalizeNumericInput(e.target.value) })} /></td>
-                    <td><button className="btn ghost" onClick={() => removeItem(idx)}>삭제</button></td>
+                    <td><input className="input" style={{ maxWidth: isMobile ? '100px' : '140px' }} inputMode="numeric" value={it.w} onChange={e => updateItem(idx, { w: normalizeNumericInput(e.target.value) })} /></td>
+                    <td><input className="input" style={{ maxWidth: isMobile ? '100px' : '140px' }} inputMode="numeric" value={it.h} onChange={e => updateItem(idx, { h: normalizeNumericInput(e.target.value) })} /></td>
+                    <td><input className="input" style={{ maxWidth: isMobile ? '80px' : '120px' }} inputMode="numeric" value={it.qty} onChange={e => updateItem(idx, { qty: normalizeNumericInput(e.target.value) })} /></td>
+                    <td>
+                      <button 
+                        className="btn ghost" 
+                        onClick={() => removeItem(idx)}
+                        style={{ 
+                          fontSize: isMobile ? '12px' : '14px',
+                          padding: isMobile ? '4px 8px' : '8px 14px',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        삭제
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -251,60 +335,135 @@ export default function DeliveryPage() {
         </section>
 
         <section className="card" style={{ padding: 16 }}>
-          <h3>적재 미리보기</h3>
-          {!result && <p>입력이 잘못되었거나 아이템이 트럭보다 큽니다.</p>}
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            marginBottom: 16,
+            flexDirection: isMobile ? 'column' : 'row',
+            gap: isMobile ? 8 : 0
+          }}>
+            <h3 style={{ margin: 0 }}>적재 미리보기</h3>
+            {result && (
+              <div style={{ 
+                padding: '8px 16px',
+                backgroundColor: 'var(--accent-bg)',
+                borderRadius: '6px',
+                border: '1px solid var(--border)'
+              }}>
+                <p className="subtitle" style={{ margin: 0, color: 'var(--accent-text)' }}>
+                  총 트럭 수: <b>{result.count}</b>
+                </p>
+              </div>
+            )}
+          </div>
+          
+          {!result && (
+            <div style={{ 
+              padding: '40px 20px', 
+              textAlign: 'center',
+              color: 'var(--muted)',
+              backgroundColor: 'var(--input-bg)',
+              borderRadius: '8px',
+              border: '1px dashed var(--border)'
+            }}>
+              <p style={{ margin: 0 }}>입력이 잘못되었거나 아이템이 트럭보다 큽니다.</p>
+            </div>
+          )}
+          
           {result && (
             <div style={{
               display: 'flex',
               flexDirection: 'column',
               gap: 16,
-              alignItems: 'center'
+              alignItems: 'center',
+              backgroundColor: 'var(--input-bg)',
+              borderRadius: '8px',
+              padding: '20px',
+              border: '1px solid var(--border)',
+              overflow: 'hidden'
             }}>
               {result.trucks.map((truck, tIdx) => (
-                <div key={tIdx} style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <h4 style={{ marginTop: 0 }}>트럭 #{tIdx + 1}</h4>
+                <div key={tIdx} style={{ 
+                  width: '100%', 
+                  maxWidth: isMobile ? '100%' : 720, 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center',
+                  padding: isMobile ? '8px' : '12px'
+                }}>
+                  <h4 style={{ 
+                    marginTop: 0, 
+                    fontSize: isMobile ? '16px' : '18px',
+                    marginBottom: '12px',
+                    color: 'var(--text)'
+                  }}>트럭 #{tIdx + 1}</h4>
                   <TruckSvg binW={binW} binH={binH} items={truck} nameMap={nameMap} />
                 </div>
               ))}
             </div>
-          )}
-          {result && (
-            <p className="subtitle" style={{ marginTop: 12 }}>총 트럭 수: <b>{result.count}</b></p>
           )}
         </section>
       </div>
 
       {/* 시나리오 저장 모달 */}
       {showScenarioModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1001
-        }}>
-          <div className="panel" style={{ maxWidth: 500, width: '90%', maxHeight: '90vh', overflow: 'auto' }}>
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1001
+          }}
+          onClick={() => {
+            setShowScenarioModal(false)
+            setShowLoadModal(false)
+          }}
+        >
+          <div 
+            className="panel" 
+            style={{ 
+              maxWidth: isMobile ? '95%' : 500, 
+              width: isMobile ? '95%' : '90%', 
+              maxHeight: '90vh', 
+              overflow: 'auto',
+              padding: isMobile ? '16px' : '24px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="title" style={{ marginBottom: 16 }}>
               {editingScenario ? '시나리오 수정' : '시나리오 저장'}
             </h2>
             
             <div className="field">
-              <label>시나리오 이름 *</label>
+              <label style={{ textAlign: 'left' }}>시나리오 이름 <span style={{ color: 'red' }}>*</span> <span style={{ fontSize: '12px', color: 'var(--muted)' }}>(* 표시된 항목은 필수 입력입니다)</span></label>
               <input 
-                className="input" 
+                className={`input ${showNameError ? 'error' : ''}`}
                 value={scenarioName}
-                onChange={(e) => setScenarioName(e.target.value)}
+                onChange={(e) => {
+                  setScenarioName(e.target.value)
+                  if (showNameError && e.target.value.trim()) {
+                    setShowNameError(false)
+                  }
+                }}
                 placeholder="예: 기본 적재 설정"
+                style={showNameError ? { borderColor: 'red' } : {}}
               />
+              {showNameError && (
+                <p style={{ color: 'red', fontSize: '12px', margin: '4px 0 0 0' }}>
+                  시나리오 이름을 입력해주세요.
+                </p>
+              )}
             </div>
             
             <div className="field">
-              <label>설명</label>
+              <label style={{ textAlign: 'left' }}>설명</label>
               <textarea 
                 className="input" 
                 value={scenarioDescription}
@@ -328,7 +487,6 @@ export default function DeliveryPage() {
               <button 
                 className="btn" 
                 onClick={saveScenario}
-                disabled={!scenarioName.trim()}
               >
                 {editingScenario ? '수정' : '저장'}
               </button>
@@ -339,25 +497,38 @@ export default function DeliveryPage() {
 
       {/* 시나리오 불러오기 모달 */}
       {showLoadModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div className="panel" style={{ maxWidth: 700, width: '90%', maxHeight: '90vh', overflow: 'auto' }}>
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+          onClick={() => setShowLoadModal(false)}
+        >
+          <div 
+            className="panel" 
+            style={{ 
+              maxWidth: isMobile ? '95%' : 700, 
+              width: isMobile ? '95%' : '90%', 
+              maxHeight: '90vh', 
+              overflow: 'auto',
+              padding: isMobile ? '16px' : '24px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="title" style={{ marginBottom: 16 }}>시나리오 불러오기</h2>
             
             {/* 즐겨찾기 시나리오 */}
             {favoriteScenarios.length > 0 && (
               <div style={{ marginBottom: 24 }}>
-                <h3 style={{ marginBottom: 12, color: 'var(--accent)' }}>⭐ 즐겨찾기</h3>
+                <h3 style={{ marginBottom: 12, color: 'var(--accent)', textAlign: 'left' }}>⭐ 즐겨찾기</h3>
                 <div style={{ display: 'grid', gap: 8 }}>
                   {favoriteScenarios.map((scenario) => (
                     <ScenarioCard 
@@ -375,7 +546,7 @@ export default function DeliveryPage() {
             
             {/* 전체 시나리오 */}
             <div>
-              <h3 style={{ marginBottom: 12 }}>전체 시나리오</h3>
+              <h3 style={{ marginBottom: 12, textAlign: 'left' }}>전체 시나리오</h3>
               {scenarios.length === 0 ? (
                 <p className="subtitle">저장된 시나리오가 없습니다.</p>
               ) : (
@@ -423,9 +594,27 @@ function ScenarioCard({
   onDelete: () => void
   onToggleFavorite: () => void
 }) {
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768)
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   return (
-    <div className="card" style={{ padding: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+    <div className="card" style={{ padding: isMobile ? 12 : 16 }}>
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent: 'space-between', 
+        alignItems: isMobile ? 'stretch' : 'flex-start', 
+        gap: isMobile ? 8 : 0,
+        marginBottom: 8 
+      }}>
         <div style={{ flex: 1 }}>
           <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             {scenario.name}
@@ -438,28 +627,44 @@ function ScenarioCard({
         <button 
           className="btn ghost" 
           onClick={onToggleFavorite}
-          style={{ padding: '4px 8px', minWidth: 'auto' }}
+          style={{ 
+            padding: '4px 8px', 
+            minWidth: 'auto',
+            alignSelf: isMobile ? 'flex-start' : 'auto'
+          }}
           title={scenario.isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
         >
           {scenario.isFavorite ? '⭐' : '☆'}
         </button>
       </div>
       
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8, marginBottom: 12, fontSize: 14, color: 'var(--muted)' }}>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(120px, 1fr))', 
+        gap: 8, 
+        marginBottom: 12, 
+        fontSize: isMobile ? 12 : 14, 
+        color: 'var(--muted)' 
+      }}>
         <div>트럭: {scenario.truckWidth}×{scenario.truckHeight}mm</div>
         <div>아이템: {scenario.items.length}개</div>
         <div>회전: {scenario.allowRotate ? '허용' : '비허용'}</div>
         <div>마진: {scenario.margin}mm</div>
       </div>
       
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-        <button className="btn ghost" onClick={onEdit} style={{ fontSize: 12 }}>
+      <div style={{ 
+        display: 'flex', 
+        gap: 8, 
+        justifyContent: 'flex-end',
+        flexDirection: isMobile ? 'column' : 'row'
+      }}>
+        <button className="btn ghost" onClick={onEdit} style={{ fontSize: isMobile ? 14 : 12 }}>
           ✏️ 수정
         </button>
-        <button className="btn ghost" onClick={onDelete} style={{ fontSize: 12 }}>
+        <button className="btn ghost" onClick={onDelete} style={{ fontSize: isMobile ? 14 : 12 }}>
           🗑️ 삭제
         </button>
-        <button className="btn" onClick={onLoad} style={{ fontSize: 12 }}>
+        <button className="btn" onClick={onLoad} style={{ fontSize: isMobile ? 14 : 12 }}>
           📂 불러오기
         </button>
       </div>
@@ -468,9 +673,20 @@ function ScenarioCard({
 }
 
 function TruckSvg({ binW, binH, items, nameMap }: { binW: number; binH: number; items: ReturnType<typeof packIntoTrucks>['trucks'][number]; nameMap: Record<number, string> }) {
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768)
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   // 컨테이너에 맞춰 자동 스케일: 큰 값도 화면 안에 들어오도록 축소
-  const maxPxW = 520
-  const maxPxH = 360
+  const maxPxW = isMobile ? Math.min(280, window.innerWidth - 80) : 520
+  const maxPxH = isMobile ? 200 : 360
   const scale = Math.min(maxPxW / binW, maxPxH / binH)
   const width = Math.max(1, binW * scale)
   const height = Math.max(1, binH * scale)

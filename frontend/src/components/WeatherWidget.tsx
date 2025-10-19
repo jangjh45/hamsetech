@@ -12,6 +12,7 @@ type WeatherData = {
 export default function WeatherWidget() {
   const [data, setData] = useState<WeatherData>({})
   const [loading, setLoading] = useState(true)
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768)
 
   useEffect(() => {
     let cancelled = false
@@ -35,26 +36,76 @@ export default function WeatherWidget() {
     return () => { cancelled = true }
   }, [])
 
-  if (loading) return <div>날씨 정보를 불러오는 중...</div>
-  if (data.error) return <div style={{ color: 'var(--danger,#c00)' }}>{data.error}</div>
+  // 화면 크기 변경 감지
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  if (loading) return <div style={{ fontSize: isMobile ? 14 : 16 }}>날씨 정보를 불러오는 중...</div>
+  if (data.error) return <div style={{ color: 'var(--danger,#c00)', fontSize: isMobile ? 14 : 16 }}>{data.error}</div>
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 9999, background: 'var(--accent-bg)', color: 'var(--accent-text)', width: 'fit-content', border: '1px solid var(--border)' }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: isMobile ? 8 : 10, 
+      alignItems: 'center' 
+    }}>
+      <div style={{ 
+        display: 'inline-flex', 
+        alignItems: 'center', 
+        gap: isMobile ? 4 : 6, 
+        padding: isMobile ? '4px 8px' : '6px 10px', 
+        borderRadius: 9999, 
+        background: 'var(--accent-bg)', 
+        color: 'var(--accent-text)', 
+        width: 'fit-content', 
+        border: '1px solid var(--border)' 
+      }}>
+        <svg width={isMobile ? 12 : 14} height={isMobile ? 12 : 14} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"/>
         </svg>
-        <span style={{ fontSize: 12, opacity: 0.9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 260 }}>{data.location}</span>
+        <span style={{ 
+          fontSize: isMobile ? 10 : 12, 
+          opacity: 0.9, 
+          whiteSpace: 'nowrap', 
+          overflow: 'hidden', 
+          textOverflow: 'ellipsis', 
+          maxWidth: isMobile ? 200 : 260 
+        }}>
+          {data.location}
+        </span>
       </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, justifyContent: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontSize: 36, lineHeight: 1 }}>{data.emoji}</div>
-          <div style={{ fontSize: 44, fontWeight: 800, lineHeight: 1 }}>
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'baseline', 
+        gap: isMobile ? 8 : 12, 
+        justifyContent: 'center',
+        flexDirection: isMobile ? 'column' : 'row'
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: isMobile ? 6 : 8 
+        }}>
+          <div style={{ fontSize: isMobile ? 28 : 36, lineHeight: 1 }}>{data.emoji}</div>
+          <div style={{ fontSize: isMobile ? 32 : 44, fontWeight: 800, lineHeight: 1 }}>
             {Math.round(data.tempC!)}
-            <span style={{ fontSize: 18, opacity: 0.8 }}>°C</span>
+            <span style={{ fontSize: isMobile ? 14 : 18, opacity: 0.8 }}>°C</span>
           </div>
         </div>
-        <div style={{ fontSize: 16, fontWeight: 600 }}>{data.description}</div>
+        <div style={{ 
+          fontSize: isMobile ? 14 : 16, 
+          fontWeight: 600,
+          textAlign: 'center'
+        }}>
+          {data.description}
+        </div>
       </div>
     </div>
   )
@@ -125,5 +176,6 @@ async function reverseGeocode(lat: number, lon: number): Promise<string> {
   const label = parts.join(' ')
   return label || json?.display_name || '현재 위치'
 }
+
 
 

@@ -46,9 +46,20 @@ export default function CalendarWidget() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [newTitle, setNewTitle] = useState('')
   const [newTime, setNewTime] = useState('')
+  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768)
 
   useEffect(() => { setEvents(loadEventsLocal()) }, [])
   useEffect(() => { saveEventsLocal(events) }, [events])
+
+  // 화면 크기 변경 감지
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   useEffect(() => {
     const y = viewDate.getFullYear()
@@ -100,18 +111,50 @@ export default function CalendarWidget() {
   }
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div style={{ 
+      width: '100%',
+      maxWidth: '100%',
+      overflow: 'hidden',
+      boxSizing: 'border-box'
+    }}>
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        marginBottom: 8,
+        flexDirection: isMobile ? 'column' : 'row',
+        gap: isMobile ? 8 : 0
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: isMobile ? 4 : 8 
+        }}>
           <button className="btn ghost" onClick={prevMonth}>◀</button>
           <button className="btn ghost" onClick={goToday}>오늘</button>
           <button className="btn ghost" onClick={nextMonth}>▶</button>
         </div>
-        <div style={{ fontSize: 18, fontWeight: 600 }}>{monthLabel}</div>
+        <div style={{ 
+          fontSize: isMobile ? 16 : 18, 
+          fontWeight: 600,
+          textAlign: 'center'
+        }}>
+          {monthLabel}
+        </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, textAlign: 'center' }}>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(7, 1fr)', 
+        gap: isMobile ? 2 : 4, 
+        textAlign: 'center' 
+      }}>
         {['일','월','화','수','목','금','토'].map((w) => (
-          <div key={w} style={{ fontSize: 12, opacity: 0.7 }}>{w}</div>
+          <div key={w} style={{ 
+            fontSize: isMobile ? 10 : 12, 
+            opacity: 0.7 
+          }}>
+            {w}
+          </div>
         ))}
         {matrix.map((cell, idx) => {
           const hasEvents = !!(cell.date && eventsByDate[cell.date]?.length)
@@ -122,44 +165,158 @@ export default function CalendarWidget() {
               onClick={() => { if (cell.date) setSelected(cell.date) }}
               disabled={!cell.d}
               style={{
-                padding: '8px 0',
-                borderRadius: 8,
+                padding: isMobile ? '4px 0' : '8px 0',
+                borderRadius: isMobile ? 4 : 8,
                 background: cell.isToday ? 'var(--accent-bg)' : (isSelected ? 'rgba(109,139,255,0.12)' : 'transparent'),
                 fontWeight: cell.isToday ? 700 : 500,
                 color: cell.d ? (cell.isToday ? 'var(--accent-text)' : 'inherit') : 'transparent',
                 border: (cell.isToday || isSelected) ? '1px solid var(--primary)' : '1px solid transparent',
-                cursor: cell.d ? 'pointer' : 'default'
+                cursor: cell.d ? 'pointer' : 'default',
+                fontSize: isMobile ? 12 : 14
               }}
             >
-              <div style={{ position: 'relative', display: 'inline-block', minWidth: 20 }}>
+              <div style={{ position: 'relative', display: 'inline-block', minWidth: isMobile ? 16 : 20 }}>
                 {cell.d ?? '0'}
-                {hasEvents && <span style={{ position: 'absolute', right: -6, top: -2, width: 6, height: 6, background: 'var(--primary)', borderRadius: 9999 }} />}
+                {hasEvents && <span style={{ 
+                  position: 'absolute', 
+                  right: isMobile ? -4 : -6, 
+                  top: isMobile ? -1 : -2, 
+                  width: isMobile ? 4 : 6, 
+                  height: isMobile ? 4 : 6, 
+                  background: 'var(--primary)', 
+                  borderRadius: 9999 
+                }} />}
               </div>
             </button>
           )
         })}
       </div>
-      <div style={{ marginTop: 16, display: 'grid', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-          <div style={{ fontWeight: 700 }}>{new Date(selected).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}</div>
-          <div style={{ opacity: 0.7 }}>{eventsByDate[selected]?.length || 0}개 일정</div>
+      <div style={{ marginTop: isMobile ? 12 : 16, display: 'grid', gap: isMobile ? 8 : 10 }}>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'baseline', 
+          justifyContent: 'space-between',
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: isMobile ? 4 : 0
+        }}>
+          <div style={{ 
+            fontWeight: 700,
+            fontSize: isMobile ? 14 : 16,
+            textAlign: isMobile ? 'center' : 'left'
+          }}>
+            {new Date(selected).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+          </div>
+          <div style={{ 
+            opacity: 0.7,
+            fontSize: isMobile ? 12 : 14,
+            textAlign: isMobile ? 'center' : 'right'
+          }}>
+            {eventsByDate[selected]?.length || 0}개 일정
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <input className="input" placeholder="일정 제목" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} style={{ flex: 1 }} />
-          <input className="input" type="time" value={newTime} onChange={(e) => setNewTime(e.target.value)} style={{ width: 140 }} />
-          <button className="btn ghost" onClick={addEvent}>추가</button>
+        <div style={{ 
+          display: 'flex', 
+          gap: isMobile ? 8 : 8, 
+          alignItems: 'stretch',
+          flexDirection: isMobile ? 'column' : 'row',
+          width: '100%',
+          maxWidth: '100%',
+          overflow: 'hidden'
+        }}>
+          <input 
+            className="input" 
+            placeholder="일정 제목" 
+            value={newTitle} 
+            onChange={(e) => setNewTitle(e.target.value)} 
+            style={{ 
+              flex: 1, 
+              width: isMobile ? '100%' : 'auto',
+              fontSize: isMobile ? 14 : 16,
+              padding: isMobile ? '8px 12px' : '10px 16px',
+              maxWidth: '100%',
+              boxSizing: 'border-box'
+            }} 
+          />
+          <div style={{ 
+            display: 'flex', 
+            gap: isMobile ? 8 : 8,
+            flexDirection: isMobile ? 'column' : 'row',
+            width: isMobile ? '100%' : 'auto',
+            maxWidth: isMobile ? '100%' : '240px',
+            flexShrink: 0
+          }}>
+            <input 
+              className="input" 
+              type="time" 
+              value={newTime} 
+              onChange={(e) => setNewTime(e.target.value)} 
+              style={{ 
+                width: isMobile ? '100%' : 140,
+                fontSize: isMobile ? 14 : 16,
+                padding: isMobile ? '8px 12px' : '10px 16px',
+                maxWidth: '100%',
+                boxSizing: 'border-box'
+              }} 
+            />
+            <button 
+              className="btn ghost" 
+              onClick={addEvent}
+              style={{ 
+                width: isMobile ? '100%' : 'auto',
+                fontSize: isMobile ? 14 : 16,
+                padding: isMobile ? '8px 16px' : '10px 20px',
+                minWidth: isMobile ? 'auto' : 80,
+                flexShrink: 0
+              }}
+            >
+              추가
+            </button>
+          </div>
         </div>
-        <div className="card" style={{ display: 'grid', gap: 8 }}>
-          {(eventsByDate[selected] || []).length === 0 && <div style={{ opacity: 0.6 }}>등록된 일정이 없습니다.</div>}
+        <div className="card" style={{ display: 'grid', gap: isMobile ? 6 : 8 }}>
+          {(eventsByDate[selected] || []).length === 0 && (
+            <div style={{ 
+              opacity: 0.6,
+              textAlign: 'center',
+              fontSize: isMobile ? 12 : 14
+            }}>
+              등록된 일정이 없습니다.
+            </div>
+          )}
           {(eventsByDate[selected] || []).map((ev) => (
-            <div key={ev.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px dashed var(--border)', paddingBottom: 6 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace', opacity: 0.8, minWidth: 52 }}>
+            <div key={ev.id} style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              borderBottom: '1px dashed var(--border)', 
+              paddingBottom: isMobile ? 4 : 6,
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: isMobile ? 8 : 0
+            }}>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: isMobile ? 6 : 10,
+                flexDirection: isMobile ? 'column' : 'row',
+                textAlign: isMobile ? 'center' : 'left'
+              }}>
+                <span style={{ 
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace', 
+                  opacity: 0.8, 
+                  minWidth: isMobile ? 40 : 52,
+                  fontSize: isMobile ? 12 : 14
+                }}>
                   {ev.time || '--:--'}
                 </span>
-                <span>{ev.title}</span>
+                <span style={{ fontSize: isMobile ? 14 : 16 }}>{ev.title}</span>
               </div>
-              <button className="btn ghost" onClick={() => removeEvent(ev.id)}>삭제</button>
+              <button 
+                className="btn ghost" 
+                onClick={() => removeEvent(ev.id)}
+                style={{ width: isMobile ? '100%' : 'auto' }}
+              >
+                삭제
+              </button>
             </div>
           ))}
         </div>

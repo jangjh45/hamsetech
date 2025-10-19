@@ -1,0 +1,66 @@
+spring:
+  application:
+    name: hamsetech
+  
+  # PostgreSQL 연결 설정
+  datasource:
+    url: jdbc:postgresql://localhost:5432/hamsetech?characterEncoding=UTF-8&useUnicode=true
+    username: hamsetech
+    password: hamsetech
+    driver-class-name: org.postgresql.Driver
+  
+  # JPA 설정
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        connection:
+          characterEncoding: utf8
+          useUnicode: true
+        jdbc:
+          lob:
+            non_contextual_creation: true
+  
+  # Character encoding
+  http:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+# JPA/Hibernate SQL logging (logback-spring.xml에서 관리)
+logging:
+  level:
+    org:
+      hibernate:
+        SQL: DEBUG
+        orm:
+          jdbc:
+            bind: DEBUG
+            extract: DEBUG
+      springframework:
+        security: DEBUG
+
+# JWT
+security:
+  jwt:
+    secret: ChangeThisSecretKeyToAStrongLongRandomString1234567890
+    expiration-seconds: 86400
+
+# Default admin (dev only)
+admin:
+  username: admin
+  email: admin@example.com
+  password: admin1234
+  reset-password-on-start: true
+
+# Character encoding
+server:
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
