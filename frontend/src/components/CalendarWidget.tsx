@@ -3,6 +3,13 @@ import { listEvents, createEvent, deleteEvent } from '../api/calendar'
 
 type CalendarEvent = { id: number | string; date: string; title: string; time?: string }
 
+interface CalendarWidgetProps {
+  viewDate: Date
+  setViewDate: (date: Date) => void
+  selected: string
+  setSelected: (date: string) => void
+}
+
 function toYmd(date: Date) {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
@@ -15,10 +22,8 @@ function getMonthMatrix(year: number, month: number) {
   const startDay = first.getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
 
-  // 항상 6주(42칸)로 고정
   const cells: Array<{ d: number | null; date?: string; isToday: boolean }> = []
   const prevMonthDays = new Date(year, month, 0).getDate()
-  // 이전 달의 말일에서부터 채우기
   for (let i = startDay - 1; i >= 0; i--) {
     const day = prevMonthDays - i
     const dt = new Date(year, month - 1, day)
@@ -36,13 +41,10 @@ function getMonthMatrix(year: number, month: number) {
   return cells
 }
 
-// 클라이언트 캐시 (옵션)
 function loadEventsLocal(): CalendarEvent[] { try { return JSON.parse(localStorage.getItem('calendarEvents') || '[]') } catch { return [] } }
 function saveEventsLocal(events: CalendarEvent[]) { localStorage.setItem('calendarEvents', JSON.stringify(events)) }
 
-export default function CalendarWidget() {
-  const [viewDate, setViewDate] = useState<Date>(new Date())
-  const [selected, setSelected] = useState<string>(toYmd(new Date()))
+export default function CalendarWidget({ viewDate, setViewDate, selected, setSelected }: CalendarWidgetProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [newTitle, setNewTitle] = useState('')
   const [newTime, setNewTime] = useState('')
@@ -51,7 +53,6 @@ export default function CalendarWidget() {
   useEffect(() => { setEvents(loadEventsLocal()) }, [])
   useEffect(() => { saveEventsLocal(events) }, [events])
 
-  // 화면 크기 변경 감지
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768)
@@ -204,7 +205,7 @@ export default function CalendarWidget() {
             fontSize: isMobile ? 14 : 16,
             textAlign: isMobile ? 'center' : 'left'
           }}>
-            {new Date(selected).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+            일정
           </div>
           <div style={{ 
             opacity: 0.7,
@@ -218,10 +219,10 @@ export default function CalendarWidget() {
           display: 'flex', 
           gap: isMobile ? 8 : 8, 
           alignItems: 'stretch',
-          flexDirection: isMobile ? 'column' : 'row',
+          flexDirection: 'column',
           width: '100%',
           maxWidth: '100%',
-          overflow: 'hidden'
+          overflow: 'visible'
         }}>
           <input 
             className="input" 
@@ -229,20 +230,19 @@ export default function CalendarWidget() {
             value={newTitle} 
             onChange={(e) => setNewTitle(e.target.value)} 
             style={{ 
-              flex: 1, 
-              width: isMobile ? '100%' : 'auto',
+              flex: '0 0 auto',
+              width: '100%',
               fontSize: isMobile ? 14 : 16,
               padding: isMobile ? '8px 12px' : '10px 16px',
-              maxWidth: '100%',
               boxSizing: 'border-box'
             }} 
           />
           <div style={{ 
             display: 'flex', 
             gap: isMobile ? 8 : 8,
-            flexDirection: isMobile ? 'column' : 'row',
-            width: isMobile ? '100%' : 'auto',
-            maxWidth: isMobile ? '100%' : '240px',
+            alignItems: 'stretch',
+            flexDirection: isMobile ? 'row' : 'row',
+            width: '100%',
             flexShrink: 0
           }}>
             <input 
@@ -251,10 +251,10 @@ export default function CalendarWidget() {
               value={newTime} 
               onChange={(e) => setNewTime(e.target.value)} 
               style={{ 
-                width: isMobile ? '100%' : 140,
+                flex: isMobile ? '1 1 auto' : '0 1 140px',
+                minWidth: isMobile ? '100px' : '140px',
                 fontSize: isMobile ? 14 : 16,
                 padding: isMobile ? '8px 12px' : '10px 16px',
-                maxWidth: '100%',
                 boxSizing: 'border-box'
               }} 
             />
@@ -262,10 +262,11 @@ export default function CalendarWidget() {
               className="btn ghost" 
               onClick={addEvent}
               style={{ 
-                width: isMobile ? '100%' : 'auto',
+                flex: isMobile ? '0 0 auto' : '0 0 auto',
+                width: isMobile ? 'auto' : 'auto',
+                minWidth: '80px',
                 fontSize: isMobile ? 14 : 16,
                 padding: isMobile ? '8px 16px' : '10px 20px',
-                minWidth: isMobile ? 'auto' : 80,
                 flexShrink: 0
               }}
             >
@@ -286,19 +287,21 @@ export default function CalendarWidget() {
           {(eventsByDate[selected] || []).map((ev) => (
             <div key={ev.id} style={{ 
               display: 'flex', 
-              alignItems: 'center', 
+              alignItems: isMobile ? 'flex-start' : 'center', 
               justifyContent: 'space-between', 
               borderBottom: '1px dashed var(--border)', 
-              paddingBottom: isMobile ? 4 : 6,
-              flexDirection: isMobile ? 'column' : 'row',
-              gap: isMobile ? 8 : 0
+              paddingBottom: isMobile ? 8 : 6,
+              flexDirection: isMobile ? 'row' : 'row',
+              gap: isMobile ? 8 : 0,
+              width: '100%'
             }}>
               <div style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
                 gap: isMobile ? 6 : 10,
                 flexDirection: isMobile ? 'column' : 'row',
-                textAlign: isMobile ? 'center' : 'left'
+                textAlign: isMobile ? 'center' : 'left',
+                flex: isMobile ? 1 : 'initial'
               }}>
                 <span style={{ 
                   fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace', 
@@ -313,9 +316,21 @@ export default function CalendarWidget() {
               <button 
                 className="btn ghost" 
                 onClick={() => removeEvent(ev.id)}
-                style={{ width: isMobile ? '100%' : 'auto' }}
+                style={{ 
+                  padding: isMobile ? '4px 8px' : '8px 14px',
+                  fontSize: isMobile ? '18px' : '14px',
+                  flexShrink: 0,
+                  minWidth: isMobile ? '32px' : '60px',
+                  height: isMobile ? '32px' : 'auto',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  lineHeight: 1,
+                  transform: isMobile ? 'translateY(1.5px)' : 'none'
+                }}
+                title={isMobile ? '일정 삭제' : ''}
               >
-                삭제
+                {isMobile ? '×' : '삭제'}
               </button>
             </div>
           ))}
@@ -323,6 +338,4 @@ export default function CalendarWidget() {
       </div>
     </div>
   )
-}
-
-
+} 

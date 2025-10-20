@@ -94,8 +94,8 @@ export default function AdminPage() {
         textAlign: isMobile ? 'center' : 'left'
       }}>
         <div style={{ marginBottom: 12 }}>
-          <h1 className="title" style={{ marginBottom: 6, textAlign: isMobile ? 'center' : 'left' }}>관리자</h1>
-          <p className="subtitle">ADMIN 권한이 있어야 접근할 수 있습니다</p>
+          <h1 className="title" style={{ marginBottom: 6, textAlign: 'center' }}>관리자</h1>
+          <p className="subtitle" style={{ textAlign: 'center' }}>ADMIN 권한이 있어야 접근할 수 있습니다</p>
         </div>
         {tokenExpired && (
           <div style={{ 
@@ -110,7 +110,7 @@ export default function AdminPage() {
             로그인 세션이 만료되었습니다. 잠시 후 로그인 페이지로 이동됩니다.
           </div>
         )}
-        {error ? <p className="error">{error}</p> : <p className="subtitle" style={{ marginTop: 0 }}>{msg}</p>}
+        {error ? <p className="error" style={{ textAlign: 'center' }}>{error}</p> : <p className="subtitle" style={{ marginTop: 0, textAlign: 'center' }}>{msg}</p>}
 
         <div style={{ 
           display: 'flex', 

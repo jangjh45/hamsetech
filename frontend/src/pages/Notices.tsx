@@ -65,29 +65,32 @@ export default function NoticesPage() {
         <div style={{ 
           display: 'flex', 
           alignItems: 'center', 
-          justifyContent: 'space-between', 
+          justifyContent: 'center', 
           marginBottom: 12,
+          position: 'relative',
           flexDirection: isMobile ? 'column' : 'row',
           gap: isMobile ? 8 : 0
         }}>
           <h1 className="title" style={{ margin: 0 }}>공지사항</h1>
-          {isAdmin() && <Link className="btn ghost" to="/notice/new">새 공지</Link>}
+          {isAdmin() && <Link className="btn ghost" to="/notice/new" style={{ position: isMobile ? 'relative' : 'absolute', right: isMobile ? 'auto' : 0, top: isMobile ? 'auto' : 0 }}>새 공지</Link>}
         </div>
         <div style={{ 
           display: 'flex', 
           gap: 8, 
           alignItems: 'center', 
           marginBottom: 12,
-          flexDirection: isMobile ? 'column' : 'row'
+          flexDirection: isMobile ? 'column' : 'row',
+          width: '100%',
+          overflow: 'hidden'
         }}>
           <input 
             className="input" 
             placeholder="검색어" 
             value={q} 
             onChange={(e) => setQ(e.target.value)} 
-            style={{ flex: 1, width: isMobile ? '100%' : 'auto' }} 
+            style={{ flex: isMobile ? '1 1 0' : 1, width: isMobile ? '100%' : 'auto', minWidth: 0, boxSizing: 'border-box' }} 
           />
-          <button className="btn ghost" onClick={onSearch} disabled={loading}>검색</button>
+          <button className="btn ghost" onClick={onSearch} disabled={loading} style={{ whiteSpace: 'nowrap', width: isMobile ? '100%' : 'auto', boxSizing: 'border-box' }}>검색</button>
         </div>
 
         <div className="card" style={{ padding: 0 }}>

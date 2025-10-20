@@ -64,25 +64,29 @@ export default function NoticeDetailPage() {
         width: '100%', 
         margin: '0 auto', 
         textAlign: isMobile ? 'center' : 'left',
-        overflow: 'hidden',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        padding: isMobile ? '16px' : '20px'
       }}>
         <div style={{ 
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'space-between', 
-          marginBottom: 16,
+          marginBottom: 24,
           flexDirection: isMobile ? 'column' : 'row',
-          gap: isMobile ? 12 : 0
+          gap: isMobile ? 12 : 12,
+          flexWrap: 'wrap',
+          width: '100%',
+          boxSizing: 'border-box'
         }}>
           <Link 
             className="btn ghost" 
             to="/notices"
             style={{ 
-              width: isMobile ? '100%' : 'auto',
+              display: 'inline-block',
               fontSize: isMobile ? 14 : 16,
-              padding: isMobile ? '12px 20px' : '12px 20px',
-              textAlign: 'center'
+              padding: '10px 16px',
+              textAlign: 'center',
+              whiteSpace: 'nowrap'
             }}
           >
             ← 목록으로

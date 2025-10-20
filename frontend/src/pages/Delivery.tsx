@@ -227,7 +227,7 @@ export default function DeliveryPage() {
         maxWidth: 1100, 
         margin: '0 auto', 
         width: '100%',
-        textAlign: isMobile ? 'center' : 'left'
+        textAlign: 'center'
       }}>
         <div style={{ marginBottom: 16 }}>
           <h1 className="title" style={{ margin: 0 }}>적재 시뮬레이터</h1>

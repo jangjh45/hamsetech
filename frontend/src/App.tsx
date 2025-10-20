@@ -22,7 +22,7 @@ export default function App() {
   }, [])
 
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: 8 }}>
       <Header />
       <Routes>
         <Route path="/" element={<HomePage />} />
