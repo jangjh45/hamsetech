@@ -98,9 +98,9 @@ export default function NoticesPage() {
                 <div style={{ padding: 16, textAlign: 'center', color: 'var(--muted)' }}>게시글이 없습니다.</div>
               )}
               {items.map((n, idx) => (
-                <div key={n.id} style={{ 
-                  padding: '16px', 
-                  borderBottom: '1px solid var(--border)',
+                <div key={n.id} style={{
+                  padding: '16px',
+                  borderBottom: idx < items.length - 1 ? '1px solid var(--border)' : 'none',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: 8
@@ -153,13 +153,13 @@ export default function NoticesPage() {
                 <div style={{ padding: 16, textAlign: 'center', color: 'var(--muted)' }}>게시글이 없습니다.</div>
               )}
               {items.map((n, idx) => (
-                <div key={n.id} style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: '80px 1fr 180px 180px', 
-                  alignItems: 'center', 
-                  gap: 16, 
-                  padding: '12px 16px', 
-                  borderBottom: '1px solid var(--border)',
+                <div key={n.id} style={{
+                  display: 'grid',
+                  gridTemplateColumns: '80px 1fr 180px 180px',
+                  alignItems: 'center',
+                  gap: 16,
+                  padding: '12px 16px',
+                  borderBottom: idx < items.length - 1 ? '1px solid var(--border)' : 'none',
                   transition: 'background-color 0.2s ease'
                 }}>
                   <div style={{ 

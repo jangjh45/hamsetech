@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import Clock from '../components/Clock'
 import CalendarWidget from '../components/CalendarWidget'
-import WeatherWidget from '../components/WeatherWidget'
+// import WeatherWidget from '../components/WeatherWidget'
 
 export default function HomePage() {
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768)
@@ -29,18 +29,18 @@ export default function HomePage() {
       }}>
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', 
+          gridTemplateColumns: isMobile ? '1fr' : '1fr', 
           gap: isMobile ? 16 : 24, 
           marginTop: isMobile ? 8 : 16 
         }}>
           <div className="card" style={{ padding: isMobile ? 12 : 16 }}>
             <Clock />
           </div>
-          <div className="card" style={{ padding: isMobile ? 12 : 16 }}>
+          {/* <div className="card" style={{ padding: isMobile ? 12 : 16 }}>
             <WeatherWidget />
-          </div>
+          </div> */}
           <div className="card" style={{ 
-            gridColumn: isMobile ? '1' : '1 / span 2', 
+            gridColumn: isMobile ? '1' : '1', 
             padding: isMobile ? 12 : 16 
           }}>
             <CalendarWidget />
