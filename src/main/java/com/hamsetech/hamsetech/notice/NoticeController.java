@@ -113,6 +113,7 @@ public class NoticeController {
                 .toList();
     }
 
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/{id}/comments")
     public ResponseEntity<?> addComment(@PathVariable(name = "id") Long id, @RequestBody CommentReq req) {
         var notice = noticeRepository.findById(id).orElse(null);
@@ -131,6 +132,25 @@ public class NoticeController {
             }
         }
         return ResponseEntity.ok(commentRepository.save(c));
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @DeleteMapping("/{noticeId}/comments/{commentId}")
+    public ResponseEntity<?> deleteComment(@PathVariable(name = "noticeId") Long noticeId, @PathVariable(name = "commentId") Long commentId) {
+        String me = currentUser();
+        boolean admin = isAdmin();
+        return commentRepository.findById(commentId)
+                .map(c -> {
+                    if (!c.getNotice().getId().equals(noticeId)) {
+                        return ResponseEntity.notFound().build();
+                    }
+                    if (!admin && !c.getAuthorUsername().equals(me)) {
+                        return ResponseEntity.status(403).body(Map.of("error", "forbidden"));
+                    }
+                    commentRepository.delete(c);
+                    return ResponseEntity.ok(Map.of("deleted", true));
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     private String currentUser() {

@@ -2,6 +2,8 @@ package com.hamsetech.hamsetech.notice;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
 @Table(name = "notice_comments")
@@ -15,10 +17,11 @@ public class NoticeComment {
 
     /**
      * 대댓글의 부모 댓글을 참조
-     * cascade = CascadeType.REMOVE: 부모 댓글이 삭제되면 자식 댓글도 함께 삭제
      * nullable: 일반 댓글의 경우 parent = null, 대댓글의 경우 parent = 부모 댓글 ID
+     * @OnDelete(action = OnDeleteAction.CASCADE): DB 레벨에서 부모 삭제 시 자식도 자동 삭제
      */
-    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private NoticeComment parent;
 
     @Column(nullable = false)
@@ -57,5 +60,3 @@ public class NoticeComment {
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 }
-
-

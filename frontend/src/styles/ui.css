@@ -336,3 +336,41 @@ body {
 
 .center { display: grid; place-items: center; min-height: calc(100dvh - var(--header-h, 80px)); }
 
+/* 중요도 버튼 스타일 */
+.priority-button-group {
+  display: inline-flex;
+  gap: 6px;
+  padding: 6px;
+  background-color: rgba(109, 139, 255, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  flex-wrap: nowrap;
+}
+
+.priority-button {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background-color: transparent;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.priority-button:hover {
+  background-color: rgba(109, 139, 255, 0.05);
+  transform: translateY(-1px);
+}
+
+.priority-button.active {
+  font-weight: 600;
+  border: 2px solid;
+  padding: 7px 11px;
+}
+

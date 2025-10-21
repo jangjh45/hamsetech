@@ -234,7 +234,7 @@ export default function TodoList({ selectedDate, monthStart, monthEnd }: TodoLis
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '8px',
             flex: isMobile ? 'none' : '0 0 auto'
           }}>
             <span style={{
@@ -242,24 +242,55 @@ export default function TodoList({ selectedDate, monthStart, monthEnd }: TodoLis
               opacity: 0.7,
               whiteSpace: 'nowrap'
             }}>
-              ⚡
+              ⚡ 중요도
             </span>
-            <select
-              className="input input-event"
-              value={newPriority}
-              onChange={(e) => setNewPriority(Number(e.target.value))}
-              style={{
-                width: isMobile ? '100%' : 'auto',
-                minWidth: isMobile ? 'auto' : '110px',
-                fontSize: isMobile ? '14px' : '16px',
-                padding: isMobile ? '10px 12px' : '12px 14px',
-                boxSizing: 'border-box'
-              }}
-            >
-              <option value={0}>낮음</option>
-              <option value={1}>중간</option>
-              <option value={2}>높음</option>
-            </select>
+            <div style={{
+              display: 'inline-flex',
+              gap: '6px',
+              padding: '6px',
+              backgroundColor: 'rgba(109, 139, 255, 0.08)',
+              border: '1px solid var(--border)',
+              borderRadius: '8px',
+              flexWrap: 'nowrap'
+            }}>
+              {[0, 1, 2].map((priority) => (
+                <button
+                  key={priority}
+                  onClick={() => setNewPriority(priority)}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    border: `2px solid ${newPriority === priority ? getPriorityColor(priority) : 'transparent'}`,
+                    backgroundColor: newPriority === priority ? getPriorityBgColor(priority) : 'transparent',
+                    color: getPriorityColor(priority),
+                    fontSize: isMobile ? '13px' : '14px',
+                    fontWeight: newPriority === priority ? '600' : '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (newPriority !== priority) {
+                      e.currentTarget.style.backgroundColor = 'rgba(109, 139, 255, 0.05)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (newPriority !== priority) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
+                  }}
+                >
+                  {priority === 0 && '📊'}
+                  {priority === 1 && '⚙️'}
+                  {priority === 2 && '🔥'}
+                  {PRIORITY_LABELS[priority]}
+                </button>
+              ))}
+            </div>
           </div>
           
           {!isMobile && <div style={{ flex: 1 }} />}

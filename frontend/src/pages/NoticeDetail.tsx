@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { addComment, getNotice, listComments, deleteNotice } from '../api/notices'
+import { addComment, getNotice, listComments, deleteNotice, deleteComment } from '../api/notices'
 import { isAuthenticated, isAdmin, getUsername } from '../auth/token'
 
 interface Comment {
@@ -127,6 +127,17 @@ export default function NoticeDetailPage() {
     }
   }
 
+  async function onCommentDelete(commentId: number) {
+    if (!confirm('이 댓글을 삭제하시겠습니까?')) return
+    try {
+      await deleteComment(noticeId, commentId)
+      const cs = await listComments(noticeId)
+      setComments(cs)
+    } catch (err: any) {
+      alert(err.message || '삭제 실패')
+    }
+  }
+
   async function onDelete() {
     if (!noticeId) return
     if (!confirm('이 게시글을 삭제하시겠습니까?')) return
@@ -192,23 +203,42 @@ export default function NoticeDetailPage() {
                 {isReply && '↳ '}
                 by {node.authorUsername}
               </span>
-              {isAuthenticated() && !isReply && (
-                <button
-                  className="btn ghost"
-                  onClick={() => setReplyingTo(replyingTo === node.id ? null : node.id)}
-                  style={{
-                    fontSize: isMobile ? '12px' : '13px',
-                    padding: '6px 12px',
-                    border: 'none',
-                    background: 'transparent',
-                    color: 'var(--primary)',
-                    cursor: 'pointer',
-                    textDecoration: 'underline',
-                  }}
-                >
-                  {replyingTo === node.id ? '✕ 취소' : '↳ 답글'}
-                </button>
-              )}
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                {isAuthenticated() && !isReply && (
+                  <button
+                    className="btn ghost"
+                    onClick={() => setReplyingTo(replyingTo === node.id ? null : node.id)}
+                    style={{
+                      fontSize: isMobile ? '12px' : '13px',
+                      padding: '4px 8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--primary)',
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    {replyingTo === node.id ? '✕ 취소' : '↳ 답글'}
+                  </button>
+                )}
+                {isAuthenticated() && (isAdmin() || getUsername() === node.authorUsername) && (
+                  <button
+                    className="btn ghost"
+                    onClick={() => onCommentDelete(node.id)}
+                    style={{
+                      fontSize: isMobile ? '12px' : '13px',
+                      padding: '4px 8px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'var(--danger)',
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    🗑️ 삭제
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* 답글 작성 폼 */}

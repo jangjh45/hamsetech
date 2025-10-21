@@ -31,4 +31,8 @@ export async function addComment(id: number, data: { content: string; parentId?:
   return apiFetch(`/api/notices/${id}/comments`, { method: 'POST', body: JSON.stringify(data) })
 }
 
+export async function deleteComment(noticeId: number, commentId: number) {
+  return apiFetch(`/api/notices/${noticeId}/comments/${commentId}`, { method: 'DELETE' })
+}
+
 
