@@ -72,7 +72,7 @@ export default function NoticesPage() {
           gap: isMobile ? 8 : 0
         }}>
           <h1 className="title" style={{ margin: 0 }}>공지사항</h1>
-          {isAdmin() && <Link className="btn ghost" to="/notice/new" style={{ position: isMobile ? 'relative' : 'absolute', right: isMobile ? 'auto' : 0, top: isMobile ? 'auto' : 0 }}>새 공지</Link>}
+          {isAdmin() && <Link className="btn btn-create" to="/notice/new" style={{ position: isMobile ? 'relative' : 'absolute', right: isMobile ? 'auto' : 0, top: isMobile ? 'auto' : 0, fontSize: isMobile ? '14px' : '16px' }}>✨ 새 공지</Link>}
         </div>
         <div style={{ 
           display: 'flex', 

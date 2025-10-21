@@ -13,8 +13,13 @@ public class NoticeComment {
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     private Notice notice;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    private NoticeComment parent; // 대댓글의 부모
+    /**
+     * 대댓글의 부모 댓글을 참조
+     * cascade = CascadeType.REMOVE: 부모 댓글이 삭제되면 자식 댓글도 함께 삭제
+     * nullable: 일반 댓글의 경우 parent = null, 대댓글의 경우 parent = 부모 댓글 ID
+     */
+    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
+    private NoticeComment parent;
 
     @Column(nullable = false)
     private String content;

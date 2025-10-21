@@ -97,7 +97,7 @@ export default function Header() {
             <Link to="/delivery">적재 시뮬레이터</Link>
             {admin && <Link to="/admin">관리자</Link>}
             <div className="spacer" />
-            <button className="btn ghost" onClick={toggleTheme}>{theme === 'dark' ? '라이트 모드' : '다크 모드'}</button>
+            <button className="btn ghost" onClick={toggleTheme}>{theme === 'dark' ? '☀️' : '🌙'}</button>
             {!authed && <Link to="/register">회원가입</Link>}
             {!authed && <Link to="/login">로그인</Link>}
             {authed && displayName && (<span className="subtitle" style={{ margin: 0 }}>{displayName}님</span>)}
@@ -118,12 +118,24 @@ export default function Header() {
             <Link to="/notices" onClick={() => setShowMobileMenu(false)}>공지사항</Link>
             <Link to="/delivery" onClick={() => setShowMobileMenu(false)}>적재 시뮬레이터</Link>
             {admin && <Link to="/admin" onClick={() => setShowMobileMenu(false)}>관리자</Link>}
-            <div style={{ height: '1px', background: 'var(--border)', margin: '8px 0' }} />
-            <button className="btn ghost" onClick={toggleTheme}>{theme === 'dark' ? '라이트 모드' : '다크 모드'}</button>
             {!authed && <Link to="/register" onClick={() => setShowMobileMenu(false)}>회원가입</Link>}
             {!authed && <Link to="/login" onClick={() => setShowMobileMenu(false)}>로그인</Link>}
-            {authed && displayName && (<span className="subtitle" style={{ margin: 0 }}>{displayName}님</span>)}
-            {authed && (<button className="btn ghost" onClick={handleLogout}>로그아웃</button>)}
+            
+            {/* 하단 옵션들을 한 줄로 */}
+            <div style={{ 
+              display: 'flex', 
+              gap: 8,
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingTop: '8px',
+              borderTop: '1px solid var(--border)'
+            }}>
+              <button className="btn ghost" onClick={toggleTheme} style={{ padding: '8px 12px' }}>{theme === 'dark' ? '☀️' : '🌙'}</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end' }}>
+                {authed && displayName && (<span className="subtitle" style={{ margin: 0, whiteSpace: 'nowrap' }}>{displayName}님</span>)}
+                {authed && (<button className="btn ghost" onClick={handleLogout} style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>로그아웃</button>)}
+              </div>
+            </div>
           </div>
         )}
       </nav>

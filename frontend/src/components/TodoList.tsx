@@ -177,69 +177,104 @@ export default function TodoList({ selectedDate, monthStart, monthEnd }: TodoLis
         할 일 <span style={{ fontSize: isMobile ? 12 : 14, fontWeight: 400, opacity: 0.7 }}>({selectedTodos.length}, 남음: {remainingTodos})</span>
       </div>
 
-      {/* 새 할 일 추가 */}
+      {/* 새 할 일 추가 - 개선된 디자인 */}
       <div
         style={{
-          display: 'flex',
-          gap: isMobile ? 8 : 10,
-          alignItems: 'stretch',
-          flexDirection: isMobile ? 'column' : 'row',
+          background: 'linear-gradient(135deg, rgba(109, 139, 255, 0.08) 0%, rgba(109, 139, 255, 0.04) 100%)',
+          border: '1px solid var(--border)',
+          borderRadius: '12px',
+          padding: isMobile ? '16px' : '20px',
+          display: 'grid',
+          gap: isMobile ? '10px' : '12px',
           marginBottom: isMobile ? 12 : 16,
           width: '100%',
           maxWidth: '100%',
           overflow: 'hidden',
+          boxSizing: 'border-box'
         }}
       >
+        <div style={{
+          fontSize: isMobile ? '13px' : '14px',
+          fontWeight: '600',
+          color: 'var(--primary)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.5px',
+          opacity: 0.9
+        }}>
+          ✓ 새 할 일 추가
+        </div>
+        
         <input
-          className="input"
-          placeholder="새로운 할 일"
+          className="input input-event"
+          placeholder="새로운 할 일을 입력하세요"
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && addTodo()}
           style={{
             flex: 1,
-            width: isMobile ? '100%' : 'auto',
-            fontSize: isMobile ? 14 : 16,
-            padding: isMobile ? '8px 12px' : '10px 16px',
+            width: '100%',
+            fontSize: isMobile ? '15px' : '16px',
+            padding: isMobile ? '10px 14px' : '12px 16px',
             maxWidth: '100%',
             boxSizing: 'border-box',
+            fontWeight: '500'
           }}
         />
+        
         <div
           style={{
             display: 'flex',
-            gap: isMobile ? 8 : 8,
+            gap: isMobile ? '10px' : '12px',
             flexDirection: isMobile ? 'column' : 'row',
-            width: isMobile ? '100%' : 'auto',
-            minWidth: isMobile ? '100%' : 'auto',
+            width: '100%',
+            minWidth: 'auto',
             flexShrink: 0,
           }}
         >
-          <select
-            className="input"
-            value={newPriority}
-            onChange={(e) => setNewPriority(Number(e.target.value))}
-            style={{
-              width: isMobile ? '100%' : 'auto',
-              minWidth: isMobile ? '100%' : '90px',
-              fontSize: isMobile ? 14 : 16,
-              padding: isMobile ? '8px 12px' : '10px 16px',
-              boxSizing: 'border-box',
-            }}
-          >
-            <option value={0}>낮음</option>
-            <option value={1}>중간</option>
-            <option value={2}>높음</option>
-          </select>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            flex: isMobile ? 'none' : '0 0 auto'
+          }}>
+            <span style={{
+              fontSize: isMobile ? '14px' : '14px',
+              opacity: 0.7,
+              whiteSpace: 'nowrap'
+            }}>
+              ⚡
+            </span>
+            <select
+              className="input input-event"
+              value={newPriority}
+              onChange={(e) => setNewPriority(Number(e.target.value))}
+              style={{
+                width: isMobile ? '100%' : 'auto',
+                minWidth: isMobile ? 'auto' : '110px',
+                fontSize: isMobile ? '14px' : '16px',
+                padding: isMobile ? '10px 12px' : '12px 14px',
+                boxSizing: 'border-box'
+              }}
+            >
+              <option value={0}>낮음</option>
+              <option value={1}>중간</option>
+              <option value={2}>높음</option>
+            </select>
+          </div>
+          
+          {!isMobile && <div style={{ flex: 1 }} />}
+          
           <button
-            className="btn ghost"
+            className="btn btn-add-event"
             onClick={addTodo}
             style={{
-              width: isMobile ? '100%' : 'auto',
-              fontSize: isMobile ? 14 : 16,
-              padding: isMobile ? '8px 16px' : '10px 20px',
-              minWidth: isMobile ? 'auto' : 60,
+              flex: isMobile ? '1' : '0 0 auto',
+              fontSize: isMobile ? '15px' : '16px',
+              padding: isMobile ? '10px 16px' : '12px 24px',
+              minWidth: isMobile ? 'auto' : '100px',
               flexShrink: 0,
+              fontWeight: '600',
+              letterSpacing: '0.3px'
             }}
           >
             추가
@@ -248,14 +283,20 @@ export default function TodoList({ selectedDate, monthStart, monthEnd }: TodoLis
       </div>
 
       {/* 할 일 목록 */}
-      <div className="card" style={{ display: 'grid', gap: isMobile ? 6 : 8 }}>
+      <div className="card" style={{ 
+        display: 'flex',
+        flexDirection: 'column',
+        gap: isMobile ? 8 : 10,
+        maxHeight: isMobile ? '400px' : '600px',
+        overflow: 'hidden'
+      }}>
         {selectedTodos.length === 0 && (
           <div
             style={{
               opacity: 0.6,
               textAlign: 'center',
               fontSize: isMobile ? 12 : 14,
-              padding: isMobile ? '12px' : '16px',
+              padding: isMobile ? '20px 0' : '24px 0',
             }}
           >
             할 일이 없습니다.
@@ -263,40 +304,84 @@ export default function TodoList({ selectedDate, monthStart, monthEnd }: TodoLis
         )}
         <div
           style={{
-            maxHeight: isMobile ? '300px' : '500px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: isMobile ? 8 : 10,
             overflowY: 'auto',
-            display: 'grid',
-            gap: isMobile ? 6 : 8,
-            paddingRight: isMobile ? '4px' : '8px',
+            overflowX: 'hidden',
+            paddingRight: isMobile ? '4px' : '6px',
+            minWidth: 0
           }}
         >
           {selectedTodos.map((todo) => (
             <div
               key={todo.id}
+              className="todo-item"
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: isMobile ? 8 : 12,
-                borderBottom: '1px dashed var(--border)',
-                paddingBottom: isMobile ? 8 : 10,
+                gap: isMobile ? 10 : 12,
+                background: 'rgba(109, 139, 255, 0.05)',
+                border: '1px solid rgba(109, 139, 255, 0.15)',
+                borderRadius: '10px',
+                padding: isMobile ? '12px' : '14px',
                 flexDirection: 'row',
                 width: '100%',
                 minWidth: 0,
+                transition: 'all 0.2s ease',
+                cursor: 'pointer',
+                opacity: todo.completed ? 0.7 : 1,
+                boxSizing: 'border-box',
+                flexShrink: 0
               }}
             >
               {/* 완료 체크박스 */}
-              <input
-                type="checkbox"
-                checked={todo.completed}
-                onChange={() => toggleTodo(todo)}
+
+
+
+
+
+              <div 
+                onClick={() => toggleTodo(todo)}
                 style={{
-                  width: isMobile ? 16 : 20,
-                  height: isMobile ? 16 : 20,
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                  marginTop: isMobile ? 2 : 0,
-                }}
-              />
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: isMobile ? '20px' : '24px',
+                height: isMobile ? '20px' : '24px',
+                borderRadius: '6px',
+                border: '2px solid',
+                borderColor: todo.completed ? 'var(--primary)' : 'var(--border)',
+                background: todo.completed ? 'var(--primary)' : 'transparent',
+                cursor: 'pointer',
+                flexShrink: 0,
+                transition: 'all 0.2s ease'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={todo.completed}
+                  onChange={() => toggleTodo(todo)}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    cursor: 'pointer',
+                    width: '100%',
+                    height: '100%',
+                    margin: 0,
+                    accentColor: 'var(--primary)'
+                  }}
+                />
+                {todo.completed && (
+                  <span style={{
+                    position: 'absolute',
+                    color: 'white',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    pointerEvents: 'none'
+                  }}>
+                    ✓
+                  </span>
+                )}
+              </div>
 
               {/* 제목과 우선순위 */}
               <div
@@ -304,19 +389,21 @@ export default function TodoList({ selectedDate, monthStart, monthEnd }: TodoLis
                   flex: 1,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: isMobile ? 6 : 10,
+                  gap: isMobile ? 8 : 10,
                   minWidth: 0,
                   overflow: 'hidden',
                 }}
               >
                 <span
                   style={{
-                    fontSize: isMobile ? 13 : 16,
+                    fontSize: isMobile ? '14px' : '16px',
+                    fontWeight: todo.completed ? 400 : 500,
                     textDecoration: todo.completed ? 'line-through' : 'none',
-                    opacity: todo.completed ? 0.5 : 1,
+                    opacity: todo.completed ? 0.6 : 1,
                     flex: 1,
                     wordBreak: 'break-word',
                     minWidth: 0,
+                    color: 'var(--text)'
                   }}
                 >
                   {todo.title}
@@ -326,15 +413,16 @@ export default function TodoList({ selectedDate, monthStart, monthEnd }: TodoLis
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    padding: isMobile ? '2px 6px' : '5px 10px',
-                    borderRadius: 4,
-                    fontSize: isMobile ? 11 : 13,
+                    padding: isMobile ? '4px 8px' : '6px 12px',
+                    borderRadius: '6px',
+                    fontSize: isMobile ? '11px' : '12px',
                     backgroundColor: getPriorityBgColor(todo.priority),
                     color: getPriorityColor(todo.priority),
-                    fontWeight: 600,
+                    fontWeight: '600',
                     flexShrink: 0,
                     whiteSpace: 'nowrap',
                     minWidth: 'fit-content',
+                    border: `1px solid ${getPriorityColor(todo.priority)}33`
                   }}
                 >
                   {PRIORITY_LABELS[todo.priority]}
@@ -343,17 +431,21 @@ export default function TodoList({ selectedDate, monthStart, monthEnd }: TodoLis
 
               {/* 삭제 버튼 */}
               <button
-                className="btn ghost"
+                className="btn-delete-event"
                 onClick={() => removeTodo(todo.id)}
                 style={{
-                  width: isMobile ? 'auto' : 'auto',
-                  fontSize: isMobile ? 12 : 14,
-                  padding: isMobile ? '4px 8px' : '8px 16px',
+                  fontSize: isMobile ? '14px' : '14px',
+                  padding: isMobile ? '6px 10px' : '8px 14px',
                   flexShrink: 0,
+                  minWidth: isMobile ? '32px' : '60px',
+                  height: isMobile ? '32px' : 'auto',
                   whiteSpace: 'nowrap',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}
               >
-                삭제
+                {isMobile ? '×' : '삭제'}
               </button>
             </div>
           ))}

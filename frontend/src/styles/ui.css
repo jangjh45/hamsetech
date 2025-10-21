@@ -11,6 +11,7 @@
   --accent-text: #e6e9f2;
   --input-bg: #0c1226;
   --header-h: 80px;
+  --danger-bg: #7f1d1d;
 }
 
 :root[data-theme='light'] {
@@ -26,6 +27,7 @@
   --accent-text: #0b1020;
   --input-bg: #f9fafb;
   --header-h: 80px;
+  --danger-bg: #fee2e2;
 }
 
 html, body, #root { height: 100%; }
@@ -73,7 +75,8 @@ body {
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 8px;
+  padding: 12px;
+  box-sizing: border-box;
 }
 
 .title {
@@ -106,9 +109,11 @@ body {
   color: var(--text);
   border-radius: 10px;
   padding: 12px 14px;
+  box-sizing: border-box;
+  text-align: center;
 }
 .input::placeholder { color: var(--muted); }
-.input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(109,139,255,0.15); }
+.input:focus { outline: none; border-color: var(--primary); }
 
 .btn {
   background: var(--primary);
@@ -118,10 +123,213 @@ body {
   padding: 8px 14px;
   cursor: pointer;
   text-decoration: none;
+  box-sizing: border-box;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
-.btn:hover { background: var(--primary-600); }
-.btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
-.error { color: var(--danger); font-size: 14px; }
+.btn:hover { 
+  background: var(--primary-600); 
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(109, 139, 255, 0.3);
+}
+.btn:active {
+  transform: translateY(0);
+}
+.btn.ghost { 
+  background: transparent; 
+  border: 1px solid var(--border); 
+  color: var(--text); 
+}
+.btn.ghost:hover {
+  background: rgba(109, 139, 255, 0.08);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: none;
+}
+
+/* 새 공지 버튼 */
+.btn.btn-create {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-600) 100%);
+  font-weight: 600;
+  padding: 10px 18px;
+  box-shadow: 0 4px 15px rgba(109, 139, 255, 0.3);
+}
+.btn.btn-create:hover {
+  box-shadow: 0 8px 20px rgba(109, 139, 255, 0.4);
+}
+
+/* 수정 버튼 */
+.btn.btn-edit {
+  background: #3b82f6;
+  padding: 10px 16px;
+}
+.btn.btn-edit:hover {
+  background: #2563eb;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* 삭제 버튼 */
+.btn.btn-delete {
+  background: #ef4444;
+  padding: 10px 16px;
+}
+.btn.btn-delete:hover {
+  background: #dc2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  transform: translateY(-2px);
+}
+
+/* 댓글 등록 버튼 */
+.btn.btn-submit {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-600) 100%);
+  padding: 12px 32px;
+  font-weight: 600;
+  min-width: 120px;
+}
+.btn.btn-submit:hover:not(:disabled) {
+  box-shadow: 0 8px 20px rgba(109, 139, 255, 0.4);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+.btn:disabled:hover {
+  background: var(--primary);
+  box-shadow: none;
+}
+
+/* 일정 추가 입력 필드 스타일 */
+.input-event {
+  background: var(--input-bg);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.input-event:hover {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(109, 139, 255, 0.05);
+}
+
+.input-event:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(109, 139, 255, 0.12);
+  background: var(--input-bg);
+}
+
+/* 일정 추가 버튼 스타일 */
+.btn-add-event {
+  background: linear-gradient(135deg, var(--primary) 0%, #6d8bff 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 24px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(109, 139, 255, 0.25);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-add-event::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  transition: left 0.4s ease;
+  z-index: 0;
+}
+
+.btn-add-event:hover {
+  background: linear-gradient(135deg, var(--primary) 0%, #5c7af0 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(109, 139, 255, 0.35);
+}
+
+.btn-add-event:hover::before {
+  left: 100%;
+}
+
+.btn-add-event:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(109, 139, 255, 0.2);
+}
+
+.btn-add-event:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 일정/할일 항목 카드 스타일 */
+.event-item, .todo-item {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.event-item:hover, .todo-item:hover {
+  background: rgba(109, 139, 255, 0.12);
+  border-color: rgba(109, 139, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(109, 139, 255, 0.1);
+  transform: translateY(-1px);
+}
+
+/* 삭제 버튼 스타일 */
+.btn-delete-event {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  box-sizing: border-box;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-delete-event:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: var(--danger);
+  color: var(--danger);
+  transform: translateY(-1px);
+}
+
+.btn-delete-event:active {
+  transform: translateY(0);
+}
+
+.error { 
+  color: var(--danger); 
+  font-size: 14px;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
 .grid { display: grid; gap: 16px; }
 .grid.two { grid-template-columns: repeat(2, minmax(0,1fr)); }

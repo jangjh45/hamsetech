@@ -125,9 +125,9 @@ export default function AdminPage() {
             placeholder="사용자 검색" 
             value={q} 
             onChange={(e) => setQ(e.target.value)} 
-            style={{ flex: 1, width: isMobile ? '100%' : 'auto' }} 
+            style={{ flex: 1, width: isMobile ? '100%' : 'auto', minWidth: 0 }} 
           />
-          <button className="btn ghost" onClick={() => loadUsers(q)}>검색</button>
+          <button className="btn ghost" onClick={() => loadUsers(q)} style={{ whiteSpace: 'nowrap', flex: '0 0 auto' }}>검색</button>
         </div>
 
         <div className="card" style={{ padding: 0 }}>
@@ -137,14 +137,15 @@ export default function AdminPage() {
               {users.length === 0 && (
                 <div style={{ padding: 16, textAlign: 'center', color: 'var(--muted)' }}>사용자가 없습니다.</div>
               )}
-              {users.map((u: any) => {
+              {users.map((u: any, index: number) => {
                 const roles = u.roles || []
                 const isAdmin = roles.includes('ADMIN')
                 const isSuperAdmin = roles.includes('SUPER_ADMIN')
+                const isLastItem = index === users.length - 1
                 return (
                   <div key={u.id} style={{ 
                     padding: '16px', 
-                    borderBottom: '1px solid var(--border)',
+                    borderBottom: isLastItem ? 'none' : '1px solid var(--border)',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 12
@@ -222,8 +223,8 @@ export default function AdminPage() {
           ) : (
             // 데스크톱 레이아웃
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: '60px 270px 150px 240px 120px', alignItems: 'center', gap: 8, padding: '10px 12px', height: 50, borderBottom: '1px solid var(--border)', color: 'var(--muted)', fontSize: 14 }}>
-                <div style={{ textAlign: 'right', paddingRight: 8 }}>ID</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '50px 1fr 100px 150px 100px', alignItems: 'center', gap: 8, padding: '8px 12px', height: 40, borderBottom: '1px solid var(--border)', color: 'var(--muted)', fontSize: 14 }}>
+                <div style={{ textAlign: 'center' }}>ID</div>
                 <div>사용자명</div>
                 <div>역할</div>
                 <div style={{ textAlign: 'center' }}>이름/닉네임 관리</div>
@@ -232,22 +233,23 @@ export default function AdminPage() {
               {users.length === 0 && (
                 <div style={{ padding: 16, textAlign: 'center', color: 'var(--muted)' }}>사용자가 없습니다.</div>
               )}
-              {users.map((u: any) => {
+              {users.map((u: any, index: number) => {
                 const roles = u.roles || []
                 const isAdmin = roles.includes('ADMIN')
                 const isSuperAdmin = roles.includes('SUPER_ADMIN')
+                const isLastItem = index === users.length - 1
                 return (
-                  <div key={u.id} style={{ display: 'grid', gridTemplateColumns: '60px 270px 150px 240px 120px', alignItems: 'center', gap: 8, padding: '10px 12px', height: 50, borderBottom: '1px solid var(--border)', overflow: 'hidden' }}>
-                    <div style={{ textAlign: 'right', paddingRight: 8 }}>{u.id}</div>
+                  <div key={u.id} style={{ display: 'grid', gridTemplateColumns: '50px 1fr 100px 150px 100px', alignItems: 'center', gap: 8, padding: '8px 12px', height: 40, borderBottom: isLastItem ? 'none' : '1px solid var(--border)', overflow: 'hidden' }}>
+                    <div style={{ textAlign: 'center', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{u.id}</div>
                     <div style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{u.username}{u.displayName ? ` (${u.displayName})` : ''}</div>
-                    <div style={{ color: 'var(--muted)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }} title={(roles || []).join(', ')}>{roles.join(', ')}</div>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ color: 'var(--muted)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: '12px' }} title={(roles || []).join(', ')}>{roles.join(', ')}</div>
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', justifyContent: 'center', minWidth: 0 }}>
                       {(() => {
                         let inputEl: HTMLInputElement | null = null;
                         return (
                           <>
-                            <input ref={(el) => { inputEl = el }} className="input" placeholder="이름/닉네임" defaultValue={u.displayName || ''} style={{ width: 100 }} />
-                            <button className="btn ghost" onClick={async () => { try { const val = (inputEl && inputEl.value) || ''; await apiFetch(`/api/admin/users/${u.id}/display-name`, { method: 'PUT', body: JSON.stringify({ displayName: val }) }); await loadUsers(); } catch (e:any) { setError(e.message) } }}>저장</button>
+                            <input ref={(el) => { inputEl = el }} className="input" placeholder="이름/닉네임" defaultValue={u.displayName || ''} style={{ flex: 1, minWidth: 0, padding: '6px 10px', fontSize: '12px' }} />
+                            <button className="btn ghost" onClick={async () => { try { const val = (inputEl && inputEl.value) || ''; await apiFetch(`/api/admin/users/${u.id}/display-name`, { method: 'PUT', body: JSON.stringify({ displayName: val }) }); await loadUsers(); } catch (e:any) { setError(e.message) } }} style={{ padding: '6px 10px', fontSize: '12px', whiteSpace: 'nowrap', flex: '0 0 auto' }}>저장</button>
                           </>
                         )
                       })()}
@@ -255,9 +257,9 @@ export default function AdminPage() {
                     <div style={{ display: 'flex', justifyContent: 'center' }}>
                       {!isSuperAdmin && (
                         isAdmin ? (
-                          <button className="btn ghost" style={{ width: 120 }} onClick={() => revoke(u.id)}>ADMIN 해제</button>
+                          <button className="btn ghost" style={{ padding: '6px 8px', fontSize: '12px', whiteSpace: 'nowrap' }} onClick={() => revoke(u.id)}>ADMIN 해제</button>
                         ) : (
-                          <button className="btn ghost" style={{ width: 120 }} onClick={() => grant(u.id)}>ADMIN 부여</button>
+                          <button className="btn ghost" style={{ padding: '6px 8px', fontSize: '12px', whiteSpace: 'nowrap' }} onClick={() => grant(u.id)}>ADMIN 부여</button>
                         )
                       )}
                     </div>

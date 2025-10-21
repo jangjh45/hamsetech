@@ -310,10 +310,10 @@ export default function DeliveryPage() {
                 {items.map((it, idx) => (
                   <tr key={it.id}>
                     <td>{it.id}</td>
-                    <td><input className="input" value={it.name} onChange={e => updateItem(idx, { name: e.target.value })} placeholder="예: 박스A" /></td>
+                    <td><input className="input" style={{ textAlign: 'left', maxWidth: isMobile ? '150px' : '300px' }} value={it.name} onChange={e => updateItem(idx, { name: e.target.value })} placeholder="예: 박스A" /></td>
                     <td><input className="input" style={{ maxWidth: isMobile ? '100px' : '140px' }} inputMode="numeric" value={it.w} onChange={e => updateItem(idx, { w: normalizeNumericInput(e.target.value) })} /></td>
                     <td><input className="input" style={{ maxWidth: isMobile ? '100px' : '140px' }} inputMode="numeric" value={it.h} onChange={e => updateItem(idx, { h: normalizeNumericInput(e.target.value) })} /></td>
-                    <td><input className="input" style={{ maxWidth: isMobile ? '80px' : '120px' }} inputMode="numeric" value={it.qty} onChange={e => updateItem(idx, { qty: normalizeNumericInput(e.target.value) })} /></td>
+                    <td><input className="input" style={{ maxWidth: isMobile ? '50px' : '80px' }} inputMode="numeric" value={it.qty} onChange={e => updateItem(idx, { qty: normalizeNumericInput(e.target.value) })} /></td>
                     <td>
                       <button 
                         className="btn ghost" 
