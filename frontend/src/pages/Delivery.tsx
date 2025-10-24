@@ -23,7 +23,7 @@ function normalizeNumericInput(value: string): string {
 export default function DeliveryPage() {
   const [binWStr, setBinWStr] = useState<string>('1200')
   const [binHStr, setBinHStr] = useState<string>('800')
-  const [allowRotate, setAllowRotate] = useState<boolean>(true)
+  const [allowRotate, setAllowRotate] = useState<boolean>(false)
   const [marginStr, setMarginStr] = useState<string>('0')
   const [items, setItems] = useState<ItemRow[]>([
     { id: 1, name: '박스A', w: '400', h: '300', qty: '1' },
