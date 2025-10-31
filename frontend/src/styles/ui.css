@@ -110,7 +110,7 @@ body {
   border-radius: 10px;
   padding: 12px 14px;
   box-sizing: border-box;
-  text-align: center;
+  text-align: left;
 }
 .input::placeholder { color: var(--muted); }
 .input:focus { outline: none; border-color: var(--primary); }
