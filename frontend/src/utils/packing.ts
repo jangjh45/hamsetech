@@ -40,11 +40,18 @@ export function packIntoTrucks(
 
   const expanded = expandQuantities(items)
 
-  // 개선된 정렬: 물품의 넓이(면적)를 기준으로 큰 물건부터 적재
+  // 개선된 정렬: 물품의 효율성을 고려한 정렬 (면적 + 둘레 길이)
   const sorted = [...expanded].sort((a, b) => {
     const areaA = a.w * a.h
     const areaB = b.w * b.h
+    const perimeterA = 2 * (a.w + a.h)
+    const perimeterB = 2 * (b.w + b.h)
+
+    // 1. 면적이 큰 순서
     if (areaA !== areaB) return areaB - areaA
+    // 2. 둘레 길이가 긴 순서 (더 복잡한 형태 우선)
+    if (perimeterA !== perimeterB) return perimeterB - perimeterA
+    // 3. 긴 변이 긴 순서
     return Math.max(b.h, b.w) - Math.max(a.h, a.w)
   })
   
@@ -59,30 +66,68 @@ export function packIntoTrucks(
     currentTruck = []
   }
 
-  // 트럭에 물품을 배치할 수 있는 위치를 찾기
+  // 트럭에 물품을 배치할 수 있는 위치를 찾기 - 최적화된 버전
   const findBestPosition = (orientations: Array<{ w: number; h: number; rotated: boolean }>) => {
     let bestPos: { x: number; y: number; o: { w: number; h: number; rotated: boolean } } | null = null
-    let bestWaste = Infinity
+    let bestScore = -1 // 더 높은 점수가 더 좋은 위치
+
+    // 그리드 크기 (큰 물품일수록 큰 그리드 사용)
+    const getGridSize = (itemSize: number) => Math.max(1, Math.min(20, Math.floor(itemSize / 10)))
 
     for (const o of orientations) {
-      // 좌상단부터 스캔
-      for (let y = 0; y <= binH - o.h; y += 1) {
-        for (let x = 0; x <= binW - o.w; x += 1) {
-          // 배치 가능한 위치인지 확인
+      const gridSize = getGridSize(Math.max(o.w, o.h))
+
+      // Bottom-Left Fill: 아래쪽과 왼쪽부터 채우는 전략
+      for (let y = 0; y <= binH - o.h; y += gridSize) {
+        for (let x = 0; x <= binW - o.w; x += gridSize) {
+          // 배치 가능한 위치인지 확인 - 최적화된 충돌 검사
           let canPlace = true
           for (const placed of currentTruck) {
-            if (rectsIntersect(x, y, o.w, o.h, placed.x, placed.y, placed.w, placed.h)) {
-              canPlace = false
-              break
+            // 빠른 사전 검사: 바운딩 박스 겹침 확인
+            if (x < placed.x + placed.w && x + o.w > placed.x &&
+                y < placed.y + placed.h && y + o.h > placed.y) {
+              // 정밀 충돌 검사
+              if (rectsIntersect(x, y, o.w, o.h, placed.x, placed.y, placed.w, placed.h)) {
+                canPlace = false
+                break
+              }
             }
           }
 
           if (canPlace) {
-            // 남은 공간을 계산하여 가장 좋은 위치 선택 (Best Fit)
-            const waste = (binW - o.w) * (binH - o.h)
-            if (waste < bestWaste) {
-              bestWaste = waste
+            // 점수 계산: 아래쪽 우선, 그 다음 왼쪽 우선 (Bottom-Left Fill)
+            const score = (binH - y - o.h) * 1000 + (binW - x - o.w)
+            if (score > bestScore) {
+              bestScore = score
               bestPos = { x, y, o }
+            }
+          }
+        }
+      }
+
+      // 그리드 검색으로 찾지 못했다면 정밀 검색 (1픽셀 단위)
+      if (!bestPos && gridSize > 1) {
+        for (let y = 0; y <= binH - o.h; y += 1) {
+          for (let x = 0; x <= binW - o.w; x += 1) {
+            let canPlace = true
+            for (const placed of currentTruck) {
+              // 빠른 사전 검사: 바운딩 박스 겹침 확인
+              if (x < placed.x + placed.w && x + o.w > placed.x &&
+                  y < placed.y + placed.h && y + o.h > placed.y) {
+                // 정밀 충돌 검사
+                if (rectsIntersect(x, y, o.w, o.h, placed.x, placed.y, placed.w, placed.h)) {
+                  canPlace = false
+                  break
+                }
+              }
+            }
+
+            if (canPlace) {
+              const score = (binH - y - o.h) * 1000 + (binW - x - o.w)
+              if (score > bestScore) {
+                bestScore = score
+                bestPos = { x, y, o }
+              }
             }
           }
         }

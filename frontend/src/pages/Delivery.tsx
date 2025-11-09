@@ -1,5 +1,5 @@
-import { useMemo, useState, useEffect } from 'react'
-import { packIntoTrucks, type Rect, type PackResult } from '../utils/packing'
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react'
+import { packIntoTrucks, type PackResult } from '../utils/packing'
 import { 
   getAllScenarios, 
   getFavoriteScenarios, 
@@ -46,20 +46,59 @@ export default function DeliveryPage() {
   const [editingScenario, setEditingScenario] = useState<PackingScenario | null>(null)
   const [showNameError, setShowNameError] = useState<boolean>(false)
 
-  const binW = useMemo(() => parseInt(binWStr || '0', 10), [binWStr])
-  const binH = useMemo(() => parseInt(binHStr || '0', 10), [binHStr])
-  const margin = useMemo(() => parseInt(marginStr || '0', 10), [marginStr])
-
-  const rects: Rect[] = useMemo(() => items.map(i => ({ id: i.id, w: parseInt(i.w || '0', 10), h: parseInt(i.h || '0', 10), qty: parseInt(i.qty || '0', 10) })), [items])
   const nameMap = useMemo(() => Object.fromEntries(items.map(i => [i.id, i.name])), [items])
 
-  const result: PackResult | null = useMemo(() => {
-    try {
-      return packIntoTrucks(rects, binW, binH, { allowRotate, margin })
-    } catch {
-      return null
+  // 로딩 상태 및 계산 결과
+  const [isCalculating, setIsCalculating] = useState<boolean>(false)
+  const [result, setResult] = useState<PackResult | null>(null)
+
+  // 디바운스 타이머 ref
+  const debounceTimerRef = useRef<number | null>(null)
+
+  // 디바운스된 계산 함수
+  const debouncedCalculation = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
     }
-  }, [rects, binW, binH, allowRotate, margin])
+
+    debounceTimerRef.current = setTimeout(() => {
+      const binW = parseInt(binWStr || '0', 10)
+      const binH = parseInt(binHStr || '0', 10)
+      const margin = parseInt(marginStr || '0', 10)
+      const rects = items.map(i => ({ id: i.id, w: parseInt(i.w || '0', 10), h: parseInt(i.h || '0', 10), qty: parseInt(i.qty || '0', 10) }))
+
+      if (rects.length === 0 || binW <= 0 || binH <= 0) {
+        setResult(null)
+        setIsCalculating(false)
+        return
+      }
+
+      setIsCalculating(true)
+
+      // 비동기로 계산 실행
+      setTimeout(() => {
+        try {
+          const packResult = packIntoTrucks(rects, binW, binH, { allowRotate, margin })
+          setResult(packResult)
+        } catch (error) {
+          console.error('Packing calculation error:', error)
+          setResult(null)
+        } finally {
+          setIsCalculating(false)
+        }
+      }, 0)
+    }, 300) // 300ms 디바운스
+  }, [binWStr, binHStr, marginStr, items, allowRotate])
+
+  // 입력 변경 시 디바운스 계산 트리거
+  useEffect(() => {
+    debouncedCalculation()
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+    }
+  }, [debouncedCalculation])
 
   function addItem() {
     const nextId = items.length ? Math.max(...items.map(i => i.id)) + 1 : 1
@@ -127,10 +166,10 @@ export default function DeliveryPage() {
       const request: CreateScenarioRequest = {
         name: scenarioName.trim(),
         description: scenarioDescription.trim() || undefined,
-        truckWidth: binW,
-        truckHeight: binH,
+        truckWidth: parseInt(binWStr || '0', 10),
+        truckHeight: parseInt(binHStr || '0', 10),
         allowRotate,
-        margin,
+        margin: parseInt(marginStr || '0', 10),
         items: items.map(item => ({
           name: item.name,
           width: parseInt(item.w || '0', 10),
@@ -163,7 +202,7 @@ export default function DeliveryPage() {
     setBinHStr(scenario.truckHeight.toString())
     setAllowRotate(scenario.allowRotate)
     setMarginStr(scenario.margin.toString())
-    
+
     const newItems: ItemRow[] = scenario.items.map((item, index) => ({
       id: index + 1,
       name: item.name,
@@ -172,7 +211,7 @@ export default function DeliveryPage() {
       qty: item.quantity.toString()
     }))
     setItems(newItems)
-    
+
     setShowLoadModal(false)
   }
 
@@ -344,15 +383,19 @@ export default function DeliveryPage() {
             gap: isMobile ? 8 : 0
           }}>
             <h3 style={{ margin: 0 }}>적재 미리보기</h3>
-            {result && (
-              <div style={{ 
+            {(result || isCalculating) && (
+              <div style={{
                 padding: '8px 16px',
                 backgroundColor: 'var(--accent-bg)',
                 borderRadius: '6px',
                 border: '1px solid var(--border)'
               }}>
                 <p className="subtitle" style={{ margin: 0, color: 'var(--accent-text)' }}>
-                  총 트럭 수: <b>{result.count}</b>
+                  {isCalculating ? (
+                    <>계산 중... <span style={{ fontSize: '14px' }}>⏳</span></>
+                  ) : (
+                    <>총 트럭 수: <b>{result?.count}</b></>
+                  )}
                 </p>
               </div>
             )}
@@ -398,7 +441,7 @@ export default function DeliveryPage() {
                     marginBottom: '12px',
                     color: 'var(--text)'
                   }}>트럭 #{tIdx + 1}</h4>
-                  <TruckSvg binW={binW} binH={binH} items={truck} nameMap={nameMap} />
+                  <TruckSvg binW={parseInt(binWStr || '0', 10)} binH={parseInt(binHStr || '0', 10)} items={truck} nameMap={nameMap} />
                 </div>
               ))}
             </div>
