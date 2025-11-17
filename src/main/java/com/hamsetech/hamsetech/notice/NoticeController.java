@@ -10,6 +10,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.*;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
+import com.hamsetech.hamsetech.admin.AdminLogService;
+import com.hamsetech.hamsetech.admin.AdminLog;
 
 import java.time.Instant;
 import java.util.List;
@@ -21,11 +23,13 @@ public class NoticeController {
     private final NoticeRepository noticeRepository;
     private final NoticeCommentRepository commentRepository;
     private final UserAccountRepository userAccountRepository;
+    private final AdminLogService adminLogService;
 
-    public NoticeController(NoticeRepository noticeRepository, NoticeCommentRepository commentRepository, UserAccountRepository userAccountRepository) {
+    public NoticeController(NoticeRepository noticeRepository, NoticeCommentRepository commentRepository, UserAccountRepository userAccountRepository, AdminLogService adminLogService) {
         this.noticeRepository = noticeRepository;
         this.commentRepository = commentRepository;
         this.userAccountRepository = userAccountRepository;
+        this.adminLogService = adminLogService;
     }
 
     public record NoticeReq(String title, String content) {}
@@ -37,17 +41,38 @@ public class NoticeController {
                              @RequestParam(name = "page", defaultValue = "0") int page,
                              @RequestParam(name = "size", defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, Math.min(size, 50), Sort.by(Sort.Direction.DESC, "id"));
+        Page<Notice> notices;
         if (q == null || q.isBlank()) {
-            return noticeRepository.findAll(pageable);
+            notices = noticeRepository.findAll(pageable);
+        } else {
+            notices = noticeRepository.findByTitleContainingIgnoreCase(q, pageable);
         }
-        return noticeRepository.findByTitleContainingIgnoreCase(q, pageable);
+
+        // 관리자 로깅
+        String searchQuery = q != null && !q.isBlank() ? q : "전체";
+        adminLogService.logAdminAction(AdminLog.Action.READ, AdminLog.EntityType.NOTICE, null,
+            String.format("공지사항 목록 조회 - 검색어: %s, 페이지: %d, 크기: %d, 결과: %d개", searchQuery, page, size, notices.getTotalElements()));
+
+        return notices;
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<?> get(@PathVariable(name = "id") Long id) {
-        return noticeRepository.findById(id)
-                .<ResponseEntity<?>>map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        var result = noticeRepository.findById(id)
+                .map(notice -> {
+                    // 관리자 로깅
+                    adminLogService.logAdminAction(AdminLog.Action.READ, AdminLog.EntityType.NOTICE, id,
+                        String.format("공지사항 상세 조회 - 제목: %s", notice.getTitle()));
+                    return ResponseEntity.ok((Object) notice);
+                })
+                .orElseGet(() -> {
+                    // 관리자 로깅 (존재하지 않는 경우)
+                    adminLogService.logAdminAction(AdminLog.Action.READ, AdminLog.EntityType.NOTICE, id,
+                        "공지사항 조회 실패 - 존재하지 않는 ID");
+                    return ResponseEntity.notFound().build();
+                });
+
+        return result;
     }
 
     @PreAuthorize("isAuthenticated()")
@@ -61,7 +86,14 @@ public class NoticeController {
         n.setContent(req.content());
         n.setAuthorUsername(currentUser());
         n.setAuthorDisplayName(currentUserDisplayName());
-        return ResponseEntity.ok(noticeRepository.save(n));
+
+        Notice savedNotice = noticeRepository.save(n);
+
+        // 관리자 로깅
+        adminLogService.logAdminAction(AdminLog.Action.CREATE, AdminLog.EntityType.NOTICE, savedNotice.getId(),
+            String.format("공지사항 생성 - 제목: %s, 작성자: %s", savedNotice.getTitle(), savedNotice.getAuthorUsername()));
+
+        return ResponseEntity.ok(savedNotice);
     }
 
     @PreAuthorize("isAuthenticated()")
@@ -77,9 +109,25 @@ public class NoticeController {
                     if (!admin && !n.getAuthorUsername().equals(me)) {
                         return ResponseEntity.status(403).body(Map.of("error", "forbidden"));
                     }
+
+                    StringBuilder changes = new StringBuilder();
+                    if (!n.getTitle().equals(req.title())) {
+                        changes.append("제목: ").append(n.getTitle()).append(" -> ").append(req.title()).append(", ");
+                    }
+                    if (!n.getContent().equals(req.content())) {
+                        changes.append("내용 변경, ");
+                    }
+
                     n.setTitle(req.title());
                     n.setContent(req.content());
-                    return ResponseEntity.ok(noticeRepository.save(n));
+
+                    Notice savedNotice = noticeRepository.save(n);
+
+                    // 관리자 로깅
+                    adminLogService.logAdminAction(AdminLog.Action.UPDATE, AdminLog.EntityType.NOTICE, id,
+                        String.format("공지사항 수정 - %s", changes.length() > 0 ? changes.substring(0, changes.length() - 2) : "변경사항 없음"));
+
+                    return ResponseEntity.ok(savedNotice);
                 })
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -94,7 +142,16 @@ public class NoticeController {
                     if (!admin && !n.getAuthorUsername().equals(me)) {
                         return ResponseEntity.status(403).body(Map.of("error", "forbidden"));
                     }
+
+                    String noticeTitle = n.getTitle();
+                    String noticeAuthor = n.getAuthorUsername();
+
                     noticeRepository.delete(n);
+
+                    // 관리자 로깅
+                    adminLogService.logAdminAction(AdminLog.Action.DELETE, AdminLog.EntityType.NOTICE, id,
+                        String.format("공지사항 삭제 - 제목: %s, 작성자: %s", noticeTitle, noticeAuthor));
+
                     return ResponseEntity.ok(Map.of("deleted", true));
                 })
                 .orElseGet(() -> ResponseEntity.notFound().build());
@@ -102,7 +159,7 @@ public class NoticeController {
 
     @GetMapping("/{id}/comments")
     public List<NoticeCommentDto> listComments(@PathVariable(name = "id") Long id) {
-        return commentRepository.findByNoticeIdOrderByCreatedAtAsc(id).stream()
+        List<NoticeCommentDto> comments = commentRepository.findByNoticeIdOrderByCreatedAtAsc(id).stream()
                 .map(c -> new NoticeCommentDto(
                         c.getId(),
                         c.getContent(),
@@ -111,6 +168,12 @@ public class NoticeController {
                         c.getCreatedAt()
                 ))
                 .toList();
+
+        // 관리자 로깅
+        adminLogService.logAdminAction(AdminLog.Action.READ, AdminLog.EntityType.NOTICE_COMMENT, null,
+            String.format("공지사항 댓글 목록 조회 - 공지사항 ID: %d, 댓글 수: %d", id, comments.size()));
+
+        return comments;
     }
 
     @PreAuthorize("isAuthenticated()")
@@ -131,7 +194,15 @@ public class NoticeController {
                 c.setParent(parent);
             }
         }
-        return ResponseEntity.ok(commentRepository.save(c));
+
+        NoticeComment savedComment = commentRepository.save(c);
+
+        // 관리자 로깅
+        String commentType = req.parentId() != null ? "대댓글" : "댓글";
+        adminLogService.logAdminAction(AdminLog.Action.CREATE, AdminLog.EntityType.NOTICE_COMMENT, savedComment.getId(),
+            String.format("공지사항 %s 생성 - 공지사항 ID: %d, 작성자: %s", commentType, id, savedComment.getAuthorUsername()));
+
+        return ResponseEntity.ok(savedComment);
     }
 
     @PreAuthorize("isAuthenticated()")
@@ -147,7 +218,16 @@ public class NoticeController {
                     if (!admin && !c.getAuthorUsername().equals(me)) {
                         return ResponseEntity.status(403).body(Map.of("error", "forbidden"));
                     }
+
+                    String commentAuthor = c.getAuthorUsername();
+                    String commentType = c.getParent() != null ? "대댓글" : "댓글";
+
                     commentRepository.delete(c);
+
+                    // 관리자 로깅
+                    adminLogService.logAdminAction(AdminLog.Action.DELETE, AdminLog.EntityType.NOTICE_COMMENT, commentId,
+                        String.format("공지사항 %s 삭제 - 공지사항 ID: %d, 작성자: %s", commentType, noticeId, commentAuthor));
+
                     return ResponseEntity.ok(Map.of("deleted", true));
                 })
                 .orElseGet(() -> ResponseEntity.notFound().build());

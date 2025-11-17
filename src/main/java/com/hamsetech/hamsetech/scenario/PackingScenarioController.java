@@ -1,6 +1,8 @@
 package com.hamsetech.hamsetech.scenario;
 
 import com.hamsetech.hamsetech.user.UserAccountRepository;
+import com.hamsetech.hamsetech.admin.AdminLogService;
+import com.hamsetech.hamsetech.admin.AdminLog;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -20,13 +22,15 @@ import java.util.stream.Collectors;
 public class PackingScenarioController {
 
     private static final Logger logger = LoggerFactory.getLogger(PackingScenarioController.class);
-    
+
     private final PackingScenarioRepository scenarioRepository;
     private final UserAccountRepository userRepository;
+    private final AdminLogService adminLogService;
 
-    public PackingScenarioController(PackingScenarioRepository scenarioRepository, UserAccountRepository userRepository) {
+    public PackingScenarioController(PackingScenarioRepository scenarioRepository, UserAccountRepository userRepository, AdminLogService adminLogService) {
         this.scenarioRepository = scenarioRepository;
         this.userRepository = userRepository;
+        this.adminLogService = adminLogService;
     }
 
     public record CreateScenarioRequest(
@@ -95,6 +99,10 @@ public class PackingScenarioController {
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
 
+        // 관리자 로깅
+        adminLogService.logAdminAction(AdminLog.Action.READ, AdminLog.EntityType.SCENARIO, null,
+            String.format("적재 시뮬레이션 시나리오 전체 목록 조회 - 결과: %d개", responses.size()));
+
         return ResponseEntity.ok(responses);
     }
 
@@ -114,6 +122,10 @@ public class PackingScenarioController {
         List<ScenarioResponse> responses = scenarios.stream()
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
+
+        // 관리자 로깅
+        adminLogService.logAdminAction(AdminLog.Action.READ, AdminLog.EntityType.SCENARIO, null,
+            String.format("적재 시뮬레이션 즐겨찾기 시나리오 목록 조회 - 결과: %d개", responses.size()));
 
         return ResponseEntity.ok(responses);
     }
@@ -135,6 +147,10 @@ public class PackingScenarioController {
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
 
+        // 관리자 로깅
+        adminLogService.logAdminAction(AdminLog.Action.READ, AdminLog.EntityType.SCENARIO, null,
+            String.format("적재 시뮬레이션 시나리오 검색 - 검색어: %s, 결과: %d개", q, responses.size()));
+
         return ResponseEntity.ok(responses);
     }
 
@@ -152,12 +168,19 @@ public class PackingScenarioController {
 
         var scenario = scenarioRepository.findById(id).orElse(null);
         if (scenario == null) {
+            // 관리자 로깅 (존재하지 않는 경우)
+            adminLogService.logAdminAction(AdminLog.Action.READ, AdminLog.EntityType.SCENARIO, id,
+                "적재 시뮬레이션 시나리오 조회 실패 - 존재하지 않는 ID");
             return ResponseEntity.notFound().build();
         }
 
         if (!scenario.getUser().getId().equals(user.getId())) {
             return ResponseEntity.status(403).body(null);
         }
+
+        // 관리자 로깅
+        adminLogService.logAdminAction(AdminLog.Action.READ, AdminLog.EntityType.SCENARIO, id,
+            String.format("적재 시뮬레이션 시나리오 상세 조회 - 이름: %s", scenario.getName()));
 
         return ResponseEntity.ok(convertToResponse(scenario));
     }
@@ -203,6 +226,13 @@ public class PackingScenarioController {
         scenario.setItems(items);
 
         PackingScenario savedScenario = scenarioRepository.save(scenario);
+
+        // 관리자 로깅
+        adminLogService.logAdminAction(AdminLog.Action.CREATE, AdminLog.EntityType.SCENARIO, savedScenario.getId(),
+            String.format("적재 시뮬레이션 시나리오 생성 - 이름: %s, 트럭 크기: %dx%d, 아이템 수: %d",
+                savedScenario.getName(), savedScenario.getTruckWidth(), savedScenario.getTruckHeight(),
+                savedScenario.getItems().size()));
+
         return ResponseEntity.ok(convertToResponse(savedScenario));
     }
 
@@ -269,6 +299,13 @@ public class PackingScenarioController {
 
             PackingScenario savedScenario = scenarioRepository.save(scenario);
             logger.info("시나리오 수정 완료 - ID: {}", savedScenario.getId());
+
+            // 관리자 로깅
+            adminLogService.logAdminAction(AdminLog.Action.UPDATE, AdminLog.EntityType.SCENARIO, savedScenario.getId(),
+                String.format("적재 시뮬레이션 시나리오 수정 - 이름: %s, 트럭 크기: %dx%d, 아이템 수: %d",
+                    savedScenario.getName(), savedScenario.getTruckWidth(), savedScenario.getTruckHeight(),
+                    savedScenario.getItems().size()));
+
             return ResponseEntity.ok(convertToResponse(savedScenario));
             
         } catch (Exception e) {
@@ -298,8 +335,15 @@ public class PackingScenarioController {
             return ResponseEntity.status(403).body(null);
         }
 
+        boolean wasFavorite = scenario.getIsFavorite();
         scenario.setIsFavorite(!scenario.getIsFavorite());
         PackingScenario savedScenario = scenarioRepository.save(scenario);
+
+        // 관리자 로깅
+        adminLogService.logAdminAction(AdminLog.Action.UPDATE, AdminLog.EntityType.SCENARIO, savedScenario.getId(),
+            String.format("적재 시뮬레이션 시나리오 즐겨찾기 %s - 이름: %s",
+                savedScenario.getIsFavorite() ? "추가" : "해제", savedScenario.getName()));
+
         return ResponseEntity.ok(convertToResponse(savedScenario));
     }
 
@@ -324,7 +368,15 @@ public class PackingScenarioController {
             return ResponseEntity.status(403).body(null);
         }
 
+        String scenarioName = scenario.getName();
+        Integer itemCount = scenario.getItems().size();
+
         scenarioRepository.delete(scenario);
+
+        // 관리자 로깅
+        adminLogService.logAdminAction(AdminLog.Action.DELETE, AdminLog.EntityType.SCENARIO, id,
+            String.format("적재 시뮬레이션 시나리오 삭제 - 이름: %s, 아이템 수: %d", scenarioName, itemCount));
+
         return ResponseEntity.noContent().build();
     }
 

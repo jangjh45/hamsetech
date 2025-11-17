@@ -4,7 +4,7 @@ spring:
   
   # PostgreSQL 연결 설정
   datasource:
-    url: jdbc:postgresql://localhost:5432/hamsetech?characterEncoding=UTF-8&useUnicode=true
+    url: jdbc:postgresql://localhost:5432/hamsetech
     username: hamsetech
     password: hamsetech
     driver-class-name: org.postgresql.Driver
@@ -17,9 +17,7 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        connection:
-          characterEncoding: utf8
-          useUnicode: true
+        format_sql: true
         jdbc:
           lob:
             non_contextual_creation: true
