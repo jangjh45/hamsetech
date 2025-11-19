@@ -335,7 +335,6 @@ public class PackingScenarioController {
             return ResponseEntity.status(403).body(null);
         }
 
-        boolean wasFavorite = scenario.getIsFavorite();
         scenario.setIsFavorite(!scenario.getIsFavorite());
         PackingScenario savedScenario = scenarioRepository.save(scenario);
 

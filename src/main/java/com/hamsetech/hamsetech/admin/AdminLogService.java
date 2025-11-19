@@ -2,7 +2,6 @@ package com.hamsetech.hamsetech.admin;
 
 import com.hamsetech.hamsetech.user.UserAccount;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
-import com.hamsetech.hamsetech.user.UserRole;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
