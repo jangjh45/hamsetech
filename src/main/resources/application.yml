@@ -17,17 +17,10 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
+        '[format_sql]': true
         jdbc:
           lob:
-            non_contextual_creation: true
-  
-  # Character encoding
-  http:
-    encoding:
-      charset: UTF-8
-      enabled: true
-      force: true
+            '[non_contextual_creation]': true
 
 # JPA/Hibernate SQL logging (logback-spring.xml에서 관리)
 logging:
