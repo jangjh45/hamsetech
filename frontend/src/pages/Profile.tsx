@@ -174,30 +174,35 @@ export default function ProfilePage() {
           
           <div style={{ marginBottom: 16 }}>
             <label className="field">현재 비밀번호</label>
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <input 
                 type={showCurrentPassword ? "text" : "password"}
                 className="input"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="현재 비밀번호 입력"
-                style={{ paddingRight: 40 }}
+                style={{ width: '100%', paddingRight: '45px' }}
               />
               <button
                 type="button"
                 onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                 style={{
                   position: 'absolute',
-                  right: 8,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
+                  right: '10px',
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  fontSize: 18,
-                  padding: 4,
-                  opacity: 0.6
+                  fontSize: '20px',
+                  padding: '4px 8px',
+                  opacity: 0.7,
+                  transition: 'opacity 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 1
                 }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
                 title={showCurrentPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
               >
                 {showCurrentPassword ? '🙈' : '👁️'}
@@ -207,30 +212,35 @@ export default function ProfilePage() {
 
           <div style={{ marginBottom: 16 }}>
             <label className="field">새 비밀번호</label>
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <input 
                 type={showNewPassword ? "text" : "password"}
                 className="input"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="8자 이상 입력"
-                style={{ paddingRight: 40 }}
+                style={{ width: '100%', paddingRight: '45px' }}
               />
               <button
                 type="button"
                 onClick={() => setShowNewPassword(!showNewPassword)}
                 style={{
                   position: 'absolute',
-                  right: 8,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
+                  right: '10px',
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  fontSize: 18,
-                  padding: 4,
-                  opacity: 0.6
+                  fontSize: '20px',
+                  padding: '4px 8px',
+                  opacity: 0.7,
+                  transition: 'opacity 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 1
                 }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
                 title={showNewPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
               >
                 {showNewPassword ? '🙈' : '👁️'}
@@ -292,30 +302,35 @@ export default function ProfilePage() {
 
           <div style={{ marginBottom: 20 }}>
             <label className="field">새 비밀번호 확인</label>
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <input 
                 type={showConfirmPassword ? "text" : "password"}
                 className="input"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="새 비밀번호 다시 입력"
-                style={{ paddingRight: 40 }}
+                style={{ width: '100%', paddingRight: '45px' }}
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 style={{
                   position: 'absolute',
-                  right: 8,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
+                  right: '10px',
                   background: 'none',
                   border: 'none',
                   cursor: 'pointer',
-                  fontSize: 18,
-                  padding: 4,
-                  opacity: 0.6
+                  fontSize: '20px',
+                  padding: '4px 8px',
+                  opacity: 0.7,
+                  transition: 'opacity 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 1
                 }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
                 title={showConfirmPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
               >
                 {showConfirmPassword ? '🙈' : '👁️'}
