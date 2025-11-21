@@ -100,7 +100,11 @@ export default function Header() {
             <button className="btn ghost" onClick={toggleTheme}>{theme === 'dark' ? '☀️' : '🌙'}</button>
             {!authed && <Link to="/register">회원가입</Link>}
             {!authed && <Link to="/login">로그인</Link>}
-            {authed && displayName && (<span className="subtitle" style={{ margin: 0 }}>{displayName}님</span>)}
+            {authed && displayName && (
+              <Link to="/profile" className="subtitle" style={{ margin: 0, textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
+                {displayName}님
+              </Link>
+            )}
             {authed && (<button className="btn ghost" onClick={handleLogout}>로그아웃</button>)}
           </>
         )}
@@ -132,7 +136,16 @@ export default function Header() {
             }}>
               <button className="btn ghost" onClick={toggleTheme} style={{ padding: '8px 12px' }}>{theme === 'dark' ? '☀️' : '🌙'}</button>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end' }}>
-                {authed && displayName && (<span className="subtitle" style={{ margin: 0, whiteSpace: 'nowrap' }}>{displayName}님</span>)}
+                {authed && displayName && (
+                  <Link 
+                    to="/profile" 
+                    onClick={() => setShowMobileMenu(false)}
+                    className="subtitle" 
+                    style={{ margin: 0, whiteSpace: 'nowrap', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}
+                  >
+                    {displayName}님
+                  </Link>
+                )}
                 {authed && (<button className="btn ghost" onClick={handleLogout} style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>로그아웃</button>)}
               </div>
             </div>

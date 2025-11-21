@@ -12,6 +12,7 @@ import NoticeEditorPage from './pages/NoticeEditor'
 import NoticesPage from './pages/Notices'
 import ForgotPasswordPage from './pages/ForgotPassword'
 import DeliveryPage from './pages/Delivery'
+import ProfilePage from './pages/Profile'
 import { setupAutoLogout } from './auth/token'
 
 export default function App() {
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/notice/:id/edit" element={<NoticeEditorPage />} />
         <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
         <Route path="/delivery" element={<DeliveryPage />} />
+        <Route path="/profile" element={<AdminRoute><ProfilePage /></AdminRoute>} />
       </Routes>
     </div>
   )

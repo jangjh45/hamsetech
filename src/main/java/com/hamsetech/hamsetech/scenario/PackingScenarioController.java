@@ -1,8 +1,8 @@
 package com.hamsetech.hamsetech.scenario;
 
-import com.hamsetech.hamsetech.user.UserAccountRepository;
-import com.hamsetech.hamsetech.admin.AdminLogService;
 import com.hamsetech.hamsetech.admin.AdminLog;
+import com.hamsetech.hamsetech.admin.AdminLoggable;
+import com.hamsetech.hamsetech.user.UserAccountRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -25,12 +25,10 @@ public class PackingScenarioController {
 
     private final PackingScenarioRepository scenarioRepository;
     private final UserAccountRepository userRepository;
-    private final AdminLogService adminLogService;
 
-    public PackingScenarioController(PackingScenarioRepository scenarioRepository, UserAccountRepository userRepository, AdminLogService adminLogService) {
+    public PackingScenarioController(PackingScenarioRepository scenarioRepository, UserAccountRepository userRepository) {
         this.scenarioRepository = scenarioRepository;
         this.userRepository = userRepository;
-        this.adminLogService = adminLogService;
     }
 
     public record CreateScenarioRequest(
@@ -82,6 +80,7 @@ public class PackingScenarioController {
             Integer quantity
     ) {}
 
+    @AdminLoggable(action = AdminLog.Action.READ, entityType = AdminLog.EntityType.SCENARIO, details = "시나리오 전체 목록 조회")
     @GetMapping
     public ResponseEntity<List<ScenarioResponse>> getAllScenarios() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
@@ -99,13 +98,10 @@ public class PackingScenarioController {
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
 
-        // 관리자 로깅
-        adminLogService.logAdminAction(AdminLog.Action.READ, AdminLog.EntityType.SCENARIO, null,
-            String.format("적재 시뮬레이션 시나리오 전체 목록 조회 - 결과: %d개", responses.size()));
-
         return ResponseEntity.ok(responses);
     }
 
+    @AdminLoggable(action = AdminLog.Action.READ, entityType = AdminLog.EntityType.SCENARIO, details = "즐겨찾기 시나리오 목록 조회")
     @GetMapping("/favorites")
     public ResponseEntity<List<ScenarioResponse>> getFavoriteScenarios() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
@@ -123,13 +119,10 @@ public class PackingScenarioController {
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
 
-        // 관리자 로깅
-        adminLogService.logAdminAction(AdminLog.Action.READ, AdminLog.EntityType.SCENARIO, null,
-            String.format("적재 시뮬레이션 즐겨찾기 시나리오 목록 조회 - 결과: %d개", responses.size()));
-
         return ResponseEntity.ok(responses);
     }
 
+    @AdminLoggable(action = AdminLog.Action.READ, entityType = AdminLog.EntityType.SCENARIO, details = "시나리오 검색")
     @GetMapping("/search")
     public ResponseEntity<List<ScenarioResponse>> searchScenarios(@RequestParam String q) {
         var auth = SecurityContextHolder.getContext().getAuthentication();
@@ -147,15 +140,12 @@ public class PackingScenarioController {
                 .map(this::convertToResponse)
                 .collect(Collectors.toList());
 
-        // 관리자 로깅
-        adminLogService.logAdminAction(AdminLog.Action.READ, AdminLog.EntityType.SCENARIO, null,
-            String.format("적재 시뮬레이션 시나리오 검색 - 검색어: %s, 결과: %d개", q, responses.size()));
-
         return ResponseEntity.ok(responses);
     }
 
+    @AdminLoggable(action = AdminLog.Action.READ, entityType = AdminLog.EntityType.SCENARIO, details = "시나리오 상세 조회")
     @GetMapping("/{id}")
-    public ResponseEntity<ScenarioResponse> getScenario(@PathVariable Long id) {
+    public ResponseEntity<ScenarioResponse> getScenario(@PathVariable("id") Long id) {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || auth.getName() == null) {
             return ResponseEntity.status(401).body(null);
@@ -168,9 +158,6 @@ public class PackingScenarioController {
 
         var scenario = scenarioRepository.findById(id).orElse(null);
         if (scenario == null) {
-            // 관리자 로깅 (존재하지 않는 경우)
-            adminLogService.logAdminAction(AdminLog.Action.READ, AdminLog.EntityType.SCENARIO, id,
-                "적재 시뮬레이션 시나리오 조회 실패 - 존재하지 않는 ID");
             return ResponseEntity.notFound().build();
         }
 
@@ -178,13 +165,10 @@ public class PackingScenarioController {
             return ResponseEntity.status(403).body(null);
         }
 
-        // 관리자 로깅
-        adminLogService.logAdminAction(AdminLog.Action.READ, AdminLog.EntityType.SCENARIO, id,
-            String.format("적재 시뮬레이션 시나리오 상세 조회 - 이름: %s", scenario.getName()));
-
         return ResponseEntity.ok(convertToResponse(scenario));
     }
 
+    @AdminLoggable(action = AdminLog.Action.CREATE, entityType = AdminLog.EntityType.SCENARIO, details = "시나리오 생성")
     @PostMapping
     public ResponseEntity<ScenarioResponse> createScenario(@Valid @RequestBody CreateScenarioRequest request) {
         var auth = SecurityContextHolder.getContext().getAuthentication();
@@ -226,19 +210,13 @@ public class PackingScenarioController {
         scenario.setItems(items);
 
         PackingScenario savedScenario = scenarioRepository.save(scenario);
-
-        // 관리자 로깅
-        adminLogService.logAdminAction(AdminLog.Action.CREATE, AdminLog.EntityType.SCENARIO, savedScenario.getId(),
-            String.format("적재 시뮬레이션 시나리오 생성 - 이름: %s, 트럭 크기: %dx%d, 아이템 수: %d",
-                savedScenario.getName(), savedScenario.getTruckWidth(), savedScenario.getTruckHeight(),
-                savedScenario.getItems().size()));
-
         return ResponseEntity.ok(convertToResponse(savedScenario));
     }
 
+    @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.SCENARIO, details = "시나리오 수정")
     @PutMapping("/{id}")
     @Transactional
-    public ResponseEntity<ScenarioResponse> updateScenario(@PathVariable Long id, @Valid @RequestBody UpdateScenarioRequest request) {
+    public ResponseEntity<ScenarioResponse> updateScenario(@PathVariable("id") Long id, @Valid @RequestBody UpdateScenarioRequest request) {
         logger.info("시나리오 수정 요청 - ID: {}, 이름: {}", id, request.name());
         
         try {
@@ -300,12 +278,6 @@ public class PackingScenarioController {
             PackingScenario savedScenario = scenarioRepository.save(scenario);
             logger.info("시나리오 수정 완료 - ID: {}", savedScenario.getId());
 
-            // 관리자 로깅
-            adminLogService.logAdminAction(AdminLog.Action.UPDATE, AdminLog.EntityType.SCENARIO, savedScenario.getId(),
-                String.format("적재 시뮬레이션 시나리오 수정 - 이름: %s, 트럭 크기: %dx%d, 아이템 수: %d",
-                    savedScenario.getName(), savedScenario.getTruckWidth(), savedScenario.getTruckHeight(),
-                    savedScenario.getItems().size()));
-
             return ResponseEntity.ok(convertToResponse(savedScenario));
             
         } catch (Exception e) {
@@ -314,8 +286,9 @@ public class PackingScenarioController {
         }
     }
 
+    @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.SCENARIO, details = "시나리오 즐겨찾기 토글")
     @PatchMapping("/{id}/favorite")
-    public ResponseEntity<ScenarioResponse> toggleFavorite(@PathVariable Long id) {
+    public ResponseEntity<ScenarioResponse> toggleFavorite(@PathVariable("id") Long id) {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || auth.getName() == null) {
             return ResponseEntity.status(401).body(null);
@@ -338,16 +311,12 @@ public class PackingScenarioController {
         scenario.setIsFavorite(!scenario.getIsFavorite());
         PackingScenario savedScenario = scenarioRepository.save(scenario);
 
-        // 관리자 로깅
-        adminLogService.logAdminAction(AdminLog.Action.UPDATE, AdminLog.EntityType.SCENARIO, savedScenario.getId(),
-            String.format("적재 시뮬레이션 시나리오 즐겨찾기 %s - 이름: %s",
-                savedScenario.getIsFavorite() ? "추가" : "해제", savedScenario.getName()));
-
         return ResponseEntity.ok(convertToResponse(savedScenario));
     }
 
+    @AdminLoggable(action = AdminLog.Action.DELETE, entityType = AdminLog.EntityType.SCENARIO, details = "시나리오 삭제")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteScenario(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteScenario(@PathVariable("id") Long id) {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || auth.getName() == null) {
             return ResponseEntity.status(401).body(null);
@@ -367,15 +336,7 @@ public class PackingScenarioController {
             return ResponseEntity.status(403).body(null);
         }
 
-        String scenarioName = scenario.getName();
-        Integer itemCount = scenario.getItems().size();
-
         scenarioRepository.delete(scenario);
-
-        // 관리자 로깅
-        adminLogService.logAdminAction(AdminLog.Action.DELETE, AdminLog.EntityType.SCENARIO, id,
-            String.format("적재 시뮬레이션 시나리오 삭제 - 이름: %s, 아이템 수: %d", scenarioName, itemCount));
-
         return ResponseEntity.noContent().build();
     }
 
