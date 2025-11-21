@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.web.bind.annotation.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,7 +62,7 @@ public class AdminController {
 	}
 
 	@PostMapping("/users/{id}/grant-admin")
-	public ResponseEntity<?> grantAdmin(@PathVariable(name = "id") Long id) {
+	public ResponseEntity<?> grantAdmin(@PathVariable(name = "id") @NonNull Long id) {
 		return userRepo.findById(id)
 				.map(u -> {
 					u.getRoles().add(UserRole.ADMIN);
@@ -72,7 +73,7 @@ public class AdminController {
 	}
 
 	@PostMapping("/users/{id}/revoke-admin")
-	public ResponseEntity<?> revokeAdmin(@PathVariable(name = "id") Long id) {
+	public ResponseEntity<?> revokeAdmin(@PathVariable(name = "id") @NonNull Long id) {
 		return userRepo.findById(id)
 				.map(u -> {
 					// SUPER_ADMIN는 해제 불가 보호
@@ -87,7 +88,7 @@ public class AdminController {
 	}
 
 	@PutMapping("/users/{id}/display-name")
-	public ResponseEntity<?> updateDisplayName(@PathVariable(name = "id") Long id, @RequestBody UpdateDisplayNameReq req) {
+	public ResponseEntity<?> updateDisplayName(@PathVariable(name = "id") @NonNull Long id, @RequestBody UpdateDisplayNameReq req) {
 		if (req == null || req.displayName() == null || req.displayName().isBlank()) {
 			return ResponseEntity.badRequest().body(Map.of("error", "displayName is required"));
 		}

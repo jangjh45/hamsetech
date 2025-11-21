@@ -5,6 +5,7 @@ import com.hamsetech.hamsetech.admin.AdminLoggable;
 import com.hamsetech.hamsetech.user.UserAccount;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -117,7 +118,7 @@ public class TodoController {
 
     @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.TODO, details = "할일 수정")
     @PutMapping("/{id}")
-    public ResponseEntity<?> update(@PathVariable("id") Long id,
+    public ResponseEntity<?> update(@PathVariable("id") @NonNull Long id,
                                    @RequestBody UpdateTodoRequest req,
                                    Authentication authentication) {
         if (req == null) {
@@ -157,7 +158,7 @@ public class TodoController {
 
     @AdminLoggable(action = AdminLog.Action.DELETE, entityType = AdminLog.EntityType.TODO, details = "할일 삭제")
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable("id") Long id,
+    public ResponseEntity<?> delete(@PathVariable("id") @NonNull Long id,
                                    Authentication authentication) {
         UserAccount user = getCurrentUser(authentication);
 

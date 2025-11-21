@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -145,7 +146,7 @@ public class PackingScenarioController {
 
     @AdminLoggable(action = AdminLog.Action.READ, entityType = AdminLog.EntityType.SCENARIO, details = "시나리오 상세 조회")
     @GetMapping("/{id}")
-    public ResponseEntity<ScenarioResponse> getScenario(@PathVariable("id") Long id) {
+    public ResponseEntity<ScenarioResponse> getScenario(@PathVariable("id") @NonNull Long id) {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || auth.getName() == null) {
             return ResponseEntity.status(401).body(null);
@@ -216,7 +217,7 @@ public class PackingScenarioController {
     @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.SCENARIO, details = "시나리오 수정")
     @PutMapping("/{id}")
     @Transactional
-    public ResponseEntity<ScenarioResponse> updateScenario(@PathVariable("id") Long id, @Valid @RequestBody UpdateScenarioRequest request) {
+    public ResponseEntity<ScenarioResponse> updateScenario(@PathVariable("id") @NonNull Long id, @Valid @RequestBody UpdateScenarioRequest request) {
         logger.info("시나리오 수정 요청 - ID: {}, 이름: {}", id, request.name());
         
         try {
@@ -288,7 +289,7 @@ public class PackingScenarioController {
 
     @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.SCENARIO, details = "시나리오 즐겨찾기 토글")
     @PatchMapping("/{id}/favorite")
-    public ResponseEntity<ScenarioResponse> toggleFavorite(@PathVariable("id") Long id) {
+    public ResponseEntity<ScenarioResponse> toggleFavorite(@PathVariable("id") @NonNull Long id) {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || auth.getName() == null) {
             return ResponseEntity.status(401).body(null);
@@ -316,7 +317,7 @@ public class PackingScenarioController {
 
     @AdminLoggable(action = AdminLog.Action.DELETE, entityType = AdminLog.EntityType.SCENARIO, details = "시나리오 삭제")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteScenario(@PathVariable("id") Long id) {
+    public ResponseEntity<Void> deleteScenario(@PathVariable("id") @NonNull Long id) {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || auth.getName() == null) {
             return ResponseEntity.status(401).body(null);
