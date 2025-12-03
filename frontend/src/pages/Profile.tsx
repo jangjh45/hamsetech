@@ -116,31 +116,31 @@ export default function ProfilePage() {
 
         {/* 기본 정보 */}
         <section className="card" style={{ padding: 24, marginBottom: 24 }}>
-          <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: '1.2rem' }}>기본 정보</h2>
+          <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: '1.2rem', textAlign: 'left' }}>기본 정보</h2>
           
           <div style={{ marginBottom: 16 }}>
-            <label className="field">아이디</label>
+            <label className="field" style={{ textAlign: 'left' }}>아이디</label>
             <div className="input" style={{ backgroundColor: 'var(--bg)', color: 'var(--muted)' }}>
               {profile?.username}
             </div>
           </div>
 
           <div style={{ marginBottom: 16 }}>
-            <label className="field">이메일</label>
+            <label className="field" style={{ textAlign: 'left' }}>이메일</label>
             <div className="input" style={{ backgroundColor: 'var(--bg)', color: 'var(--muted)' }}>
               {profile?.email}
             </div>
           </div>
 
           <div style={{ marginBottom: 16 }}>
-            <label className="field">권한</label>
+            <label className="field" style={{ textAlign: 'left' }}>권한</label>
             <div className="input" style={{ backgroundColor: 'var(--bg)', color: 'var(--muted)' }}>
               {profile?.roles.join(', ')}
             </div>
           </div>
 
           <div style={{ marginBottom: 16 }}>
-            <label className="field">닉네임 (이름)</label>
+            <label className="field" style={{ textAlign: 'left' }}>닉네임 (이름)</label>
             <div style={{ display: 'flex', gap: 8 }}>
               <input 
                 className="input" 
@@ -170,10 +170,10 @@ export default function ProfilePage() {
 
         {/* 비밀번호 변경 */}
         <section className="card" style={{ padding: 24 }}>
-          <h2 style={{ marginTop: 0, marginBottom: 20, fontSize: '1.2rem' }}>비밀번호 변경</h2>
+          <h2 style={{ marginTop: 0, marginBottom: 20, fontSize: '1.2rem', textAlign: 'left' }}>비밀번호 변경</h2>
           
           <div style={{ marginBottom: 16 }}>
-            <label className="field">현재 비밀번호</label>
+            <label className="field" style={{ textAlign: 'left' }}>현재 비밀번호</label>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <input 
                 type={showCurrentPassword ? "text" : "password"}
@@ -211,7 +211,7 @@ export default function ProfilePage() {
           </div>
 
           <div style={{ marginBottom: 16 }}>
-            <label className="field">새 비밀번호</label>
+            <label className="field" style={{ textAlign: 'left' }}>새 비밀번호</label>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <input 
                 type={showNewPassword ? "text" : "password"}
@@ -301,7 +301,7 @@ export default function ProfilePage() {
           </div>
 
           <div style={{ marginBottom: 20 }}>
-            <label className="field">새 비밀번호 확인</label>
+            <label className="field" style={{ textAlign: 'left' }}>새 비밀번호 확인</label>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <input 
                 type={showConfirmPassword ? "text" : "password"}

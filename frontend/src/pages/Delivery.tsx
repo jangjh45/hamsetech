@@ -566,7 +566,22 @@ export default function DeliveryPage() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="title" style={{ marginBottom: 16 }}>시나리오 불러오기</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h2 className="title" style={{ margin: 0 }}>시나리오 불러오기</h2>
+              <button 
+                className="btn ghost" 
+                onClick={() => setShowLoadModal(false)}
+                style={{ 
+                  minWidth: 'auto',
+                  padding: '8px 12px',
+                  fontSize: '20px',
+                  lineHeight: 1
+                }}
+                title="닫기"
+              >
+                ✕
+              </button>
+            </div>
             
             {/* 즐겨찾기 시나리오 */}
             {favoriteScenarios.length > 0 && (
@@ -606,15 +621,6 @@ export default function DeliveryPage() {
                   ))}
                 </div>
               )}
-            </div>
-            
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-              <button 
-                className="btn ghost" 
-                onClick={() => setShowLoadModal(false)}
-              >
-                닫기
-              </button>
             </div>
           </div>
         </div>

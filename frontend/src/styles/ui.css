@@ -133,8 +133,7 @@ body {
 }
 .btn:hover { 
   background: var(--primary-600); 
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(109, 139, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(109, 139, 255, 0.25);
 }
 .btn:active {
   transform: translateY(0);
@@ -147,8 +146,7 @@ body {
 .btn.ghost:hover {
   background: rgba(109, 139, 255, 0.08);
   border-color: var(--primary);
-  transform: translateY(-1px);
-  box-shadow: none;
+  box-shadow: 0 2px 8px rgba(109, 139, 255, 0.15);
 }
 
 /* 새 공지 버튼 */
@@ -159,7 +157,7 @@ body {
   box-shadow: 0 4px 15px rgba(109, 139, 255, 0.3);
 }
 .btn.btn-create:hover {
-  box-shadow: 0 8px 20px rgba(109, 139, 255, 0.4);
+  box-shadow: 0 2px 8px rgba(109, 139, 255, 0.25);
 }
 
 /* 수정 버튼 */
@@ -169,7 +167,7 @@ body {
 }
 .btn.btn-edit:hover {
   background: #2563eb;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
 }
 
 /* 삭제 버튼 */
@@ -179,8 +177,7 @@ body {
 }
 .btn.btn-delete:hover {
   background: #dc2626;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
-  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.25);
 }
 
 /* 댓글 등록 버튼 */
@@ -191,7 +188,7 @@ body {
   min-width: 120px;
 }
 .btn.btn-submit:hover:not(:disabled) {
-  box-shadow: 0 8px 20px rgba(109, 139, 255, 0.4);
+  box-shadow: 0 2px 8px rgba(109, 139, 255, 0.25);
 }
 .btn:disabled {
   opacity: 0.5;
@@ -213,13 +210,13 @@ body {
 
 .input-event:hover {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(109, 139, 255, 0.05);
+  box-shadow: 0 0 0 2px rgba(109, 139, 255, 0.1);
 }
 
 .input-event:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(109, 139, 255, 0.12);
+  box-shadow: 0 0 0 3px rgba(109, 139, 255, 0.15);
   background: var(--input-bg);
 }
 
@@ -233,7 +230,7 @@ body {
   cursor: pointer;
   font-weight: 600;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(109, 139, 255, 0.25);
+  box-shadow: 0 2px 4px rgba(109, 139, 255, 0.2);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -256,8 +253,7 @@ body {
 
 .btn-add-event:hover {
   background: linear-gradient(135deg, var(--primary) 0%, #5c7af0 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(109, 139, 255, 0.35);
+  box-shadow: 0 2px 8px rgba(109, 139, 255, 0.25);
 }
 
 .btn-add-event:hover::before {
@@ -266,7 +262,7 @@ body {
 
 .btn-add-event:active {
   transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(109, 139, 255, 0.2);
+  box-shadow: 0 1px 4px rgba(109, 139, 255, 0.2);
 }
 
 .btn-add-event:disabled {
@@ -281,10 +277,9 @@ body {
 }
 
 .event-item:hover, .todo-item:hover {
-  background: rgba(109, 139, 255, 0.12);
+  background: rgba(109, 139, 255, 0.08);
   border-color: rgba(109, 139, 255, 0.3);
-  box-shadow: 0 2px 8px rgba(109, 139, 255, 0.1);
-  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(109, 139, 255, 0.15);
 }
 
 /* 삭제 버튼 스타일 */
@@ -304,10 +299,10 @@ body {
 }
 
 .btn-delete-event:hover {
-  background: rgba(239, 68, 68, 0.1);
+  background: rgba(239, 68, 68, 0.08);
   border-color: var(--danger);
   color: var(--danger);
-  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
 }
 
 .btn-delete-event:active {
@@ -364,8 +359,8 @@ body {
 }
 
 .priority-button:hover {
-  background-color: rgba(109, 139, 255, 0.05);
-  transform: translateY(-1px);
+  background-color: rgba(109, 139, 255, 0.08);
+  box-shadow: 0 2px 6px rgba(109, 139, 255, 0.1);
 }
 
 .priority-button.active {
