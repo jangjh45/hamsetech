@@ -3,7 +3,7 @@ export type Placed = Rect & { x: number; y: number; rotated: boolean; truck: num
 
 export type PackOptions = {
   allowRotate?: boolean
-  margin?: number // item 주변 여유 간격
+  margin?: number
 }
 
 export type PackResult = {
@@ -11,20 +11,85 @@ export type PackResult = {
   count: number
 }
 
+// 빈 공간을 나타내는 타입
+type FreeRect = { x: number; y: number; w: number; h: number }
+
 function expandQuantities(items: Rect[]): Rect[] {
   const expanded: Rect[] = []
   for (const it of items) {
     const q = Math.max(1, it.qty || 1)
-    for (let i = 0; i < q; i++) expanded.push({ id: it.id, w: it.w, h: it.h })
+    // 큰 값을 세로(h)로, 작은 값을 가로(w)로 정규화
+    const normalizedW = Math.min(it.w, it.h)
+    const normalizedH = Math.max(it.w, it.h)
+    for (let i = 0; i < q; i++) expanded.push({ id: it.id, w: normalizedW, h: normalizedH })
   }
   return expanded
 }
 
-function rectsIntersect(
+// 두 직사각형이 겹치는지 확인
+function rectsOverlap(
   x1: number, y1: number, w1: number, h1: number,
   x2: number, y2: number, w2: number, h2: number
 ): boolean {
-  return !(x1 + w1 <= x2 || x2 + w2 <= x1 || y1 + h1 <= y2 || y2 + h2 <= y1)
+  return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2
+}
+
+// 물품 배치 후 빈 공간을 분할하고 업데이트
+function updateFreeRects(
+  freeRects: FreeRect[], 
+  placed: { x: number; y: number; w: number; h: number }
+): FreeRect[] {
+  const newFreeRects: FreeRect[] = []
+
+  for (const free of freeRects) {
+    // 배치된 물품과 빈 공간이 겹치지 않으면 그대로 유지
+    if (!rectsOverlap(free.x, free.y, free.w, free.h, placed.x, placed.y, placed.w, placed.h)) {
+      newFreeRects.push(free)
+      continue
+    }
+
+    // 배치된 물품에 의해 분할되는 새로운 빈 공간 생성
+    
+    // 왼쪽 빈 공간
+    if (placed.x > free.x) {
+      const w = placed.x - free.x
+      if (w > 0) {
+        newFreeRects.push({ x: free.x, y: free.y, w, h: free.h })
+      }
+    }
+    
+    // 오른쪽 빈 공간
+    const rightEdge = placed.x + placed.w
+    const freeRightEdge = free.x + free.w
+    if (rightEdge < freeRightEdge) {
+      const w = freeRightEdge - rightEdge
+      if (w > 0) {
+        newFreeRects.push({ x: rightEdge, y: free.y, w, h: free.h })
+      }
+    }
+    
+    // 위쪽 빈 공간
+    const topEdge = placed.y + placed.h
+    const freeTopEdge = free.y + free.h
+    if (topEdge < freeTopEdge) {
+      const h = freeTopEdge - topEdge
+      if (h > 0) {
+        newFreeRects.push({ x: free.x, y: topEdge, w: free.w, h })
+      }
+    }
+    
+    // 아래쪽 빈 공간
+    if (placed.y > free.y) {
+      const h = placed.y - free.y
+      if (h > 0) {
+        newFreeRects.push({ x: free.x, y: free.y, w: free.w, h })
+      }
+    }
+  }
+
+  // 유효한 빈 공간만 필터링 (크기가 0보다 큰 것)
+  // 간소화: 포함 관계 체크 없이 모든 빈 공간 유지
+  return newFreeRects.filter(r => r.w > 0 && r.h > 0)
 }
 
 export function packIntoTrucks(
@@ -40,104 +105,58 @@ export function packIntoTrucks(
 
   const expanded = expandQuantities(items)
 
-  // 개선된 정렬: 물품의 효율성을 고려한 정렬 (면적 + 둘레 길이)
-  const sorted = [...expanded].sort((a, b) => {
-    const areaA = a.w * a.h
-    const areaB = b.w * b.h
-    const perimeterA = 2 * (a.w + a.h)
-    const perimeterB = 2 * (b.w + b.h)
-
-    // 1. 면적이 큰 순서
-    if (areaA !== areaB) return areaB - areaA
-    // 2. 둘레 길이가 긴 순서 (더 복잡한 형태 우선)
-    if (perimeterA !== perimeterB) return perimeterB - perimeterA
-    // 3. 긴 변이 긴 순서
-    return Math.max(b.h, b.w) - Math.max(a.h, a.w)
-  })
+  // 입력된 물품 목록 순서대로 적재 (정렬 없음)
   
   const trucks: Placed[][] = []
-
   let currentTruck: Placed[] = []
+  let freeRects: FreeRect[] = [{ x: 0, y: 0, w: binW, h: binH }]
 
   const fitsBin = (w: number, h: number) => w <= binW && h <= binH
 
   const startNewTruck = () => {
     if (currentTruck.length) trucks.push(currentTruck)
     currentTruck = []
+    freeRects = [{ x: 0, y: 0, w: binW, h: binH }]
   }
 
-  // 트럭에 물품을 배치할 수 있는 위치를 찾기 - 최적화된 버전
-  const findBestPosition = (orientations: Array<{ w: number; h: number; rotated: boolean }>) => {
-    let bestPos: { x: number; y: number; o: { w: number; h: number; rotated: boolean } } | null = null
-    let bestScore = -1 // 더 높은 점수가 더 좋은 위치
-
-    // 그리드 크기 (큰 물품일수록 큰 그리드 사용)
-    const getGridSize = (itemSize: number) => Math.max(1, Math.min(20, Math.floor(itemSize / 10)))
+  // Best Fit: 물품이 들어갈 수 있는 가장 적합한 빈 공간 찾기
+  const findBestFit = (orientations: Array<{ w: number; h: number; rotated: boolean }>) => {
+    let bestFit: { 
+      x: number; 
+      y: number; 
+      o: { w: number; h: number; rotated: boolean };
+      score: number 
+    } | null = null
 
     for (const o of orientations) {
-      const gridSize = getGridSize(Math.max(o.w, o.h))
-
-      // Bottom-Left Fill: 아래쪽과 왼쪽부터 채우는 전략
-      for (let y = 0; y <= binH - o.h; y += gridSize) {
-        for (let x = 0; x <= binW - o.w; x += gridSize) {
-          // 배치 가능한 위치인지 확인 - 최적화된 충돌 검사
-          let canPlace = true
-          for (const placed of currentTruck) {
-            // 빠른 사전 검사: 바운딩 박스 겹침 확인
-            if (x < placed.x + placed.w && x + o.w > placed.x &&
-                y < placed.y + placed.h && y + o.h > placed.y) {
-              // 정밀 충돌 검사
-              if (rectsIntersect(x, y, o.w, o.h, placed.x, placed.y, placed.w, placed.h)) {
-                canPlace = false
-                break
-              }
-            }
-          }
-
-          if (canPlace) {
-            // 점수 계산: 아래쪽 우선, 그 다음 왼쪽 우선 (Bottom-Left Fill)
-            const score = (binH - y - o.h) * 1000 + (binW - x - o.w)
-            if (score > bestScore) {
-              bestScore = score
-              bestPos = { x, y, o }
-            }
-          }
-        }
-      }
-
-      // 그리드 검색으로 찾지 못했다면 정밀 검색 (1픽셀 단위)
-      if (!bestPos && gridSize > 1) {
-        for (let y = 0; y <= binH - o.h; y += 1) {
-          for (let x = 0; x <= binW - o.w; x += 1) {
-            let canPlace = true
-            for (const placed of currentTruck) {
-              // 빠른 사전 검사: 바운딩 박스 겹침 확인
-              if (x < placed.x + placed.w && x + o.w > placed.x &&
-                  y < placed.y + placed.h && y + o.h > placed.y) {
-                // 정밀 충돌 검사
-                if (rectsIntersect(x, y, o.w, o.h, placed.x, placed.y, placed.w, placed.h)) {
-                  canPlace = false
-                  break
-                }
-              }
-            }
-
-            if (canPlace) {
-              const score = (binH - y - o.h) * 1000 + (binW - x - o.w)
-              if (score > bestScore) {
-                bestScore = score
-                bestPos = { x, y, o }
-              }
+      for (const free of freeRects) {
+        // 빈 공간에 물품이 들어가는지 확인
+        if (o.w <= free.w && o.h <= free.h) {
+          // Best-Short-Side-Fit: 짧은 변의 남는 길이가 최소인 위치 선택
+          const leftoverW = free.w - o.w
+          const leftoverH = free.h - o.h
+          const shortSide = Math.min(leftoverW, leftoverH)
+          const longSide = Math.max(leftoverW, leftoverH)
+          
+          // 점수: 짧은 변 남는 길이 * 1000 + 긴 변 남는 길이
+          const score = shortSide * 10000 + longSide
+          
+          if (!bestFit || score < bestFit.score) {
+            bestFit = {
+              x: free.x,
+              y: free.y,
+              o,
+              score
             }
           }
         }
       }
     }
 
-    return bestPos
+    return bestFit
   }
 
-  for (const it of sorted) {
+  for (const it of expanded) {
     const orientations = allowRotate
       ? [
           { w: it.w + margin, h: it.h + margin, rotated: false },
@@ -145,26 +164,32 @@ export function packIntoTrucks(
         ]
       : [{ w: it.w + margin, h: it.h + margin, rotated: false }]
 
-    let placed = false
-
-    // 현재 트럭에 배치 시도
-    const bestPos = findBestPosition(orientations)
-    if (bestPos) {
+    // 현재 트럭에서 Best Fit 위치 찾기
+    const bestFit = findBestFit(orientations)
+    
+    if (bestFit) {
+      // 물품 배치
       currentTruck.push({
         ...it,
-        x: bestPos.x,
-        y: bestPos.y,
-        w: bestPos.o.w,
-        h: bestPos.o.h,
-        rotated: bestPos.o.rotated,
+        x: bestFit.x,
+        y: bestFit.y,
+        w: bestFit.o.w,
+        h: bestFit.o.h,
+        rotated: bestFit.o.rotated,
         truck: trucks.length
       })
-      placed = true
-    }
-
-    // 현재 트럭에 배치 불가 → 새 트럭 생성
-    if (!placed) {
+      
+      // 빈 공간 업데이트
+      freeRects = updateFreeRects(freeRects, { 
+        x: bestFit.x, 
+        y: bestFit.y, 
+        w: bestFit.o.w, 
+        h: bestFit.o.h 
+      })
+    } else {
+      // 현재 트럭에 배치 불가 → 새 트럭 생성
       startNewTruck()
+      
       const o = orientations.find(o => fitsBin(o.w, o.h))
       if (!o) throw new Error(`아이템이 트럭 크기보다 큽니다: ${it.id}`)
 
@@ -177,6 +202,9 @@ export function packIntoTrucks(
         rotated: o.rotated,
         truck: trucks.length
       })
+      
+      // 빈 공간 업데이트
+      freeRects = updateFreeRects(freeRects, { x: 0, y: 0, w: o.w, h: o.h })
     }
   }
 
@@ -184,5 +212,3 @@ export function packIntoTrucks(
 
   return { trucks, count: trucks.length }
 }
-
-

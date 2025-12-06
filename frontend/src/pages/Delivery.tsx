@@ -45,6 +45,8 @@ export default function DeliveryPage() {
   const [scenarioDescription, setScenarioDescription] = useState<string>('')
   const [editingScenario, setEditingScenario] = useState<PackingScenario | null>(null)
   const [showNameError, setShowNameError] = useState<boolean>(false)
+  const [duplicateNameError, setDuplicateNameError] = useState<boolean>(false) // 중복 이름 에러
+  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null) // 삭제 확인 모달용
 
   const nameMap = useMemo(() => Object.fromEntries(items.map(i => [i.id, i.name])), [items])
 
@@ -117,6 +119,45 @@ export default function DeliveryPage() {
     setItems(next)
   }
 
+  // 드래그 앤 드롭 관련
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+
+  function handleDragStart(idx: number) {
+    setDragIndex(idx)
+  }
+
+  function handleDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault()
+    if (dragIndex !== null && dragIndex !== idx) {
+      setDragOverIndex(idx)
+    }
+  }
+
+  function handleDragLeave() {
+    setDragOverIndex(null)
+  }
+
+  function handleDrop(idx: number) {
+    if (dragIndex === null || dragIndex === idx) {
+      setDragIndex(null)
+      setDragOverIndex(null)
+      return
+    }
+    
+    const next = [...items]
+    const [draggedItem] = next.splice(dragIndex, 1)
+    next.splice(idx, 0, draggedItem)
+    setItems(next)
+    setDragIndex(null)
+    setDragOverIndex(null)
+  }
+
+  function handleDragEnd() {
+    setDragIndex(null)
+    setDragOverIndex(null)
+  }
+
   // 로그인 상태 변경 감지
   useEffect(() => {
     const off = onAuthChange(() => {
@@ -162,7 +203,30 @@ export default function DeliveryPage() {
     }
 
     setShowNameError(false)
+    setDuplicateNameError(false)
+    console.log('저장 시도 - items:', items)
     try {
+      // 유효한 물품만 필터링하고, 빈 이름은 기본값으로 대체
+      const validItems = items
+        .filter(item => {
+          const w = parseInt(item.w || '0', 10)
+          const h = parseInt(item.h || '0', 10)
+          const qty = parseInt(item.qty || '0', 10)
+          return w > 0 && h > 0 && qty > 0
+        })
+        .map((item, index) => ({
+          name: item.name.trim() || `물품${index + 1}`,
+          width: parseInt(item.w || '0', 10),
+          height: parseInt(item.h || '0', 10),
+          quantity: parseInt(item.qty || '0', 10)
+        }))
+
+      if (validItems.length === 0) {
+        console.log('유효한 물품 없음')
+        alert('저장할 유효한 물품이 없습니다. 가로, 세로, 수량이 모두 0보다 큰 물품을 추가해주세요.')
+        return
+      }
+
       const request: CreateScenarioRequest = {
         name: scenarioName.trim(),
         description: scenarioDescription.trim() || undefined,
@@ -170,18 +234,19 @@ export default function DeliveryPage() {
         truckHeight: parseInt(binHStr || '0', 10),
         allowRotate,
         margin: parseInt(marginStr || '0', 10),
-        items: items.map(item => ({
-          name: item.name,
-          width: parseInt(item.w || '0', 10),
-          height: parseInt(item.h || '0', 10),
-          quantity: parseInt(item.qty || '0', 10)
-        }))
+        items: validItems
       }
 
+      console.log('저장할 데이터:', request)
+
       if (editingScenario) {
+        console.log('시나리오 수정 시작:', editingScenario.id)
         await updateScenario(editingScenario.id!, request)
+        console.log('시나리오 수정 완료')
       } else {
+        console.log('새 시나리오 생성 시작')
         await createScenario(request)
+        console.log('새 시나리오 생성 완료')
       }
 
       setShowScenarioModal(false)
@@ -192,8 +257,14 @@ export default function DeliveryPage() {
       await loadScenarios()
     } catch (error: any) {
       console.error('시나리오 저장 실패:', error)
-      const errorMessage = error.message || '시나리오 저장에 실패했습니다.'
-      alert(`시나리오 저장 실패: ${errorMessage}`)
+      
+      // HTTP 상태 코드에 따른 에러 메시지
+      if (error.message?.includes('400')) {
+        setDuplicateNameError(true)
+      } else {
+        const errorMessage = error.message || '시나리오 저장에 실패했습니다.'
+        alert(`시나리오 저장 실패: ${errorMessage}`)
+      }
     }
   }
 
@@ -216,15 +287,35 @@ export default function DeliveryPage() {
   }
 
   async function deleteScenarioHandler(id: number) {
-    if (!confirm('정말로 이 시나리오를 삭제하시겠습니까?')) return
+    // 삭제 확인 모달 표시
+    setDeleteTargetId(id)
+  }
 
+  async function confirmDelete() {
+    if (deleteTargetId === null) return
+    
+    console.log('시나리오 삭제 시도:', deleteTargetId)
     try {
-      await deleteScenario(id)
-      await loadScenarios()
+      await deleteScenario(deleteTargetId)
+      console.log('시나리오 삭제 성공:', deleteTargetId)
+      // 시나리오 목록 다시 로드
+      const [allScenarios, favorites] = await Promise.all([
+        getAllScenarios(),
+        getFavoriteScenarios()
+      ])
+      setScenarios(allScenarios)
+      setFavoriteScenarios(favorites)
+      console.log('시나리오 목록 갱신 완료')
     } catch (error) {
       console.error('시나리오 삭제 실패:', error)
       alert('시나리오 삭제에 실패했습니다.')
+    } finally {
+      setDeleteTargetId(null)
     }
+  }
+
+  function cancelDelete() {
+    setDeleteTargetId(null)
   }
 
   async function toggleFavoriteHandler(id: number) {
@@ -299,20 +390,25 @@ export default function DeliveryPage() {
             )}
           </div>
           <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(220px, 1fr))', 
-            gap: 12 
+            display: 'flex', 
+            flexDirection: isMobile ? 'column' : 'row',
+            gap: isMobile ? 12 : 16,
+            alignItems: isMobile ? 'stretch' : 'flex-end',
+            flexWrap: 'wrap'
           }}>
-            <label className="field">가로(W, mm)
-              <input className="input" inputMode="numeric" value={binWStr} onChange={e => setBinWStr(normalizeNumericInput(e.target.value))} placeholder="예: 1200" />
-            </label>
-            <label className="field">세로(H, mm)
-              <input className="input" inputMode="numeric" value={binHStr} onChange={e => setBinHStr(normalizeNumericInput(e.target.value))} placeholder="예: 800" />
-            </label>
-            <label className="field">마진(mm)
-              <input className="input" inputMode="numeric" value={marginStr} onChange={e => setMarginStr(normalizeNumericInput(e.target.value))} placeholder="0" />
-            </label>
-            <label className="field" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="field" style={{ margin: 0 }}>
+              <label style={{ marginBottom: 6, display: 'block', fontSize: '14px', color: 'var(--muted)' }}>가로 (mm)</label>
+              <input className="input" style={{ textAlign: 'center', width: '100px' }} inputMode="numeric" value={binWStr} onChange={e => setBinWStr(normalizeNumericInput(e.target.value))} placeholder="1200" />
+            </div>
+            <div className="field" style={{ margin: 0 }}>
+              <label style={{ marginBottom: 6, display: 'block', fontSize: '14px', color: 'var(--muted)' }}>세로 (mm)</label>
+              <input className="input" style={{ textAlign: 'center', width: '100px' }} inputMode="numeric" value={binHStr} onChange={e => setBinHStr(normalizeNumericInput(e.target.value))} placeholder="800" />
+            </div>
+            <div className="field" style={{ margin: 0 }}>
+              <label style={{ marginBottom: 6, display: 'block', fontSize: '14px', color: 'var(--muted)' }}>마진 (mm)</label>
+              <input className="input" style={{ textAlign: 'center', width: '80px' }} inputMode="numeric" value={marginStr} onChange={e => setMarginStr(normalizeNumericInput(e.target.value))} placeholder="0" />
+            </div>
+            <label className="field" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 8 }}>
               <input type="checkbox" checked={allowRotate} onChange={e => setAllowRotate(e.target.checked)} /> 회전 허용
             </label>
           </div>
@@ -332,34 +428,56 @@ export default function DeliveryPage() {
           <div style={{ overflowX: 'auto', marginTop: 12 }}>
             <table className="table" style={{ 
               width: '100%', 
-              minWidth: isMobile ? '600px' : 'auto',
-              fontSize: isMobile ? '14px' : '16px'
+              minWidth: isMobile ? '500px' : 'auto',
+              fontSize: isMobile ? '14px' : '16px',
+              tableLayout: 'fixed'
             }}>
               <thead>
                 <tr>
-                  <th>ID</th>
-                  <th>이름</th>
-                  <th>가로(W, mm)</th>
-                  <th>세로(H, mm)</th>
-                  <th>수량</th>
-                  <th></th>
+                  <th style={{ width: '60px', textAlign: 'center', padding: '8px 6px' }}>순서</th>
+                  <th style={{ width: isMobile ? '120px' : '180px', textAlign: 'left', padding: '8px 6px' }}>이름</th>
+                  <th style={{ width: isMobile ? '180px' : '220px', textAlign: 'center', padding: '8px 6px' }}>치수 (mm)</th>
+                  <th style={{ width: '70px', textAlign: 'center', padding: '8px 6px' }}>수량</th>
+                  <th style={{ width: '60px', padding: '8px 6px' }}></th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((it, idx) => (
-                  <tr key={it.id}>
-                    <td>{it.id}</td>
-                    <td><input className="input" style={{ textAlign: 'left', maxWidth: isMobile ? '150px' : '300px' }} value={it.name} onChange={e => updateItem(idx, { name: e.target.value })} placeholder="예: 박스A" /></td>
-                    <td><input className="input" style={{ maxWidth: isMobile ? '100px' : '140px' }} inputMode="numeric" value={it.w} onChange={e => updateItem(idx, { w: normalizeNumericInput(e.target.value) })} /></td>
-                    <td><input className="input" style={{ maxWidth: isMobile ? '100px' : '140px' }} inputMode="numeric" value={it.h} onChange={e => updateItem(idx, { h: normalizeNumericInput(e.target.value) })} /></td>
-                    <td><input className="input" style={{ maxWidth: isMobile ? '50px' : '80px' }} inputMode="numeric" value={it.qty} onChange={e => updateItem(idx, { qty: normalizeNumericInput(e.target.value) })} /></td>
-                    <td>
+                  <tr 
+                    key={it.id}
+                    draggable
+                    onDragStart={() => handleDragStart(idx)}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={() => handleDrop(idx)}
+                    onDragEnd={handleDragEnd}
+                    style={{
+                      cursor: 'grab',
+                      opacity: dragIndex === idx ? 0.5 : 1,
+                      backgroundColor: dragOverIndex === idx ? 'var(--accent-bg)' : 'transparent',
+                      transition: 'background-color 0.15s ease'
+                    }}
+                  >
+                    <td style={{ textAlign: 'center', padding: '6px' }}>
+                      <span style={{ cursor: 'grab', marginRight: 4, color: 'var(--muted)' }}>⋮⋮</span>
+                      {idx + 1}
+                    </td>
+                    <td style={{ padding: '6px' }}><input className="input" style={{ textAlign: 'left', width: '100%' }} value={it.name} onChange={e => updateItem(idx, { name: e.target.value })} placeholder="예: 박스A" /></td>
+                    <td style={{ padding: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
+                        <input className="input" style={{ textAlign: 'center', width: isMobile ? '80px' : '100px' }} inputMode="numeric" value={it.w} onChange={e => updateItem(idx, { w: normalizeNumericInput(e.target.value) })} placeholder="400" />
+                        <span style={{ fontWeight: 'bold', color: 'var(--muted)', fontSize: '14px' }}>✕</span>
+                        <input className="input" style={{ textAlign: 'center', width: isMobile ? '80px' : '100px' }} inputMode="numeric" value={it.h} onChange={e => updateItem(idx, { h: normalizeNumericInput(e.target.value) })} placeholder="300" />
+                      </div>
+                    </td>
+                    <td style={{ textAlign: 'center', padding: '6px' }}><input className="input" style={{ textAlign: 'center', width: '60px' }} inputMode="numeric" value={it.qty} onChange={e => updateItem(idx, { qty: normalizeNumericInput(e.target.value) })} /></td>
+                    <td style={{ textAlign: 'center', padding: '6px' }}>
                       <button 
                         className="btn ghost" 
                         onClick={() => removeItem(idx)}
                         style={{ 
                           fontSize: isMobile ? '12px' : '14px',
-                          padding: isMobile ? '4px 8px' : '8px 14px',
+                          padding: isMobile ? '4px 8px' : '6px 12px',
                           whiteSpace: 'nowrap'
                         }}
                       >
@@ -487,20 +605,28 @@ export default function DeliveryPage() {
             <div className="field">
               <label style={{ textAlign: 'left' }}>시나리오 이름 <span style={{ color: 'red' }}>*</span> <span style={{ fontSize: '12px', color: 'var(--muted)' }}>(* 표시된 항목은 필수 입력입니다)</span></label>
               <input 
-                className={`input ${showNameError ? 'error' : ''}`}
+                className={`input ${showNameError || duplicateNameError ? 'error' : ''}`}
                 value={scenarioName}
                 onChange={(e) => {
                   setScenarioName(e.target.value)
                   if (showNameError && e.target.value.trim()) {
                     setShowNameError(false)
                   }
+                  if (duplicateNameError) {
+                    setDuplicateNameError(false)
+                  }
                 }}
                 placeholder="예: 기본 적재 설정"
-                style={showNameError ? { borderColor: 'red' } : {}}
+                style={(showNameError || duplicateNameError) ? { borderColor: 'red' } : {}}
               />
               {showNameError && (
                 <p style={{ color: 'red', fontSize: '12px', margin: '4px 0 0 0' }}>
                   시나리오 이름을 입력해주세요.
+                </p>
+              )}
+              {duplicateNameError && (
+                <p style={{ color: 'red', fontSize: '12px', margin: '4px 0 0 0' }}>
+                  이미 같은 이름의 시나리오가 존재합니다. 다른 이름을 사용해주세요.
                 </p>
               )}
             </div>
@@ -561,12 +687,21 @@ export default function DeliveryPage() {
               maxWidth: isMobile ? '95%' : 700, 
               width: isMobile ? '95%' : '90%', 
               maxHeight: '90vh', 
-              overflow: 'auto',
-              padding: isMobile ? '16px' : '24px'
+              overflow: 'hidden',
+              padding: 0,
+              display: 'flex',
+              flexDirection: 'column'
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              padding: isMobile ? '16px' : '24px',
+              paddingBottom: 0,
+              flexShrink: 0
+            }}>
               <h2 className="title" style={{ margin: 0 }}>시나리오 불러오기</h2>
               <button 
                 className="btn ghost" 
@@ -582,45 +717,100 @@ export default function DeliveryPage() {
                 ✕
               </button>
             </div>
-            
-            {/* 즐겨찾기 시나리오 */}
-            {favoriteScenarios.length > 0 && (
-              <div style={{ marginBottom: 24 }}>
-                <h3 style={{ marginBottom: 12, color: 'var(--accent)', textAlign: 'left' }}>⭐ 즐겨찾기</h3>
-                <div style={{ display: 'grid', gap: 8 }}>
-                  {favoriteScenarios.map((scenario) => (
-                    <ScenarioCard 
-                      key={scenario.id}
-                      scenario={scenario}
-                      onLoad={() => loadScenario(scenario)}
-                      onEdit={() => openEditModal(scenario)}
-                      onDelete={() => deleteScenarioHandler(scenario.id!)}
-                      onToggleFavorite={() => toggleFavoriteHandler(scenario.id!)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* 전체 시나리오 */}
-            <div>
-              <h3 style={{ marginBottom: 12, textAlign: 'left' }}>전체 시나리오</h3>
-              {scenarios.length === 0 ? (
-                <p className="subtitle">저장된 시나리오가 없습니다.</p>
-              ) : (
-                <div style={{ display: 'grid', gap: 8 }}>
-                  {scenarios.map((scenario) => (
-                    <ScenarioCard 
-                      key={scenario.id}
-                      scenario={scenario}
-                      onLoad={() => loadScenario(scenario)}
-                      onEdit={() => openEditModal(scenario)}
-                      onDelete={() => deleteScenarioHandler(scenario.id!)}
-                      onToggleFavorite={() => toggleFavoriteHandler(scenario.id!)}
-                    />
-                  ))}
+
+            <div style={{ 
+              overflowY: 'auto', 
+              padding: isMobile ? '16px' : '24px',
+              flex: 1
+            }}>
+              {/* 즐겨찾기 시나리오 */}
+              {favoriteScenarios.length > 0 && (
+                <div style={{ marginBottom: 24 }}>
+                  <h3 style={{ marginBottom: 12, color: 'var(--accent)', textAlign: 'left' }}>⭐ 즐겨찾기</h3>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {favoriteScenarios.map((scenario) => (
+                      <ScenarioCard 
+                        key={scenario.id}
+                        scenario={scenario}
+                        onLoad={() => loadScenario(scenario)}
+                        onEdit={() => openEditModal(scenario)}
+                        onDelete={() => deleteScenarioHandler(scenario.id!)}
+                        onToggleFavorite={() => toggleFavoriteHandler(scenario.id!)}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
+              
+              {/* 전체 시나리오 */}
+              <div>
+                <h3 style={{ marginBottom: 12, textAlign: 'left' }}>전체 시나리오</h3>
+                {scenarios.length === 0 ? (
+                  <p className="subtitle">저장된 시나리오가 없습니다.</p>
+                ) : (
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {scenarios.map((scenario) => (
+                      <ScenarioCard 
+                        key={scenario.id}
+                        scenario={scenario}
+                        onLoad={() => loadScenario(scenario)}
+                        onEdit={() => openEditModal(scenario)}
+                        onDelete={() => deleteScenarioHandler(scenario.id!)}
+                        onToggleFavorite={() => toggleFavoriteHandler(scenario.id!)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 삭제 확인 모달 */}
+      {deleteTargetId !== null && (
+        <div className="modal-overlay" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div className="card" style={{
+            padding: 24,
+            maxWidth: 400,
+            width: '90%',
+            textAlign: 'center'
+          }}>
+            <h3 style={{ marginBottom: 16 }}>시나리오 삭제</h3>
+            <p style={{ marginBottom: 24, color: 'var(--muted)' }}>
+              정말로 이 시나리오를 삭제하시겠습니까?<br />
+              <span style={{ fontSize: 14, color: 'var(--error, #ef4444)' }}>이 작업은 되돌릴 수 없습니다.</span>
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+              <button 
+                className="btn ghost" 
+                onClick={cancelDelete}
+                style={{ minWidth: 80 }}
+              >
+                취소
+              </button>
+              <button 
+                className="btn" 
+                onClick={confirmDelete}
+                style={{ 
+                  minWidth: 80, 
+                  backgroundColor: 'var(--error, #ef4444)',
+                  borderColor: 'var(--error, #ef4444)'
+                }}
+              >
+                삭제
+              </button>
             </div>
           </div>
         </div>
@@ -744,16 +934,18 @@ function TruckSvg({ binW, binH, items, nameMap }: { binW: number; binH: number; 
   const idFontSize = Math.max(2, 12 / scale) // 약 12px
   const subFontSize = Math.max(2, 10 / scale) // 약 10px
 
-  // 물건별 색상 팔레트 (ID 기반으로 색상 할당)
+  // 물건별 색상 팔레트 (더 세련된 색상)
   const colorPalette = [
-    { fill: '#3b82f6', stroke: '#1d4ed8' }, // 파란색
-    { fill: '#10b981', stroke: '#047857' }, // 초록색
-    { fill: '#f59e0b', stroke: '#d97706' }, // 주황색
-    { fill: '#ef4444', stroke: '#dc2626' }, // 빨간색
-    { fill: '#8b5cf6', stroke: '#7c3aed' }, // 보라색
-    { fill: '#06b6d4', stroke: '#0891b2' }, // 청록색
-    { fill: '#84cc16', stroke: '#65a30d' }, // 라임색
-    { fill: '#f97316', stroke: '#ea580c' }, // 오렌지색
+    { fill: '#60a5fa', stroke: '#2563eb', text: '#ffffff' }, // Blue
+    { fill: '#34d399', stroke: '#059669', text: '#ffffff' }, // Green
+    { fill: '#fbbf24', stroke: '#d97706', text: '#ffffff' }, // Amber
+    { fill: '#f87171', stroke: '#dc2626', text: '#ffffff' }, // Red
+    { fill: '#a78bfa', stroke: '#7c3aed', text: '#ffffff' }, // Purple
+    { fill: '#22d3ee', stroke: '#0891b2', text: '#ffffff' }, // Cyan
+    { fill: '#a3e635', stroke: '#65a30d', text: '#ffffff' }, // Lime
+    { fill: '#fb923c', stroke: '#ea580c', text: '#ffffff' }, // Orange
+    { fill: '#f472b6', stroke: '#db2777', text: '#ffffff' }, // Pink
+    { fill: '#94a3b8', stroke: '#475569', text: '#ffffff' }, // Slate
   ]
 
   const getItemColor = (id: number) => colorPalette[id % colorPalette.length]
@@ -764,25 +956,72 @@ function TruckSvg({ binW, binH, items, nameMap }: { binW: number; binH: number; 
       height={height}
       viewBox={`0 0 ${binW} ${binH}`}
       preserveAspectRatio="xMidYMid meet"
-      style={{ border: '1px solid var(--border)', background: 'transparent' }}
+      style={{ 
+        border: '2px solid var(--border)', 
+        background: 'var(--input-bg)', // 배경색 추가
+        borderRadius: '4px', // 둥근 모서리
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)' // 그림자 효과
+      }}
     >
-      <rect x={0} y={0} width={binW} height={binH} fill="transparent" stroke="var(--border)" />
+      {/* 격자 무늬 패턴 (선택 사항) */}
+      <defs>
+        <pattern id="grid" width={100} height={100} patternUnits="userSpaceOnUse">
+          <path d="M 100 0 L 0 0 0 100" fill="none" stroke="var(--border)" strokeWidth="0.5" opacity="0.3"/>
+        </pattern>
+      </defs>
+      <rect x={0} y={0} width={binW} height={binH} fill="url(#grid)" />
+
       {items.map((it, idx) => {
         const colors = getItemColor(it.id)
+        const itemName = nameMap[it.id] || `#${it.id}`
+        const itemDim = `${Math.round(it.w)}×${Math.round(it.h)}mm`
+        
         return (
           <g key={idx}>
+            <title>{`${itemName} (${itemDim})`}</title> {/* 툴팁 추가 */}
             <rect
               x={it.x + visualPadding}
               y={it.y + visualPadding}
               width={Math.max(0, it.w - visualPadding * 2)}
               height={Math.max(0, it.h - visualPadding * 2)}
               fill={colors.fill}
-              opacity="0.3"
+              opacity="0.85" // 불투명도 증가
               stroke={colors.stroke}
-              strokeWidth="0.5"
+              strokeWidth="1.5" // 테두리 두께 증가
+              rx="2" ry="2" // 물품 모서리 둥글게
+              style={{ transition: 'opacity 0.2s' }}
             />
-            <text x={it.x + 1 + visualPadding} y={it.y + idFontSize + visualPadding} fontSize={idFontSize} fill="var(--text)">{nameMap[it.id] || `#${it.id}`}{it.rotated ? '↻' : ''}</text>
-            <text x={it.x + 1 + visualPadding} y={it.y + idFontSize + subFontSize + visualPadding} fontSize={subFontSize} fill="var(--text)">{`${Math.round(it.w)}×${Math.round(it.h)}mm`}</text>
+            {/* 텍스트 그림자 효과로 가독성 향상 */}
+            <text 
+              x={it.x + it.w / 2} 
+              y={it.y + it.h / 2 - subFontSize / 2} 
+              fontSize={idFontSize} 
+              fill={colors.text}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              style={{ 
+                fontWeight: 'bold', 
+                textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+                pointerEvents: 'none' // 텍스트가 툴팁 방해하지 않도록
+              }}
+            >
+              {itemName}{it.rotated ? ' ↻' : ''}
+            </text>
+            <text 
+              x={it.x + it.w / 2} 
+              y={it.y + it.h / 2 + idFontSize / 2 + 2} 
+              fontSize={subFontSize} 
+              fill={colors.text}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              opacity="0.9"
+              style={{ 
+                textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+                pointerEvents: 'none'
+              }}
+            >
+              {itemDim}
+            </text>
           </g>
         )
       })}

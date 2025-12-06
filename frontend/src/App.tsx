@@ -7,6 +7,7 @@ import AdminPage from './pages/Admin'
 import HomePage from './pages/Home'
 import Header from './components/Header'
 import AdminRoute from './routes/AdminRoute'
+import ProtectedRoute from './routes/ProtectedRoute'
 import NoticeDetailPage from './pages/NoticeDetail'
 import NoticeEditorPage from './pages/NoticeEditor'
 import NoticesPage from './pages/Notices'
@@ -36,7 +37,7 @@ export default function App() {
         <Route path="/notice/:id/edit" element={<NoticeEditorPage />} />
         <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
         <Route path="/delivery" element={<DeliveryPage />} />
-        <Route path="/profile" element={<AdminRoute><ProfilePage /></AdminRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       </Routes>
     </div>
   )
