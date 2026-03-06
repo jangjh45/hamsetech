@@ -110,6 +110,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left;
 }
 
 .notice-item-author,
@@ -153,6 +154,7 @@
   font-weight: 800;
   margin: 0 0 16px 0;
   line-height: 1.3;
+  text-align: left;
 }
 
 .notice-detail-meta {
@@ -169,6 +171,7 @@
   color: var(--text);
   min-height: 200px;
   white-space: pre-wrap;
+  text-align: left;
   margin-bottom: 40px;
 }
 
@@ -257,6 +260,7 @@
   font-size: 15px;
   line-height: 1.6;
   margin-bottom: 12px;
+  text-align: left;
 }
 
 .comment-footer {

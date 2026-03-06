@@ -1,5 +1,14 @@
 export type Rect = { id: number; w: number; h: number; qty?: number }
-export type Placed = Rect & { x: number; y: number; rotated: boolean; truck: number }
+
+export type Placed = {
+  id: number
+  x: number
+  y: number
+  w: number       // 화면 표시용 너비 (마진 제외)
+  h: number       // 화면 표시용 높이 (마진 제외)
+  rotated: boolean
+  truck: number
+}
 
 export type PackOptions = {
   allowRotate?: boolean
@@ -11,22 +20,27 @@ export type PackResult = {
   count: number
 }
 
-// 빈 공간을 나타내는 타입
 type FreeRect = { x: number; y: number; w: number; h: number }
+
+type Orientation = {
+  displayW: number
+  displayH: number
+  packW: number   // 마진 포함 패킹용 너비
+  packH: number   // 마진 포함 패킹용 높이
+  rotated: boolean
+}
 
 function expandQuantities(items: Rect[]): Rect[] {
   const expanded: Rect[] = []
   for (const it of items) {
     const q = Math.max(1, it.qty || 1)
-    // 큰 값을 세로(h)로, 작은 값을 가로(w)로 정규화
-    const normalizedW = Math.min(it.w, it.h)
-    const normalizedH = Math.max(it.w, it.h)
-    for (let i = 0; i < q; i++) expanded.push({ id: it.id, w: normalizedW, h: normalizedH })
+    for (let i = 0; i < q; i++) {
+      expanded.push({ id: it.id, w: it.w, h: it.h })
+    }
   }
   return expanded
 }
 
-// 두 직사각형이 겹치는지 확인
 function rectsOverlap(
   x1: number, y1: number, w1: number, h1: number,
   x2: number, y2: number, w2: number, h2: number
@@ -34,62 +48,54 @@ function rectsOverlap(
   return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2
 }
 
-// 물품 배치 후 빈 공간을 분할하고 업데이트
 function updateFreeRects(
-  freeRects: FreeRect[], 
+  freeRects: FreeRect[],
   placed: { x: number; y: number; w: number; h: number }
 ): FreeRect[] {
   const newFreeRects: FreeRect[] = []
 
   for (const free of freeRects) {
-    // 배치된 물품과 빈 공간이 겹치지 않으면 그대로 유지
     if (!rectsOverlap(free.x, free.y, free.w, free.h, placed.x, placed.y, placed.w, placed.h)) {
       newFreeRects.push(free)
       continue
     }
 
-    // 배치된 물품에 의해 분할되는 새로운 빈 공간 생성
-    
-    // 왼쪽 빈 공간
+    // 왼쪽
     if (placed.x > free.x) {
-      const w = placed.x - free.x
-      if (w > 0) {
-        newFreeRects.push({ x: free.x, y: free.y, w, h: free.h })
-      }
+      newFreeRects.push({ x: free.x, y: free.y, w: placed.x - free.x, h: free.h })
     }
-    
-    // 오른쪽 빈 공간
+    // 오른쪽
     const rightEdge = placed.x + placed.w
     const freeRightEdge = free.x + free.w
     if (rightEdge < freeRightEdge) {
-      const w = freeRightEdge - rightEdge
-      if (w > 0) {
-        newFreeRects.push({ x: rightEdge, y: free.y, w, h: free.h })
-      }
+      newFreeRects.push({ x: rightEdge, y: free.y, w: freeRightEdge - rightEdge, h: free.h })
     }
-    
-    // 위쪽 빈 공간
-    const topEdge = placed.y + placed.h
-    const freeTopEdge = free.y + free.h
-    if (topEdge < freeTopEdge) {
-      const h = freeTopEdge - topEdge
-      if (h > 0) {
-        newFreeRects.push({ x: free.x, y: topEdge, w: free.w, h })
-      }
-    }
-    
-    // 아래쪽 빈 공간
+    // 아래쪽 (y 증가 방향이 아래)
     if (placed.y > free.y) {
-      const h = placed.y - free.y
-      if (h > 0) {
-        newFreeRects.push({ x: free.x, y: free.y, w: free.w, h })
-      }
+      newFreeRects.push({ x: free.x, y: free.y, w: free.w, h: placed.y - free.y })
+    }
+    // 위쪽
+    const bottomEdge = placed.y + placed.h
+    const freeBottomEdge = free.y + free.h
+    if (bottomEdge < freeBottomEdge) {
+      newFreeRects.push({ x: free.x, y: bottomEdge, w: free.w, h: freeBottomEdge - bottomEdge })
     }
   }
 
-  // 유효한 빈 공간만 필터링 (크기가 0보다 큰 것)
-  // 간소화: 포함 관계 체크 없이 모든 빈 공간 유지
   return newFreeRects.filter(r => r.w > 0 && r.h > 0)
+}
+
+// 다른 free rect에 완전히 포함된 rect 제거 → 중복 연산 감소
+function pruneContained(freeRects: FreeRect[]): FreeRect[] {
+  return freeRects.filter((r, i) =>
+    !freeRects.some((other, j) =>
+      i !== j &&
+      other.x <= r.x &&
+      other.y <= r.y &&
+      other.x + other.w >= r.x + r.w &&
+      other.y + other.h >= r.y + r.h
+    )
+  )
 }
 
 export function packIntoTrucks(
@@ -105,8 +111,9 @@ export function packIntoTrucks(
 
   const expanded = expandQuantities(items)
 
-  // 입력된 물품 목록 순서대로 적재 (정렬 없음)
-  
+  // 면적 큰 순으로 정렬 → 트럭 수 최소화
+  expanded.sort((a, b) => b.w * b.h - a.w * a.h)
+
   const trucks: Placed[][] = []
   let currentTruck: Placed[] = []
   let freeRects: FreeRect[] = [{ x: 0, y: 0, w: binW, h: binH }]
@@ -119,35 +126,21 @@ export function packIntoTrucks(
     freeRects = [{ x: 0, y: 0, w: binW, h: binH }]
   }
 
-  // Best Fit: 물품이 들어갈 수 있는 가장 적합한 빈 공간 찾기
-  const findBestFit = (orientations: Array<{ w: number; h: number; rotated: boolean }>) => {
-    let bestFit: { 
-      x: number; 
-      y: number; 
-      o: { w: number; h: number; rotated: boolean };
-      score: number 
-    } | null = null
+  // Best-Short-Side-Fit: 짧은 변의 잔여 공간이 최소인 위치 선택
+  const findBestFit = (orientations: Orientation[]) => {
+    let bestFit: { x: number; y: number; o: Orientation; score: number } | null = null
 
     for (const o of orientations) {
       for (const free of freeRects) {
-        // 빈 공간에 물품이 들어가는지 확인
-        if (o.w <= free.w && o.h <= free.h) {
-          // Best-Short-Side-Fit: 짧은 변의 남는 길이가 최소인 위치 선택
-          const leftoverW = free.w - o.w
-          const leftoverH = free.h - o.h
+        if (o.packW <= free.w && o.packH <= free.h) {
+          const leftoverW = free.w - o.packW
+          const leftoverH = free.h - o.packH
           const shortSide = Math.min(leftoverW, leftoverH)
           const longSide = Math.max(leftoverW, leftoverH)
-          
-          // 점수: 짧은 변 남는 길이 * 1000 + 긴 변 남는 길이
           const score = shortSide * 10000 + longSide
-          
+
           if (!bestFit || score < bestFit.score) {
-            bestFit = {
-              x: free.x,
-              y: free.y,
-              o,
-              score
-            }
+            bestFit = { x: free.x, y: free.y, o, score }
           }
         }
       }
@@ -156,55 +149,52 @@ export function packIntoTrucks(
     return bestFit
   }
 
-  for (const it of expanded) {
-    const orientations = allowRotate
-      ? [
-          { w: it.w + margin, h: it.h + margin, rotated: false },
-          { w: it.h + margin, h: it.w + margin, rotated: true },
-        ]
-      : [{ w: it.w + margin, h: it.h + margin, rotated: false }]
+  const makeOrientations = (it: Rect): Orientation[] => {
+    if (allowRotate) {
+      return [
+        { displayW: it.w, displayH: it.h, packW: it.w + margin, packH: it.h + margin, rotated: false },
+        { displayW: it.h, displayH: it.w, packW: it.h + margin, packH: it.w + margin, rotated: true },
+      ]
+    }
+    return [{ displayW: it.w, displayH: it.h, packW: it.w + margin, packH: it.h + margin, rotated: false }]
+  }
 
-    // 현재 트럭에서 Best Fit 위치 찾기
+  for (const it of expanded) {
+    const orientations = makeOrientations(it)
     const bestFit = findBestFit(orientations)
-    
+
     if (bestFit) {
-      // 물품 배치
       currentTruck.push({
-        ...it,
+        id: it.id,
         x: bestFit.x,
         y: bestFit.y,
-        w: bestFit.o.w,
-        h: bestFit.o.h,
+        w: bestFit.o.displayW,
+        h: bestFit.o.displayH,
         rotated: bestFit.o.rotated,
         truck: trucks.length
       })
-      
-      // 빈 공간 업데이트
-      freeRects = updateFreeRects(freeRects, { 
-        x: bestFit.x, 
-        y: bestFit.y, 
-        w: bestFit.o.w, 
-        h: bestFit.o.h 
-      })
+      freeRects = pruneContained(updateFreeRects(freeRects, {
+        x: bestFit.x,
+        y: bestFit.y,
+        w: bestFit.o.packW,
+        h: bestFit.o.packH
+      }))
     } else {
-      // 현재 트럭에 배치 불가 → 새 트럭 생성
       startNewTruck()
-      
-      const o = orientations.find(o => fitsBin(o.w, o.h))
+
+      const o = orientations.find(o => fitsBin(o.packW, o.packH))
       if (!o) throw new Error(`아이템이 트럭 크기보다 큽니다: ${it.id}`)
 
       currentTruck.push({
-        ...it,
+        id: it.id,
         x: 0,
         y: 0,
-        w: o.w,
-        h: o.h,
+        w: o.displayW,
+        h: o.displayH,
         rotated: o.rotated,
         truck: trucks.length
       })
-      
-      // 빈 공간 업데이트
-      freeRects = updateFreeRects(freeRects, { x: 0, y: 0, w: o.w, h: o.h })
+      freeRects = pruneContained(updateFreeRects(freeRects, { x: 0, y: 0, w: o.packW, h: o.packH }))
     }
   }
 

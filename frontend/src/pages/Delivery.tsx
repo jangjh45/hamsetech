@@ -14,6 +14,21 @@ import { isAuthenticated, onAuthChange } from '../auth/token'
 
 type ItemRow = { id: number; name: string; w: string; h: string; qty: string }
 
+const colorPalette = [
+  { fill: '#60a5fa', stroke: '#2563eb', text: '#ffffff' },
+  { fill: '#34d399', stroke: '#059669', text: '#ffffff' },
+  { fill: '#fbbf24', stroke: '#d97706', text: '#ffffff' },
+  { fill: '#f87171', stroke: '#dc2626', text: '#ffffff' },
+  { fill: '#a78bfa', stroke: '#7c3aed', text: '#ffffff' },
+  { fill: '#22d3ee', stroke: '#0891b2', text: '#ffffff' },
+  { fill: '#a3e635', stroke: '#65a30d', text: '#ffffff' },
+  { fill: '#fb923c', stroke: '#ea580c', text: '#ffffff' },
+  { fill: '#f472b6', stroke: '#db2777', text: '#ffffff' },
+  { fill: '#94a3b8', stroke: '#475569', text: '#ffffff' },
+]
+
+const getItemColor = (id: number) => colorPalette[id % colorPalette.length]
+
 function normalizeNumericInput(value: string): string {
   const digits = value.replace(/[^0-9]/g, '')
   if (digits === '') return ''
@@ -23,12 +38,9 @@ function normalizeNumericInput(value: string): string {
 export default function DeliveryPage() {
   const [binWStr, setBinWStr] = useState<string>('1200')
   const [binHStr, setBinHStr] = useState<string>('800')
-  const [allowRotate, setAllowRotate] = useState<boolean>(false)
+  const [allowRotate, setAllowRotate] = useState<boolean>(true)
   const [marginStr, setMarginStr] = useState<string>('0')
-  const [items, setItems] = useState<ItemRow[]>([
-    { id: 1, name: '박스A', w: '400', h: '300', qty: '1' },
-    { id: 2, name: '박스B', w: '600', h: '400', qty: '1' },
-  ])
+  const [items, setItems] = useState<ItemRow[]>([])
 
   // 로그인 상태
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(isAuthenticated())
@@ -512,7 +524,15 @@ export default function DeliveryPage() {
                   {isCalculating ? (
                     <>계산 중... <span style={{ fontSize: '14px' }}>⏳</span></>
                   ) : (
-                    <>총 트럭 수: <b>{result?.count}</b></>
+                    <>
+                      총 트럭 수: <b>{result?.count}</b>
+                      {' · '}
+                      전체 효율:{' '}
+                      <b>{Math.round(
+                        result!.trucks.reduce((sum, t) => sum + t.reduce((s, it) => s + it.w * it.h, 0), 0) /
+                        (result!.count * parseInt(binWStr || '1', 10) * parseInt(binHStr || '1', 10)) * 100
+                      )}%</b>
+                    </>
                   )}
                 </p>
               </div>
@@ -544,24 +564,92 @@ export default function DeliveryPage() {
               border: '1px solid var(--border)',
               overflow: 'hidden'
             }}>
-              {result.trucks.map((truck, tIdx) => (
-                <div key={tIdx} style={{ 
-                  width: '100%', 
-                  maxWidth: isMobile ? '100%' : 720, 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  alignItems: 'center',
-                  padding: isMobile ? '8px' : '12px'
-                }}>
-                  <h4 style={{ 
-                    marginTop: 0, 
-                    fontSize: isMobile ? '16px' : '18px',
-                    marginBottom: '12px',
-                    color: 'var(--text)'
-                  }}>트럭 #{tIdx + 1}</h4>
-                  <TruckSvg binW={parseInt(binWStr || '0', 10)} binH={parseInt(binHStr || '0', 10)} items={truck} nameMap={nameMap} />
-                </div>
-              ))}
+              {result.trucks.map((truck, tIdx) => {
+                const binW = parseInt(binWStr || '0', 10)
+                const binH = parseInt(binHStr || '0', 10)
+                const truckArea = binW * binH
+                const itemArea = truck.reduce((sum, it) => sum + it.w * it.h, 0)
+                const utilization = truckArea > 0 ? Math.round(itemArea / truckArea * 100) : 0
+                const utilizationColor = utilization >= 80 ? '#34d399' : utilization >= 50 ? '#fbbf24' : '#f87171'
+
+                // 이름별 수량 집계
+                const summary = truck.reduce<Record<string, { count: number; id: number }>>((acc, it) => {
+                  const name = nameMap[it.id] || `#${it.id}`
+                  if (!acc[name]) acc[name] = { count: 0, id: it.id }
+                  acc[name].count++
+                  return acc
+                }, {})
+
+                return (
+                  <div key={tIdx} style={{
+                    width: '100%',
+                    maxWidth: isMobile ? '100%' : 720,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    padding: isMobile ? '8px' : '12px'
+                  }}>
+                    {/* 트럭 헤더 */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <h4 style={{
+                        margin: 0,
+                        fontSize: isMobile ? '16px' : '18px',
+                        color: 'var(--text)'
+                      }}>트럭 #{tIdx + 1}</h4>
+                      <span style={{ fontSize: 14, color: utilizationColor, fontWeight: 'bold' }}>
+                        적재율 {utilization}%
+                      </span>
+                    </div>
+
+                    {/* 적재율 바 */}
+                    <div style={{
+                      height: 6,
+                      backgroundColor: 'var(--border)',
+                      borderRadius: 3,
+                      marginBottom: 12,
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${utilization}%`,
+                        backgroundColor: utilizationColor,
+                        borderRadius: 3,
+                        transition: 'width 0.4s ease'
+                      }} />
+                    </div>
+
+                    {/* SVG */}
+                    <div style={{ display: 'flex', justifyContent: 'center' }}>
+                      <TruckSvg binW={binW} binH={binH} items={truck} nameMap={nameMap} />
+                    </div>
+
+                    {/* 물품 요약 */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12, justifyContent: 'center' }}>
+                      {Object.entries(summary).map(([name, { count, id }]) => {
+                        const colors = getItemColor(id)
+                        return (
+                          <div key={name} style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            padding: '3px 10px',
+                            borderRadius: 99,
+                            backgroundColor: colors.fill + '22',
+                            border: `1px solid ${colors.stroke}`,
+                            fontSize: 13
+                          }}>
+                            <div style={{ width: 9, height: 9, borderRadius: 2, backgroundColor: colors.fill, flexShrink: 0 }} />
+                            <span>{name}</span>
+                            {count > 1 && (
+                              <span style={{ color: colors.stroke, fontWeight: 'bold' }}>×{count}</span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </section>
@@ -913,42 +1001,22 @@ function ScenarioCard({
 
 function TruckSvg({ binW, binH, items, nameMap }: { binW: number; binH: number; items: ReturnType<typeof packIntoTrucks>['trucks'][number]; nameMap: Record<number, string> }) {
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768)
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
 
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-    
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // 컨테이너에 맞춰 자동 스케일: 큰 값도 화면 안에 들어오도록 축소
   const maxPxW = isMobile ? Math.min(280, window.innerWidth - 80) : 520
   const maxPxH = isMobile ? 200 : 360
   const scale = Math.min(maxPxW / binW, maxPxH / binH)
   const width = Math.max(1, binW * scale)
   const height = Math.max(1, binH * scale)
-  const visualPadding = 1 // 필요 시 0~1mm 여백
-  // 글자 크기를 화면 픽셀 기준으로 유지하기 위해 viewBox 단위로 환산
-  const idFontSize = Math.max(2, 12 / scale) // 약 12px
-  const subFontSize = Math.max(2, 10 / scale) // 약 10px
-
-  // 물건별 색상 팔레트 (더 세련된 색상)
-  const colorPalette = [
-    { fill: '#60a5fa', stroke: '#2563eb', text: '#ffffff' }, // Blue
-    { fill: '#34d399', stroke: '#059669', text: '#ffffff' }, // Green
-    { fill: '#fbbf24', stroke: '#d97706', text: '#ffffff' }, // Amber
-    { fill: '#f87171', stroke: '#dc2626', text: '#ffffff' }, // Red
-    { fill: '#a78bfa', stroke: '#7c3aed', text: '#ffffff' }, // Purple
-    { fill: '#22d3ee', stroke: '#0891b2', text: '#ffffff' }, // Cyan
-    { fill: '#a3e635', stroke: '#65a30d', text: '#ffffff' }, // Lime
-    { fill: '#fb923c', stroke: '#ea580c', text: '#ffffff' }, // Orange
-    { fill: '#f472b6', stroke: '#db2777', text: '#ffffff' }, // Pink
-    { fill: '#94a3b8', stroke: '#475569', text: '#ffffff' }, // Slate
-  ]
-
-  const getItemColor = (id: number) => colorPalette[id % colorPalette.length]
+  const visualPadding = 1
+  const idFontSize = Math.max(2, 12 / scale)
+  const subFontSize = Math.max(2, 10 / scale)
 
   return (
     <svg
@@ -956,14 +1024,15 @@ function TruckSvg({ binW, binH, items, nameMap }: { binW: number; binH: number; 
       height={height}
       viewBox={`0 0 ${binW} ${binH}`}
       preserveAspectRatio="xMidYMid meet"
-      style={{ 
-        border: '2px solid var(--border)', 
-        background: 'var(--input-bg)', // 배경색 추가
-        borderRadius: '4px', // 둥근 모서리
-        boxShadow: '0 2px 4px rgba(0,0,0,0.05)' // 그림자 효과
+      style={{
+        border: '2px solid var(--border)',
+        background: 'var(--input-bg)',
+        borderRadius: '4px',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+        cursor: 'default'
       }}
+      onMouseLeave={() => setHoveredIdx(null)}
     >
-      {/* 격자 무늬 패턴 (선택 사항) */}
       <defs>
         <pattern id="grid" width={100} height={100} patternUnits="userSpaceOnUse">
           <path d="M 100 0 L 0 0 0 100" fill="none" stroke="var(--border)" strokeWidth="0.5" opacity="0.3"/>
@@ -975,50 +1044,49 @@ function TruckSvg({ binW, binH, items, nameMap }: { binW: number; binH: number; 
         const colors = getItemColor(it.id)
         const itemName = nameMap[it.id] || `#${it.id}`
         const itemDim = `${Math.round(it.w)}×${Math.round(it.h)}mm`
-        
+        const isHovered = hoveredIdx === idx
+        const isDimmed = hoveredIdx !== null && !isHovered
+
         return (
-          <g key={idx}>
-            <title>{`${itemName} (${itemDim})`}</title> {/* 툴팁 추가 */}
+          <g
+            key={idx}
+            onMouseEnter={() => setHoveredIdx(idx)}
+            style={{ cursor: 'pointer' }}
+          >
+            <title>{`${itemName} (${itemDim})${it.rotated ? ' [회전됨]' : ''}`}</title>
             <rect
               x={it.x + visualPadding}
               y={it.y + visualPadding}
               width={Math.max(0, it.w - visualPadding * 2)}
               height={Math.max(0, it.h - visualPadding * 2)}
               fill={colors.fill}
-              opacity="0.85" // 불투명도 증가
+              opacity={isDimmed ? 0.35 : isHovered ? 1.0 : 0.85}
               stroke={colors.stroke}
-              strokeWidth="1.5" // 테두리 두께 증가
-              rx="2" ry="2" // 물품 모서리 둥글게
-              style={{ transition: 'opacity 0.2s' }}
+              strokeWidth={isHovered ? 3 : 1.5}
+              rx="2" ry="2"
+              style={{ transition: 'opacity 0.15s, stroke-width 0.15s' }}
             />
-            {/* 텍스트 그림자 효과로 가독성 향상 */}
-            <text 
-              x={it.x + it.w / 2} 
-              y={it.y + it.h / 2 - subFontSize / 2} 
-              fontSize={idFontSize} 
+            <text
+              x={it.x + it.w / 2}
+              y={it.y + it.h / 2 - subFontSize / 2}
+              fontSize={idFontSize}
               fill={colors.text}
               textAnchor="middle"
               dominantBaseline="middle"
-              style={{ 
-                fontWeight: 'bold', 
-                textShadow: '0 1px 2px rgba(0,0,0,0.4)',
-                pointerEvents: 'none' // 텍스트가 툴팁 방해하지 않도록
-              }}
+              opacity={isDimmed ? 0.4 : 1}
+              style={{ fontWeight: 'bold', pointerEvents: 'none', userSelect: 'none' }}
             >
               {itemName}{it.rotated ? ' ↻' : ''}
             </text>
-            <text 
-              x={it.x + it.w / 2} 
-              y={it.y + it.h / 2 + idFontSize / 2 + 2} 
-              fontSize={subFontSize} 
+            <text
+              x={it.x + it.w / 2}
+              y={it.y + it.h / 2 + idFontSize / 2 + 2}
+              fontSize={subFontSize}
               fill={colors.text}
               textAnchor="middle"
               dominantBaseline="middle"
-              opacity="0.9"
-              style={{ 
-                textShadow: '0 1px 2px rgba(0,0,0,0.4)',
-                pointerEvents: 'none'
-              }}
+              opacity={isDimmed ? 0.3 : 0.9}
+              style={{ pointerEvents: 'none', userSelect: 'none' }}
             >
               {itemDim}
             </text>
