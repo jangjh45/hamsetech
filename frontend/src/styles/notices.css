@@ -63,7 +63,35 @@
   font-weight: 600;
 }
 
-/* List View */
+/* Empty State */
+.notice-empty {
+  padding: 48px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.notice-empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+/* Pagination */
+.notice-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.notice-pagination-info {
+  padding: 0 12px;
+  color: var(--muted);
+}
+
+/* =====================
+   List View — Desktop
+   ===================== */
 .notice-list-header {
   display: grid;
   grid-template-columns: 80px 1fr 150px 150px;
@@ -76,6 +104,7 @@
   font-size: 14px;
 }
 
+/* 데스크톱: 그리드 레이아웃, 모바일 영역 숨김 */
 .notice-item {
   display: grid;
   grid-template-columns: 80px 1fr 150px 150px;
@@ -86,6 +115,12 @@
   cursor: pointer;
   text-decoration: none;
   color: inherit;
+}
+
+.notice-item .notice-mobile-header,
+.notice-item .notice-mobile-title,
+.notice-item .notice-mobile-author {
+  display: none;
 }
 
 .notice-item:last-child {
@@ -120,29 +155,9 @@
   text-align: center;
 }
 
-/* Mobile List View */
-.notice-mobile-item {
-  padding: 20px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.notice-mobile-header {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.notice-mobile-title {
-  font-size: 17px;
-  font-weight: 600;
-  margin: 4px 0;
-}
-
-/* Detail View */
+/* =====================
+   Detail View
+   ===================== */
 .notice-detail-header {
   border-bottom: 1px solid var(--border);
   padding-bottom: 24px;
@@ -175,7 +190,9 @@
   margin-bottom: 40px;
 }
 
-/* Comments Section */
+/* =====================
+   Comments Section
+   ===================== */
 .comments-section {
   margin-top: 40px;
   padding-top: 32px;
@@ -209,6 +226,7 @@
   color: var(--text);
   outline: none;
   margin-bottom: 12px;
+  box-sizing: border-box;
 }
 
 .comment-actions {
@@ -269,6 +287,13 @@
   justify-content: flex-end;
 }
 
+.comment-replies {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .btn-text {
   background: none;
   border: none;
@@ -287,7 +312,35 @@
   color: var(--danger);
 }
 
-/* Editor */
+/* Reply Form */
+.reply-form {
+  margin-top: 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.reply-form .comment-input {
+  background: transparent;
+  margin-bottom: 8px;
+}
+
+.reply-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.reply-form-actions .btn,
+.reply-form-actions .btn-submit {
+  padding: 8px 16px;
+  min-width: auto;
+}
+
+/* =====================
+   Editor
+   ===================== */
 .editor-form {
   display: flex;
   flex-direction: column;
@@ -295,10 +348,18 @@
 }
 
 .editor-field label {
-  display: block;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-weight: 600;
   margin-bottom: 8px;
   color: var(--text);
+}
+
+.editor-char-count {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
 }
 
 .editor-input {
@@ -310,6 +371,7 @@
   color: var(--text);
   font-size: 16px;
   transition: border-color 0.2s;
+  box-sizing: border-box;
 }
 
 .editor-input:focus {
@@ -323,28 +385,61 @@
   margin-top: 12px;
 }
 
-/* Responsive */
+/* =====================
+   Mobile (≤768px)
+   ===================== */
 @media (max-width: 768px) {
   .notice-container {
     padding: 16px;
   }
-  
+
   .notice-panel {
     padding: 16px;
   }
 
+  /* 헤더 컬럼 숨김 */
   .notice-list-header {
     display: none;
   }
 
+  /* 데스크톱 그리드 컬럼 숨기고 모바일 레이아웃 표시 */
   .notice-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 16px 20px;
+  }
+
+  .notice-item-id,
+  .notice-item-title,
+  .notice-item-author,
+  .notice-item-date {
     display: none;
   }
-  
+
+  .notice-item .notice-mobile-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .notice-item .notice-mobile-title {
+    display: block;
+    font-size: 17px;
+    font-weight: 600;
+  }
+
+  .notice-item .notice-mobile-author {
+    display: block;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
   .notice-detail-title {
     font-size: 24px;
   }
-  
+
   .comment-card.reply {
     margin-left: 16px;
   }

@@ -1,19 +1,19 @@
 spring:
   application:
     name: hamsetech
-  
+
   # PostgreSQL 연결 설정
   datasource:
     url: jdbc:postgresql://localhost:5432/hamsetech
     username: hamsetech
     password: hamsetech
     driver-class-name: org.postgresql.Driver
-  
+
   # JPA 설정
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    # show-sql 제거: logback-spring.xml의 org.hibernate.SQL: DEBUG로 통합 관리
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -22,30 +22,26 @@ spring:
           lob:
             '[non_contextual_creation]': true
 
-# JPA/Hibernate SQL logging (logback-spring.xml에서 관리)
+# 로그 레벨 설정 (SQL 로그는 logback-spring.xml의 springProfile로 환경별 관리)
 logging:
   level:
     org:
       hibernate:
         SQL: DEBUG
-        orm:
-          jdbc:
-            bind: DEBUG
-            extract: DEBUG
       springframework:
-        security: DEBUG
+        security: WARN
 
 # JWT
 security:
   jwt:
-    secret: ChangeThisSecretKeyToAStrongLongRandomString1234567890
+    secret: ${JWT_SECRET:ChangeThisSecretKeyToAStrongLongRandomString1234567890}
     expiration-seconds: 86400
 
-# Default admin (dev only)
+# Default admin (dev only) - 운영 환경에서는 환경변수로 반드시 주입
 admin:
-  username: admin
-  email: admin@example.com
-  password: admin1234
+  username: ${ADMIN_USERNAME:admin}
+  email: ${ADMIN_EMAIL:admin@example.com}
+  password: ${ADMIN_PASSWORD:admin1234}
   reset-password-on-start: true
 
 # Character encoding

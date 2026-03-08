@@ -3,6 +3,7 @@ package com.hamsetech.hamsetech.admin;
 import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
+import org.aspectj.lang.annotation.AfterThrowing;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.Logger;
@@ -31,7 +32,7 @@ public class AdminLoggingAspect {
     }
 
     /**
-     * @AdminLoggable 어노테이션이 붙은 메서드 실행 후 로그 기록
+     * @AdminLoggable 어노테이션이 붙은 메서드 실행 성공 후 로그 기록
      */
     @AfterReturning(
         pointcut = "@annotation(adminLoggable)",
@@ -39,18 +40,13 @@ public class AdminLoggingAspect {
     )
     public void logAdminAction(JoinPoint joinPoint, AdminLoggable adminLoggable, Object result) {
         try {
-            // 관리자 권한 체크 (AdminLogService에서 이미 수행하지만 여기서도 확인)
             if (!adminLogService.isAdminUser()) {
-                return; // 관리자가 아니면 로깅하지 않음
+                return;
             }
 
-            // Entity ID 추출
             Long entityId = extractEntityId(joinPoint, result);
-
-            // 상세 정보 생성
             String details = buildDetails(adminLoggable, joinPoint);
 
-            // 로그 기록
             adminLogService.logAdminAction(
                 adminLoggable.action(),
                 adminLoggable.entityType(),
@@ -58,29 +54,57 @@ public class AdminLoggingAspect {
                 details
             );
 
-            logger.debug("Admin log recorded: action={}, entityType={}, entityId={}", 
+            logger.debug("Admin log recorded: action={}, entityType={}, entityId={}",
                 adminLoggable.action(), adminLoggable.entityType(), entityId);
 
         } catch (Exception e) {
             logger.error("Failed to record admin log", e);
-            // 로그 기록 실패가 비즈니스 로직에 영향을 주지 않도록 예외를 삼킴
+        }
+    }
+
+    /**
+     * @AdminLoggable 어노테이션이 붙은 메서드 실행 실패 시 에러 로그 기록
+     */
+    @AfterThrowing(
+        pointcut = "@annotation(adminLoggable)",
+        throwing = "ex"
+    )
+    public void logAdminActionFailure(JoinPoint joinPoint, AdminLoggable adminLoggable, Throwable ex) {
+        try {
+            if (!adminLogService.isAdminUser()) {
+                return;
+            }
+
+            Long entityId = extractEntityId(joinPoint, null);
+            String details = buildDetails(adminLoggable, joinPoint) + " | FAILED: " + ex.getMessage();
+
+            adminLogService.logAdminAction(
+                adminLoggable.action(),
+                adminLoggable.entityType(),
+                entityId,
+                details
+            );
+
+            logger.debug("Admin failure log recorded: action={}, entityType={}, error={}",
+                adminLoggable.action(), adminLoggable.entityType(), ex.getMessage());
+
+        } catch (Exception e) {
+            logger.error("Failed to record admin failure log", e);
         }
     }
 
     /**
      * Entity ID를 추출합니다.
-     * 1. @PathVariable("id") 파라미터에서 추출
+     * 1. @PathVariable이 붙은 Long 타입 파라미터에서 추출 ("id" 우선, 없으면 첫 번째 Long)
      * 2. 반환값에서 getId() 메서드 호출
-     * 3. 추출 실패시 null 반환
+     * 3. 추출 실패 시 null 반환
      */
     private Long extractEntityId(JoinPoint joinPoint, Object result) {
-        // 1. @PathVariable("id")에서 ID 추출 시도
         Long idFromPathVariable = extractIdFromPathVariable(joinPoint);
         if (idFromPathVariable != null) {
             return idFromPathVariable;
         }
 
-        // 2. 반환값에서 ID 추출 시도
         if (result != null) {
             try {
                 Method getIdMethod = result.getClass().getMethod("getId");
@@ -93,12 +117,12 @@ public class AdminLoggingAspect {
             }
         }
 
-        // 3. ID를 찾지 못한 경우 null 반환 (목록 조회 등)
         return null;
     }
 
     /**
-     * @PathVariable("id") 어노테이션에서 ID 값을 추출
+     * @PathVariable이 붙은 Long 파라미터에서 ID 추출.
+     * "id" 이름을 우선하고, 없으면 Long 타입의 첫 번째 PathVariable을 사용.
      */
     private Long extractIdFromPathVariable(JoinPoint joinPoint) {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
@@ -106,16 +130,24 @@ public class AdminLoggingAspect {
         Parameter[] parameters = method.getParameters();
         Object[] args = joinPoint.getArgs();
 
+        Long firstLongPathVar = null;
+
         for (int i = 0; i < parameters.length; i++) {
             PathVariable pathVariable = parameters[i].getAnnotation(PathVariable.class);
-            if (pathVariable != null) {
+            if (pathVariable != null && args[i] instanceof Long) {
                 String name = pathVariable.value().isEmpty() ? pathVariable.name() : pathVariable.value();
-                if ("id".equals(name) && args[i] instanceof Long) {
+                // "id"가 포함된 이름을 우선 반환
+                if (name.equalsIgnoreCase("id") || name.toLowerCase().endsWith("id")) {
                     return (Long) args[i];
+                }
+                // 아니면 첫 번째 Long PathVariable 저장
+                if (firstLongPathVar == null) {
+                    firstLongPathVar = (Long) args[i];
                 }
             }
         }
-        return null;
+
+        return firstLongPathVar;
     }
 
     /**
@@ -124,16 +156,13 @@ public class AdminLoggingAspect {
     private String buildDetails(AdminLoggable adminLoggable, JoinPoint joinPoint) {
         StringBuilder details = new StringBuilder();
 
-        // 어노테이션에서 지정한 기본 상세 정보
         if (!adminLoggable.details().isEmpty()) {
             details.append(adminLoggable.details());
         } else {
-            // 기본 정보: 메서드명
             MethodSignature signature = (MethodSignature) joinPoint.getSignature();
             details.append("Method: ").append(signature.getMethod().getName());
         }
 
-        // HTTP 요청 정보 추가
         try {
             ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
             HttpServletRequest request = attrs.getRequest();

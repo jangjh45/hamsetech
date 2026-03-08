@@ -1,25 +1,48 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-<property name="LOG_PATH" value="logs"/>
-<property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
-<property name="LOG_MAX_HISTORY" value="14"/>
-<property name="LOG_TOTAL_CAP" value="1GB"/>
+    <property name="LOG_PATH" value="logs"/>
+    <property name="LOG_MAX_HISTORY" value="14"/>
+    <property name="LOG_TOTAL_CAP" value="1GB"/>
 
-    <!-- 콘솔 출력 설정 -->
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
-            <charset>UTF-8</charset>
-            <pattern>${LOG_PATTERN}</pattern>
-        </encoder>
-    </appender>
+    <!-- 파일용 로그 패턴 (색상 코드 없음) -->
+    <property name="FILE_LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
 
-    <!-- INFO ~ WARN 로그 전용 파일 -->
+    <!-- 콘솔용 로그 패턴 (레벨별 색상) -->
+    <property name="CONSOLE_LOG_PATTERN"
+              value="%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr([%thread]){magenta} %clr(%-5level) %clr(%logger{36}){cyan} - %msg%n"/>
+
+    <!-- ===== 콘솔 출력 (개발 환경) ===== -->
+    <springProfile name="!prod">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+                <charset>UTF-8</charset>
+                <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            </encoder>
+        </appender>
+    </springProfile>
+
+    <!-- ===== 콘솔 출력 (운영 환경: 색상 없이 최소 출력) ===== -->
+    <springProfile name="prod">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+                <charset>UTF-8</charset>
+                <pattern>${FILE_LOG_PATTERN}</pattern>
+            </encoder>
+            <!-- 운영 환경 콘솔은 WARN 이상만 출력 -->
+            <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+                <level>WARN</level>
+            </filter>
+        </appender>
+    </springProfile>
+
+    <!-- ===== INFO ~ WARN 로그 전용 파일 ===== -->
     <appender name="INFO_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_PATH}/hamsetech-info.log</file>
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
             <charset>UTF-8</charset>
-            <pattern>${LOG_PATTERN}</pattern>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
         </encoder>
+        <!-- ERROR 제외, INFO/WARN만 기록 -->
         <filter class="ch.qos.logback.classic.filter.LevelFilter">
             <level>ERROR</level>
             <onMatch>DENY</onMatch>
@@ -39,12 +62,12 @@
         <discardingThreshold>0</discardingThreshold>
     </appender>
 
-    <!-- ERROR 로그 전용 파일 -->
+    <!-- ===== ERROR 로그 전용 파일 ===== -->
     <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_PATH}/hamsetech-error.log</file>
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
             <charset>UTF-8</charset>
-            <pattern>${LOG_PATTERN}</pattern>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
         </encoder>
         <filter class="ch.qos.logback.classic.filter.LevelFilter">
             <level>ERROR</level>
@@ -65,16 +88,18 @@
         <discardingThreshold>0</discardingThreshold>
     </appender>
 
-    <!-- 애플리케이션 로그 레벨 -->
+    <!-- ===== 애플리케이션 로그 레벨 ===== -->
     <logger name="com.hamsetech" level="INFO"/>
     <logger name="org.springframework" level="WARN"/>
     <logger name="org.hibernate" level="WARN"/>
-    
-    <!-- Hibernate SQL 바인딩 로그 (한글 문제 해결을 위해 레벨 조정) -->
-    <logger name="org.hibernate.orm.jdbc.bind" level="DEBUG"/>
-    <logger name="org.hibernate.orm.jdbc.extract" level="DEBUG"/>
 
-    <!-- 루트 로거 -->
+    <!-- Hibernate SQL 바인딩 로그: 개발 환경에서만 활성화 -->
+    <springProfile name="!prod">
+        <logger name="org.hibernate.orm.jdbc.bind" level="DEBUG"/>
+        <logger name="org.hibernate.orm.jdbc.extract" level="DEBUG"/>
+    </springProfile>
+
+    <!-- ===== 루트 로거 ===== -->
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="ASYNC_INFO"/>

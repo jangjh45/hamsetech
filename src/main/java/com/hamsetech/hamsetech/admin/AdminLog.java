@@ -25,7 +25,7 @@ public class AdminLog {
     @Enumerated(EnumType.STRING)
     private EntityType entityType;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Long entityId;
 
     @Column(columnDefinition = "TEXT")
@@ -46,7 +46,7 @@ public class AdminLog {
         this.timestamp = Instant.now();
     }
 
-    // 생성자
+    // 생성자 (entityId는 목록 조회 등에서 null 가능)
     public AdminLog(String adminUsername, Action action, EntityType entityType, Long entityId) {
         this();
         this.adminUsername = adminUsername;

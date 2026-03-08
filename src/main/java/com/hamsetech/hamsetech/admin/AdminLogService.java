@@ -66,9 +66,7 @@ public class AdminLogService {
         }
 
         String username = getCurrentUsername();
-        // entityId가 null인 경우 0L로 설정 (목록 조회 등의 경우)
-        Long safeEntityId = (entityId != null) ? entityId : 0L;
-        AdminLog log = new AdminLog(username, action, entityType, safeEntityId);
+        AdminLog log = new AdminLog(username, action, entityType, entityId);
         log.setDetails(details);
 
         // IP 주소 추출 (선택사항)
@@ -89,10 +87,18 @@ public class AdminLogService {
      */
     @Transactional
     public void logSystemAction(String adminUsername, AdminLog.Action action, AdminLog.EntityType entityType, Long entityId, String details) {
-        // entityId가 null인 경우 0L로 설정 (목록 조회 등의 경우)
-        Long safeEntityId = (entityId != null) ? entityId : 0L;
-        AdminLog log = new AdminLog(adminUsername, action, entityType, safeEntityId);
+        AdminLog log = new AdminLog(adminUsername, action, entityType, entityId);
         log.setDetails(details);
+
+        // IP 주소 추출
+        try {
+            ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
+            HttpServletRequest request = attrs.getRequest();
+            log.setIpAddress(getClientIpAddress(request));
+        } catch (Exception e) {
+            // HTTP 요청 컨텍스트를 사용할 수 없는 경우 무시 (배치/스케줄러 등)
+        }
+
         adminLogRepository.save(log);
     }
 

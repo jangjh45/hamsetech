@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createNotice, getNotice, updateNotice } from '../api/notices'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { isAdmin } from '../auth/token'
+import { isAuthenticated } from '../auth/token'
 import '../styles/notices.css'
 
 export default function NoticeEditorPage() {
@@ -14,10 +14,14 @@ export default function NoticeEditorPage() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    if (editId) {
-      getNotice(editId).then((n: any) => { setTitle(n.title); setContent(n.content) })
+    if (!isAuthenticated()) {
+      navigate('/login', { replace: true })
+      return
     }
-  }, [editId])
+    if (editId) {
+      getNotice(editId).then((n) => { setTitle(n.title); setContent(n.content) })
+    }
+  }, [editId, navigate])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -36,11 +40,11 @@ export default function NoticeEditorPage() {
         await updateNotice(editId, { title, content })
         navigate(`/notice/${editId}`)
       } else {
-        const res: any = await createNotice({ title, content })
+        const res = await createNotice({ title, content })
         navigate(`/notice/${res.id}`)
       }
-    } catch (err: any) {
-      setError(err.message || 'failed')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '저장 실패')
       setSubmitting(false)
     }
   }
@@ -50,30 +54,31 @@ export default function NoticeEditorPage() {
       <div className="notice-panel">
         <div className="notice-header">
           <h1 className="notice-title">공지 {editId ? '수정' : '등록'}</h1>
-          {editId && !isAdmin() && (
-            <p className="subtitle" style={{ fontSize: 14 }}>작성자만 수정/삭제할 수 있습니다.</p>
-          )}
         </div>
 
         <form className="editor-form" onSubmit={onSubmit}>
           <div className="editor-field">
-            <label>제목</label>
-            <input 
-              className="editor-input" 
-              placeholder="제목을 입력하세요" 
-              value={title} 
-              onChange={(e) => setTitle(e.target.value)} 
+            <label>
+              제목
+              <span className="editor-char-count">{title.length}/200</span>
+            </label>
+            <input
+              className="editor-input"
+              placeholder="제목을 입력하세요"
+              value={title}
+              maxLength={200}
+              onChange={(e) => setTitle(e.target.value)}
             />
           </div>
-          
+
           <div className="editor-field">
             <label>내용</label>
-            <textarea 
-              className="editor-input" 
-              rows={15} 
-              placeholder="내용을 입력하세요" 
-              value={content} 
-              onChange={(e) => setContent(e.target.value)} 
+            <textarea
+              className="editor-input"
+              rows={15}
+              placeholder="내용을 입력하세요"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
               style={{ resize: 'vertical', minHeight: 200 }}
             />
           </div>
@@ -81,15 +86,15 @@ export default function NoticeEditorPage() {
           {error && <p className="error">{error}</p>}
 
           <div className="editor-actions">
-            <button 
-              className="btn btn-submit" 
+            <button
+              className="btn btn-submit"
               type="submit"
               disabled={submitting}
             >
               {submitting ? '저장 중...' : '💾 저장'}
             </button>
-            <Link 
-              className="btn ghost" 
+            <Link
+              className="btn ghost"
               to={editId ? `/notice/${editId}` : '/notices'}
               style={{ padding: '12px 24px', textDecoration: 'none' }}
             >
@@ -101,5 +106,3 @@ export default function NoticeEditorPage() {
     </div>
   )
 }
-
-

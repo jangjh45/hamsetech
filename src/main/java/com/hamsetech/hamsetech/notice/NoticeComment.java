@@ -33,19 +33,9 @@ public class NoticeComment {
     @Column(nullable = false)
     private Instant createdAt;
 
-    @Column(nullable = false)
-    private Instant updatedAt;
-
     @PrePersist
     public void prePersist() {
-        Instant now = Instant.now();
-        createdAt = now;
-        updatedAt = now;
-    }
-
-    @PreUpdate
-    public void preUpdate() {
-        updatedAt = Instant.now();
+        createdAt = Instant.now();
     }
 
     public Long getId() { return id; }
@@ -58,5 +48,4 @@ public class NoticeComment {
     public String getAuthorUsername() { return authorUsername; }
     public void setAuthorUsername(String authorUsername) { this.authorUsername = authorUsername; }
     public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
 }

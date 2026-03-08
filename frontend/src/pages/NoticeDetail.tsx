@@ -1,70 +1,63 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { addComment, getNotice, listComments, deleteNotice, deleteComment } from '../api/notices'
+import { addComment, getNotice, listComments, deleteNotice, deleteComment, type Notice, type NoticeComment } from '../api/notices'
 import { isAuthenticated, isAdmin, getUsername } from '../auth/token'
+import { formatDateTime } from '../utils/formatDate'
+import CommentNode, { type CommentNodeData } from '../components/CommentNode'
 import '../styles/notices.css'
 
-interface Comment {
-  id: number
-  content: string
-  authorUsername: string
-  parentId: number | null
-  createdAt: string
-}
+function buildCommentTree(flatComments: NoticeComment[]): CommentNodeData[] {
+  const map = new Map<number, CommentNodeData>()
+  const roots: CommentNodeData[] = []
 
-interface CommentNode extends Comment {
-  replies: CommentNode[]
+  flatComments.forEach((c) => map.set(c.id, { ...c, replies: [] }))
+
+  flatComments.forEach((c) => {
+    const node = map.get(c.id)!
+    if (c.parentId != null && map.has(c.parentId)) {
+      const parent = map.get(c.parentId)!
+      if (parent.parentId === null) {
+        parent.replies.push(node)
+      } else {
+        roots.push(node)
+      }
+    } else if (c.parentId == null) {
+      roots.push(node)
+    }
+  })
+
+  const sortByTime = (nodes: CommentNodeData[]) => {
+    nodes.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    nodes.forEach((n) => sortByTime(n.replies))
+  }
+  sortByTime(roots)
+
+  return roots
 }
 
 export default function NoticeDetailPage() {
   const { id } = useParams()
   const noticeId = Number(id)
   const navigate = useNavigate()
-  const [notice, setNotice] = useState<any>(null)
-  const [comments, setComments] = useState<any[]>([])
+
+  const [notice, setNotice] = useState<Notice | null>(null)
+  const [notFound, setNotFound] = useState(false)
+  const [comments, setComments] = useState<NoticeComment[]>([])
   const [text, setText] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [replyingTo, setReplyingTo] = useState<number | null>(null)
-  const [replyText, setReplyText] = useState('')
 
   useEffect(() => {
     if (!noticeId) return
-    getNotice(noticeId).then(setNotice)
+    getNotice(noticeId)
+      .then(setNotice)
+      .catch(() => setNotFound(true))
     listComments(noticeId).then(setComments)
   }, [noticeId])
 
-
-
-  function buildCommentTree(flatComments: Comment[]): CommentNode[] {
-    const map = new Map<number, CommentNode>()
-    const roots: CommentNode[] = []
-
-    flatComments.forEach(comment => {
-      map.set(comment.id, { ...comment, replies: [] })
-    })
-
-    flatComments.forEach(comment => {
-      const node = map.get(comment.id)!
-      if (comment.parentId && map.has(comment.parentId)) {
-        const parentNode = map.get(comment.parentId)!
-        if (parentNode.parentId === null) {
-          parentNode.replies.push(node)
-        } else {
-          roots.push(node)
-        }
-      } else if (!comment.parentId) {
-        roots.push(node)
-      }
-    })
-
-    const sortByTime = (nodes: CommentNode[]) => {
-      nodes.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-      nodes.forEach(node => sortByTime(node.replies))
-    }
-    sortByTime(roots)
-
-    return roots
+  async function refreshComments() {
+    const cs = await listComments(noticeId)
+    setComments(cs)
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -78,156 +71,72 @@ export default function NoticeDetailPage() {
       setSubmitting(true)
       await addComment(noticeId, { content: text })
       setText('')
-      const cs = await listComments(noticeId)
-      setComments(cs)
-    } catch (err: any) {
-      setError(err.message || 'failed')
+      await refreshComments()
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '등록 실패')
     } finally {
       setSubmitting(false)
     }
   }
 
-  async function onReplySubmit(e: React.FormEvent, parentCommentId: number) {
-    e.preventDefault()
-    setError('')
-    if (!replyText.trim()) {
-      setError('답글을 입력해주세요.')
-      return
-    }
-    try {
-      setSubmitting(true)
-      await addComment(noticeId, { content: replyText, parentId: parentCommentId })
-      setReplyText('')
-      setReplyingTo(null)
-      const cs = await listComments(noticeId)
-      setComments(cs)
-    } catch (err: any) {
-      setError(err.message || 'failed')
-    } finally {
-      setSubmitting(false)
-    }
+  async function onReply(nid: number, parentId: number, content: string) {
+    await addComment(nid, { content, parentId })
+    await refreshComments()
   }
 
   async function onCommentDelete(commentId: number) {
-    if (!confirm('이 댓글을 삭제하시겠습니까?')) return
+    if (!window.confirm('이 댓글을 삭제하시겠습니까?')) return
     try {
       await deleteComment(noticeId, commentId)
-      const cs = await listComments(noticeId)
-      setComments(cs)
-    } catch (err: any) {
-      alert(err.message || '삭제 실패')
+      await refreshComments()
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : '삭제 실패')
     }
   }
 
   async function onDelete() {
     if (!noticeId) return
-    if (!confirm('이 게시글을 삭제하시겠습니까?')) return
+    if (!window.confirm('이 게시글을 삭제하시겠습니까?')) return
     try {
       await deleteNotice(noticeId)
       navigate('/notices')
-    } catch (err: any) {
-      alert(err.message || '삭제 실패')
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : '삭제 실패')
     }
   }
 
-  const commentTree = buildCommentTree(comments)
-
-  const renderCommentNode = (node: CommentNode, depth: number = 0) => {
-    const isReply = depth > 0
-
+  if (notFound) {
     return (
-      <div key={node.id} className="comment-node">
-        <div className={`comment-card ${isReply ? 'reply' : ''}`}>
-          <div className="comment-header">
-            <span className="comment-author">
-              {isReply && '↳ '}
-              {node.authorUsername}
-            </span>
-            <span className="comment-date">{formatDateTime(node.createdAt)}</span>
+      <div className="notice-container">
+        <div className="notice-panel">
+          <div className="notice-empty">
+            <div className="notice-empty-icon">🔍</div>
+            존재하지 않는 게시글입니다.
+            <div style={{ marginTop: 16 }}>
+              <Link className="btn ghost" to="/notices">목록으로</Link>
+            </div>
           </div>
-          
-          <div className="comment-body">
-            {node.content}
-          </div>
-
-          <div className="comment-footer">
-            {isAuthenticated() && !isReply && (
-              <button
-                className="btn-text"
-                onClick={() => setReplyingTo(replyingTo === node.id ? null : node.id)}
-              >
-                {replyingTo === node.id ? '취소' : '답글'}
-              </button>
-            )}
-            {isAuthenticated() && (isAdmin() || getUsername() === node.authorUsername) && (
-              <button
-                className="btn-text danger"
-                onClick={() => onCommentDelete(node.id)}
-              >
-                삭제
-              </button>
-            )}
-          </div>
-
-          {replyingTo === node.id && isAuthenticated() && (
-            <form onSubmit={(e) => onReplySubmit(e, node.id)} style={{ marginTop: 16 }}>
-              <textarea
-                className="comment-input"
-                placeholder="답글을 입력하세요..."
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value.slice(0, 500))}
-                rows={3}
-                style={{ background: 'var(--bg)', border: '1px solid var(--border)', padding: 12, borderRadius: 8 }}
-              />
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  onClick={() => {
-                    setReplyingTo(null)
-                    setReplyText('')
-                  }}
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-submit"
-                  disabled={!replyText.trim() || submitting}
-                  style={{ padding: '8px 16px', minWidth: 'auto' }}
-                >
-                  {submitting ? '...' : '등록'}
-                </button>
-              </div>
-            </form>
-          )}
         </div>
-
-        {node.replies.length > 0 && (
-          <div className="comment-replies">
-            {node.replies.map((reply) => renderCommentNode(reply, depth + 1))}
-          </div>
-        )}
       </div>
     )
   }
+
+  const isUpdated = notice
+    ? Math.abs(new Date(notice.updatedAt).getTime() - new Date(notice.createdAt).getTime()) > 1000
+    : false
+
+  const commentTree = buildCommentTree(comments)
 
   return (
     <div className="notice-container">
       <div className="notice-panel">
         <div className="notice-detail-header">
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-            <Link className="btn ghost" to="/notices">
-              ← 목록
-            </Link>
+            <Link className="btn ghost" to="/notices">← 목록</Link>
             {notice && (isAdmin() || getUsername() === notice.authorUsername) && (
               <div style={{ display: 'flex', gap: 8 }}>
-                <Link className="btn btn-edit" to={`/notice/${noticeId}/edit`}>
-                  수정
-                </Link>
-                <button className="btn btn-delete" onClick={onDelete}>
-                  삭제
-                </button>
+                <Link className="btn btn-edit" to={`/notice/${noticeId}/edit`}>수정</Link>
+                <button className="btn btn-delete" onClick={onDelete}>삭제</button>
               </div>
             )}
           </div>
@@ -239,7 +148,7 @@ export default function NoticeDetailPage() {
                 <span>{notice.authorDisplayName || notice.authorUsername}</span>
                 <span>·</span>
                 <time>{formatDateTime(notice.createdAt)}</time>
-                {notice.updatedAt && notice.updatedAt !== notice.createdAt && (
+                {isUpdated && (
                   <>
                     <span>·</span>
                     <span>수정됨: {formatDateTime(notice.updatedAt)}</span>
@@ -251,9 +160,7 @@ export default function NoticeDetailPage() {
         </div>
 
         {notice && (
-          <div className="notice-content">
-            {notice.content}
-          </div>
+          <div className="notice-content">{notice.content}</div>
         )}
 
         <div className="comments-section">
@@ -291,7 +198,15 @@ export default function NoticeDetailPage() {
                 첫 번째 댓글을 남겨보세요!
               </div>
             ) : (
-              commentTree.map((rootComment) => renderCommentNode(rootComment))
+              commentTree.map((root) => (
+                <CommentNode
+                  key={root.id}
+                  node={root}
+                  noticeId={noticeId}
+                  onReply={onReply}
+                  onDelete={onCommentDelete}
+                />
+              ))
             )}
           </div>
         </div>
@@ -299,15 +214,3 @@ export default function NoticeDetailPage() {
     </div>
   )
 }
-
-function formatDateTime(iso: string) {
-  if (!iso) return ''
-  try {
-    const d = new Date(iso)
-    return d.toLocaleString()
-  } catch {
-    return iso
-  }
-}
-
-

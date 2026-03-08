@@ -13,8 +13,7 @@ public class Notice {
     @Column(nullable = false, length = 200)
     private String title;
 
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
     @Column(nullable = false, length = 100)
