@@ -13,7 +13,6 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    # show-sql 제거: logback-spring.xml의 org.hibernate.SQL: DEBUG로 통합 관리
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -22,7 +21,7 @@ spring:
           lob:
             '[non_contextual_creation]': true
 
-# 로그 레벨 설정 (SQL 로그는 logback-spring.xml의 springProfile로 환경별 관리)
+# 로그 레벨 설정
 logging:
   level:
     org:
