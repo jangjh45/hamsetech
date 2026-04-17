@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.lang.NonNull;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -27,7 +28,7 @@ public class NoticeService {
     }
 
     @Transactional(readOnly = true)
-    public Page<Notice> listNotices(String q, Pageable pageable) {
+    public Page<Notice> listNotices(String q, @NonNull Pageable pageable) {
         if (q == null || q.isBlank()) {
             return noticeRepository.findAll(pageable);
         }
@@ -35,7 +36,7 @@ public class NoticeService {
     }
 
     @Transactional(readOnly = true)
-    public Notice getNotice(Long id) {
+    public Notice getNotice(@NonNull Long id) {
         return noticeRepository.findById(id).orElse(null);
     }
 
@@ -48,11 +49,11 @@ public class NoticeService {
         return noticeRepository.save(n);
     }
 
-    public ResponseEntity<?> updateNotice(Long id, String title, String content) {
+    public ResponseEntity<?> updateNotice(@NonNull Long id, String title, String content) {
         String me = securityUtils.currentUsername();
         boolean admin = securityUtils.isAdmin();
         return noticeRepository.findById(id)
-                .map(n -> {
+                .map((@NonNull Notice n) -> {
                     if (!admin && !n.getAuthorUsername().equals(me)) {
                         return ResponseEntity.status(403).body(Map.of("error", "forbidden"));
                     }
@@ -63,11 +64,11 @@ public class NoticeService {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    public ResponseEntity<?> deleteNotice(Long id) {
+    public ResponseEntity<?> deleteNotice(@NonNull Long id) {
         String me = securityUtils.currentUsername();
         boolean admin = securityUtils.isAdmin();
         return noticeRepository.findById(id)
-                .map(n -> {
+                .map((@NonNull Notice n) -> {
                     if (!admin && !n.getAuthorUsername().equals(me)) {
                         return ResponseEntity.status(403).body(Map.of("error", "forbidden"));
                     }
@@ -78,7 +79,7 @@ public class NoticeService {
     }
 
     @Transactional(readOnly = true)
-    public List<NoticeCommentDto> listComments(Long noticeId) {
+    public List<NoticeCommentDto> listComments(@NonNull Long noticeId) {
         return commentRepository.findByNoticeIdOrderByCreatedAtAsc(noticeId).stream()
                 .map(c -> new NoticeCommentDto(
                         c.getId(),
@@ -89,7 +90,7 @@ public class NoticeService {
                 .toList();
     }
 
-    public ResponseEntity<?> addComment(Long noticeId, String content, Long parentId) {
+    public ResponseEntity<?> addComment(@NonNull Long noticeId, String content, Long parentId) {
         Notice notice = noticeRepository.findById(noticeId).orElse(null);
         if (notice == null) return ResponseEntity.notFound().build();
 
@@ -99,7 +100,7 @@ public class NoticeService {
         c.setAuthorUsername(securityUtils.currentUsername());
 
         if (parentId != null) {
-            commentRepository.findById(parentId).ifPresent(parent -> {
+            commentRepository.findById(parentId).ifPresent((@NonNull NoticeComment parent) -> {
                 if (parent.getNotice().getId().equals(noticeId)) {
                     c.setParent(parent);
                 }
@@ -115,11 +116,11 @@ public class NoticeService {
                 saved.getCreatedAt()));
     }
 
-    public ResponseEntity<?> deleteComment(Long noticeId, Long commentId) {
+    public ResponseEntity<?> deleteComment(@NonNull Long noticeId, @NonNull Long commentId) {
         String me = securityUtils.currentUsername();
         boolean admin = securityUtils.isAdmin();
         return commentRepository.findById(commentId)
-                .map(c -> {
+                .map((@NonNull NoticeComment c) -> {
                     if (!c.getNotice().getId().equals(noticeId)) {
                         return ResponseEntity.notFound().build();
                     }
