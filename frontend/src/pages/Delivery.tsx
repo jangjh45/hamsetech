@@ -67,7 +67,7 @@ export default function DeliveryPage() {
   const [result, setResult] = useState<PackResult | null>(null)
 
   // 디바운스 타이머 ref
-  const debounceTimerRef = useRef<number | null>(null)
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // 디바운스된 계산 함수
   const debouncedCalculation = useCallback(() => {

@@ -4,6 +4,8 @@
     "target": "ES2022",
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    /* 브라우저 앱: @types/node 자동 포함 방지 (setTimeout 등 DOM/Node 타입 충돌) */
+    "types": [],
     "module": "ESNext",
     "skipLibCheck": true,
 
