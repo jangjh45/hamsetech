@@ -1,6 +1,7 @@
 # =============================================
 # docker-compose.prod.yml - 프로덕션 환경
 # 사용법: docker compose -f docker-compose.prod.yml up --build -d
+# 접속: http://<호스트>:${FRONTEND_HOST_PORT:-8080}  (NAS 등에서 80 충돌 시 기본 8080)
 # =============================================
 
 name: hamsetech-prod
@@ -63,7 +64,7 @@ services:
     container_name: hamsetech-frontend
     restart: always
     ports:
-      - "80:80"                            # 외부에 80 포트만 노출
+      - "${FRONTEND_HOST_PORT:-8080}:80"   # 호스트 80(NAS 등) 충돌 회피, .env로 변경 가능
     depends_on:
       - backend
     networks:
