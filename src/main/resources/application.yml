@@ -3,10 +3,11 @@ spring:
     name: hamsetech
 
   # PostgreSQL 연결 설정
+  # 로컬: DB_HOST=localhost / Docker: DB_HOST=postgres (서비스명)
   datasource:
-    url: jdbc:postgresql://localhost:5432/hamsetech
-    username: hamsetech
-    password: hamsetech
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:hamsetech}
+    username: ${DB_USERNAME:hamsetech}
+    password: ${DB_PASSWORD:hamsetech}
     driver-class-name: org.postgresql.Driver
 
   # JPA 설정

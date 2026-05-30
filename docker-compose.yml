@@ -1,0 +1,86 @@
+# =============================================
+# docker-compose.yml - 개발 환경 (Dev)
+# 사용법: docker compose up --build
+# =============================================
+
+name: hamsetech-dev
+
+services:
+  # ── PostgreSQL ──────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: hamsetech-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-hamsetech}
+      POSTGRES_USER: ${DB_USERNAME:-hamsetech}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-hamsetech}
+    ports:
+      - "5432:5432"          # 로컬에서 직접 DB 접근 가능
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-hamsetech} -d ${DB_NAME:-hamsetech}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend (Spring Boot) ───────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev              # dev 스테이지 사용
+    container_name: hamsetech-backend-dev
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-hamsetech}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-hamsetech}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-hamsetech}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin1234}
+      SPRING_PROFILES_ACTIVE: dev
+      # DevTools 파일 변경 감지 설정
+      SPRING_DEVTOOLS_RESTART_ENABLED: "true"
+      SPRING_DEVTOOLS_LIVERELOAD_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app                    # 프로젝트 전체 마운트 (src, build.gradle 등)
+      - gradle_cache:/root/.gradle  # Gradle 캐시 (의존성 재다운로드 방지)
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 0"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── Frontend (Vite Dev Server + HMR) ────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: dev              # dev 스테이지 사용
+    container_name: hamsetech-frontend-dev
+    restart: unless-stopped
+    environment:
+      VITE_API_HOST: backend   # Docker 내부 서비스명
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app          # 소스 마운트 (HMR)
+      - /app/node_modules         # node_modules는 컨테이너 것 사용
+    depends_on:
+      - backend
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  gradle_cache:
+    driver: local

@@ -27,8 +27,16 @@
   border-radius: 24px;
   padding: 32px;
   margin-bottom: 24px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.22), inset 0 1px 0 var(--glass-specular);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-card:hover {
+  border-color: var(--primary);
+  box-shadow: 0 16px 48px 0 rgba(0, 0, 0, 0.3), 0 0 15px var(--glow);
+  transform: translateY(-2px);
 }
 
 
@@ -65,12 +73,13 @@
 }
 
 .profile-value {
-  background: var(--bg);
+  background: var(--input-bg);
   color: var(--text);
   padding: 14px 16px;
   border-radius: 12px;
   font-size: 15px;
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
 }
 
 .profile-input-wrapper {
@@ -93,7 +102,8 @@
 .profile-input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(109, 139, 255, 0.15);
+  box-shadow: 0 0 12px var(--glow);
+  background: var(--panel);
 }
 
 .profile-input:disabled {

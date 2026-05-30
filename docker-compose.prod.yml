@@ -1,0 +1,80 @@
+# =============================================
+# docker-compose.prod.yml - 프로덕션 환경
+# 사용법: docker compose -f docker-compose.prod.yml up --build -d
+# =============================================
+
+name: hamsetech-prod
+
+services:
+  # ── PostgreSQL ──────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: hamsetech-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-hamsetech}
+      POSTGRES_USER: ${DB_USERNAME:-hamsetech}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}    # prod에서는 반드시 .env로 주입
+    expose:
+      - "5432"                             # 외부 포트 미노출 (내부 통신만)
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-hamsetech} -d ${DB_NAME:-hamsetech}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend-net
+
+  # ── Backend (Spring Boot) ───────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: prod              # prod 스테이지 사용 (경량 이미지)
+    container_name: hamsetech-backend
+    restart: always
+    env_file:
+      - .env
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-hamsetech}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-hamsetech}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+    expose:
+      - "8080"                             # 외부 포트 미노출 (Nginx가 내부 연결)
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend-net
+      - frontend-net
+
+  # ── Frontend (Nginx + React 빌드) ────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: prod              # prod 스테이지 = Nginx
+    container_name: hamsetech-frontend
+    restart: always
+    ports:
+      - "80:80"                            # 외부에 80 포트만 노출
+    depends_on:
+      - backend
+    networks:
+      - frontend-net
+
+networks:
+  backend-net:
+    driver: bridge
+  frontend-net:
+    driver: bridge
+
+volumes:
+  postgres_prod_data:
+    driver: local
