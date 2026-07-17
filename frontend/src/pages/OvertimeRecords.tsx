@@ -29,6 +29,8 @@ const TYPE_LABEL: Record<string, string> = {
   SPECIAL: '특근',
 }
 
+const PAGE_SIZE = 10
+
 interface FormState {
   workDate: string
   type: OvertimeType
@@ -57,6 +59,7 @@ export default function OvertimeRecordsPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [defaults, setDefaults] = useState<OvertimeDefaults | null>(null)
+  const [page, setPage] = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -87,6 +90,12 @@ export default function OvertimeRecordsPage() {
       .catch(() => { /* 기본시간은 편의 기능이라 실패해도 폼은 정상 동작 */ })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // 목록이 줄어 현재 페이지가 범위를 벗어나면 마지막 페이지로 보정
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE))
+    if (page > totalPages - 1) setPage(totalPages - 1)
+  }, [records, page])
 
   function startEdit(r: OvertimeRecord) {
     setEditingId(r.id)
@@ -169,6 +178,10 @@ export default function OvertimeRecordsPage() {
       setError(e.message || '삭제에 실패했습니다')
     }
   }
+
+  const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages - 1)
+  const pageRecords = records.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE)
 
   return (
     <div className="container">
@@ -278,32 +291,44 @@ export default function OvertimeRecordsPage() {
         ) : records.length === 0 ? (
           <div className="ot-empty">아직 등록된 기록이 없습니다.</div>
         ) : (
-          records.map((r) => (
-            <div key={r.id} className="ot-record">
-              <div className="ot-record__main">
-                <div className="ot-record__head">
-                  <span className="ot-record__date">{formatDate(r.workDate)}</span>
-                  <span className={`ot-tag${r.type === 'SPECIAL' ? ' ot-tag--special' : ''}`}>
-                    {TYPE_LABEL[r.type]}
-                  </span>
-                  <span className={STATUS_PILL[r.status]}>{STATUS_LABEL[r.status]}</span>
+          <>
+            {pageRecords.map((r) => (
+              <div key={r.id} className="ot-record">
+                <div className="ot-record__main">
+                  <div className="ot-record__head">
+                    <span className="ot-record__date">{formatDate(r.workDate)}</span>
+                    <span className={`ot-tag${r.type === 'SPECIAL' ? ' ot-tag--special' : ''}`}>
+                      {TYPE_LABEL[r.type]}
+                    </span>
+                    <span className={STATUS_PILL[r.status]}>{STATUS_LABEL[r.status]}</span>
+                  </div>
+                  <div className="ot-record__meta">
+                    🕒 {r.startTime && r.endTime ? `${r.startTime} ~ ${r.endTime}` : `${r.totalMinutes}분`}
+                    {r.reason ? ` · ${r.reason}` : ''}
+                  </div>
+                  {r.status === 'REJECTED' && r.rejectReason && (
+                    <div className="ot-record__reject">반려 사유: {r.rejectReason}</div>
+                  )}
                 </div>
-                <div className="ot-record__meta">
-                  🕒 {r.startTime && r.endTime ? `${r.startTime} ~ ${r.endTime}` : `${r.totalMinutes}분`}
-                  {r.reason ? ` · ${r.reason}` : ''}
+                <div className="ot-actions">
+                  <button className="btn ghost" onClick={() => onEditClick(r)}>수정</button>
+                  {r.status !== 'APPROVED' && (
+                    <button className="btn ghost ot-danger" onClick={() => onDelete(r.id)}>삭제</button>
+                  )}
                 </div>
-                {r.status === 'REJECTED' && r.rejectReason && (
-                  <div className="ot-record__reject">반려 사유: {r.rejectReason}</div>
-                )}
               </div>
-              <div className="ot-actions">
-                <button className="btn ghost" onClick={() => onEditClick(r)}>수정</button>
-                {r.status !== 'APPROVED' && (
-                  <button className="btn ghost ot-danger" onClick={() => onDelete(r.id)}>삭제</button>
-                )}
+            ))}
+
+            {totalPages > 1 && (
+              <div className="ot-pagination">
+                <button className="btn ghost" onClick={() => setPage(0)} disabled={currentPage === 0}>처음</button>
+                <button className="btn ghost" onClick={() => setPage(currentPage - 1)} disabled={currentPage === 0}>이전</button>
+                <span className="ot-pagination__info">{currentPage + 1} / {totalPages} 페이지</span>
+                <button className="btn ghost" onClick={() => setPage(currentPage + 1)} disabled={currentPage >= totalPages - 1}>다음</button>
+                <button className="btn ghost" onClick={() => setPage(totalPages - 1)} disabled={currentPage >= totalPages - 1}>마지막</button>
               </div>
-            </div>
-          ))
+            )}
+          </>
         )}
       </div>
     </div>

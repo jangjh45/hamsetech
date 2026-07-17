@@ -47,6 +47,7 @@ export default function AdminPage() {
   const [overtimeLoading, setOvertimeLoading] = useState(false)
   const [overtimeSummary, setOvertimeSummary] = useState<OvertimeSummary[]>([])
   const [overtimeFilters, setOvertimeFilters] = useState({ username: '', type: '', status: '' })
+  const [overtimePagination, setOvertimePagination] = useState({ currentPage: 0, totalPages: 0, totalElements: 0, size: 20 })
   const [overtimeMonth, setOvertimeMonth] = useState<string>(() => new Date().toISOString().slice(0, 7))
   const [rejectingId, setRejectingId] = useState<number | null>(null)
   const [rejectReason, setRejectReason] = useState('')
@@ -151,16 +152,24 @@ export default function AdminPage() {
     }
   }
 
-  async function loadOvertimeRecords() {
+  async function loadOvertimeRecords(page: number = 0) {
     try {
       setOvertimeLoading(true)
       const result = await listAllOvertimeRecords({
         username: overtimeFilters.username || undefined,
         type: (overtimeFilters.type || undefined) as any,
         status: (overtimeFilters.status || undefined) as any,
-        size: 100,
+        page,
+        size: overtimePagination.size,
       })
       setOvertimeRecords(result.content)
+      setOvertimePagination(prev => ({
+        ...prev,
+        currentPage: result.number ?? 0,
+        totalPages: result.totalPages ?? 0,
+        totalElements: result.totalElements ?? 0,
+        size: result.size ?? prev.size,
+      }))
     } catch (e: any) {
       setError(e.message || '잔업/특근 기록 로드 실패')
     } finally {
@@ -204,7 +213,7 @@ export default function AdminPage() {
   async function approveOvertime(id: number) {
     try {
       await approveOvertimeRecord(id)
-      await Promise.all([loadOvertimeRecords(), loadOvertimeSummary()])
+      await Promise.all([loadOvertimeRecords(overtimePagination.currentPage), loadOvertimeSummary()])
     } catch (e: any) {
       setError(e.message || '승인 실패')
     }
@@ -215,7 +224,7 @@ export default function AdminPage() {
       await rejectOvertimeRecord(id, rejectReason)
       setRejectingId(null)
       setRejectReason('')
-      await loadOvertimeRecords()
+      await loadOvertimeRecords(overtimePagination.currentPage)
     } catch (e: any) {
       setError(e.message || '반려 실패')
     }
@@ -225,7 +234,10 @@ export default function AdminPage() {
     if (!window.confirm('이 기록을 삭제할까요? 삭제하면 되돌릴 수 없습니다.')) return
     try {
       await deleteOvertimeRecord(id)
-      await Promise.all([loadOvertimeRecords(), loadOvertimeSummary()])
+      // 마지막 페이지의 마지막 항목을 지우면 빈 페이지가 되므로, 필요 시 이전 페이지로 이동
+      const isLastItemOnPage = overtimeRecords.length === 1 && overtimePagination.currentPage > 0
+      const target = isLastItemOnPage ? overtimePagination.currentPage - 1 : overtimePagination.currentPage
+      await Promise.all([loadOvertimeRecords(target), loadOvertimeSummary()])
     } catch (e: any) {
       setError(e.message || '삭제 실패')
     }
@@ -239,7 +251,7 @@ export default function AdminPage() {
       loadLogStats()
     }
     if (activeTab === 'overtime') {
-      loadOvertimeRecords()
+      loadOvertimeRecords(0)
       loadOvertimeSummary()
       loadOvertimeDefaults()
     }
@@ -253,7 +265,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (activeTab === 'overtime') {
-      loadOvertimeRecords()
+      loadOvertimeRecords(0) // 필터 변경 시 첫 페이지로
     }
   }, [overtimeFilters])
 
@@ -781,6 +793,46 @@ export default function AdminPage() {
                   </div>
                 </div>
               ))
+            )}
+
+            {/* 페이지네이션 */}
+            {overtimePagination.totalPages > 1 && (
+              <div className="admin-pagination">
+                <button
+                  className="btn ghost"
+                  onClick={() => loadOvertimeRecords(0)}
+                  disabled={overtimePagination.currentPage === 0 || overtimeLoading}
+                >
+                  처음
+                </button>
+                <button
+                  className="btn ghost"
+                  onClick={() => loadOvertimeRecords(overtimePagination.currentPage - 1)}
+                  disabled={overtimePagination.currentPage === 0 || overtimeLoading}
+                >
+                  이전
+                </button>
+
+                <span className="pagination-info">
+                  {overtimePagination.currentPage + 1} / {overtimePagination.totalPages} 페이지
+                  ({overtimePagination.totalElements}개 항목)
+                </span>
+
+                <button
+                  className="btn ghost"
+                  onClick={() => loadOvertimeRecords(overtimePagination.currentPage + 1)}
+                  disabled={overtimePagination.currentPage >= overtimePagination.totalPages - 1 || overtimeLoading}
+                >
+                  다음
+                </button>
+                <button
+                  className="btn ghost"
+                  onClick={() => loadOvertimeRecords(overtimePagination.totalPages - 1)}
+                  disabled={overtimePagination.currentPage >= overtimePagination.totalPages - 1 || overtimeLoading}
+                >
+                  마지막
+                </button>
+              </div>
             )}
           </div>
 
