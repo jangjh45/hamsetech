@@ -95,6 +95,7 @@ export default function Header() {
             <Link to="/">홈</Link>
             <Link to="/notices">공지사항</Link>
             <Link to="/delivery">적재 시뮬레이터</Link>
+            {authed && <Link to="/overtime">잔업특근</Link>}
             {admin && <Link to="/admin">관리자</Link>}
             <div className="spacer" />
             <button className="btn ghost" onClick={toggleTheme}>{theme === 'dark' ? '☀️' : '🌙'}</button>
@@ -121,6 +122,7 @@ export default function Header() {
             <Link to="/" onClick={() => setShowMobileMenu(false)}>홈</Link>
             <Link to="/notices" onClick={() => setShowMobileMenu(false)}>공지사항</Link>
             <Link to="/delivery" onClick={() => setShowMobileMenu(false)}>적재 시뮬레이터</Link>
+            {authed && <Link to="/overtime" onClick={() => setShowMobileMenu(false)}>잔업특근</Link>}
             {admin && <Link to="/admin" onClick={() => setShowMobileMenu(false)}>관리자</Link>}
             {!authed && <Link to="/register" onClick={() => setShowMobileMenu(false)}>회원가입</Link>}
             {!authed && <Link to="/login" onClick={() => setShowMobileMenu(false)}>로그인</Link>}

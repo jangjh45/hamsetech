@@ -2,7 +2,18 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 import { getUsername as getMe, getToken, getRoles, saveAuth, onTokenExpired } from '../auth/token'
+import {
+  listAllOvertimeRecords,
+  approveOvertimeRecord,
+  rejectOvertimeRecord,
+  getOvertimeSummary,
+  type OvertimeRecord,
+  type OvertimeSummary,
+} from '../api/overtimeRecords'
 import '../styles/admin.css'
+
+const OVERTIME_STATUS_LABEL: Record<string, string> = { PENDING: '대기', APPROVED: '승인', REJECTED: '반려' }
+const OVERTIME_TYPE_LABEL: Record<string, string> = { OVERTIME: '잔업', SPECIAL: '특근' }
 
 interface AdminLog {
   id: number
@@ -21,7 +32,14 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([])
   const [q, setQ] = useState('')
   const [tokenExpired, setTokenExpired] = useState(false)
-  const [activeTab, setActiveTab] = useState<'users' | 'logs'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'logs' | 'overtime'>('users')
+  const [overtimeRecords, setOvertimeRecords] = useState<OvertimeRecord[]>([])
+  const [overtimeLoading, setOvertimeLoading] = useState(false)
+  const [overtimeSummary, setOvertimeSummary] = useState<OvertimeSummary[]>([])
+  const [overtimeFilters, setOvertimeFilters] = useState({ username: '', type: '', status: '' })
+  const [overtimeMonth, setOvertimeMonth] = useState<string>(() => new Date().toISOString().slice(0, 7))
+  const [rejectingId, setRejectingId] = useState<number | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
   const [logs, setLogs] = useState<AdminLog[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
   const [logStats, setLogStats] = useState<any>(null)
@@ -120,12 +138,62 @@ export default function AdminPage() {
     }
   }
 
+  async function loadOvertimeRecords() {
+    try {
+      setOvertimeLoading(true)
+      const result = await listAllOvertimeRecords({
+        username: overtimeFilters.username || undefined,
+        type: (overtimeFilters.type || undefined) as any,
+        status: (overtimeFilters.status || undefined) as any,
+        size: 100,
+      })
+      setOvertimeRecords(result.content)
+    } catch (e: any) {
+      setError(e.message || '잔업/특근 기록 로드 실패')
+    } finally {
+      setOvertimeLoading(false)
+    }
+  }
+
+  async function loadOvertimeSummary() {
+    try {
+      const summary = await getOvertimeSummary(overtimeMonth)
+      setOvertimeSummary(summary)
+    } catch (e: any) {
+      setError(e.message || '월별 집계 로드 실패')
+    }
+  }
+
+  async function approveOvertime(id: number) {
+    try {
+      await approveOvertimeRecord(id)
+      await Promise.all([loadOvertimeRecords(), loadOvertimeSummary()])
+    } catch (e: any) {
+      setError(e.message || '승인 실패')
+    }
+  }
+
+  async function rejectOvertime(id: number) {
+    try {
+      await rejectOvertimeRecord(id, rejectReason)
+      setRejectingId(null)
+      setRejectReason('')
+      await loadOvertimeRecords()
+    } catch (e: any) {
+      setError(e.message || '반려 실패')
+    }
+  }
+
   useEffect(() => { loadUsers('') }, [])
 
   useEffect(() => {
     if (activeTab === 'logs') {
       loadLogs(0) // 탭 변경 시 첫 페이지로 이동
       loadLogStats()
+    }
+    if (activeTab === 'overtime') {
+      loadOvertimeRecords()
+      loadOvertimeSummary()
     }
   }, [activeTab])
 
@@ -134,6 +202,18 @@ export default function AdminPage() {
       loadLogs(0) // 필터 변경 시 첫 페이지로 이동
     }
   }, [logFilters])
+
+  useEffect(() => {
+    if (activeTab === 'overtime') {
+      loadOvertimeRecords()
+    }
+  }, [overtimeFilters])
+
+  useEffect(() => {
+    if (activeTab === 'overtime') {
+      loadOvertimeSummary()
+    }
+  }, [overtimeMonth])
 
   async function grant(id: number) {
     try {
@@ -180,6 +260,12 @@ export default function AdminPage() {
           onClick={() => setActiveTab('logs')}
         >
           활동 로그
+        </button>
+        <button
+          className={`admin-tab-button ${activeTab === 'overtime' ? 'active' : ''}`}
+          onClick={() => setActiveTab('overtime')}
+        >
+          잔업/특근 관리
         </button>
       </div>
 
@@ -491,6 +577,132 @@ export default function AdminPage() {
                   마지막
                 </button>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'overtime' && (
+        <div className="admin-content">
+          <div className="admin-controls">
+            <div className="admin-filter-group">
+              <input
+                className="input"
+                placeholder="직원명"
+                value={overtimeFilters.username}
+                onChange={(e) => setOvertimeFilters(prev => ({ ...prev, username: e.target.value }))}
+                style={{ minWidth: 120 }}
+              />
+              <select
+                className="admin-select"
+                value={overtimeFilters.type}
+                onChange={(e) => setOvertimeFilters(prev => ({ ...prev, type: e.target.value }))}
+              >
+                <option value="">모든 유형</option>
+                <option value="OVERTIME">잔업</option>
+                <option value="SPECIAL">특근</option>
+              </select>
+              <select
+                className="admin-select"
+                value={overtimeFilters.status}
+                onChange={(e) => setOvertimeFilters(prev => ({ ...prev, status: e.target.value }))}
+              >
+                <option value="">모든 상태</option>
+                <option value="PENDING">대기</option>
+                <option value="APPROVED">승인</option>
+                <option value="REJECTED">반려</option>
+              </select>
+              <button
+                className="btn ghost"
+                onClick={() => setOvertimeFilters({ username: '', type: '', status: '' })}
+              >
+                초기화
+              </button>
+            </div>
+          </div>
+
+          <div className="admin-table-container">
+            {overtimeLoading ? (
+              <div className="admin-empty-state">로딩 중...</div>
+            ) : overtimeRecords.length === 0 ? (
+              <div className="admin-empty-state">기록이 없습니다.</div>
+            ) : (
+              overtimeRecords.map((r) => (
+                <div key={r.id} className="admin-table-row" style={{ gridTemplateColumns: '1fr', display: 'block', padding: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>
+                        {r.displayName || r.username} · {r.workDate} · {OVERTIME_TYPE_LABEL[r.type]}
+                      </div>
+                      <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+                        {r.startTime && r.endTime ? `${r.startTime} ~ ${r.endTime}` : `${r.totalMinutes}분`}
+                        {r.reason ? ` · ${r.reason}` : ''}
+                      </div>
+                      <div style={{ fontSize: 13 }}>
+                        <span className={`admin-badge ${r.status === 'APPROVED' ? 'badge-create' : r.status === 'REJECTED' ? 'badge-delete' : 'badge-read'}`}>
+                          {OVERTIME_STATUS_LABEL[r.status]}
+                        </span>
+                        {r.status === 'REJECTED' && r.rejectReason && (
+                          <span style={{ marginLeft: 8, color: 'var(--muted)' }}>사유: {r.rejectReason}</span>
+                        )}
+                      </div>
+                    </div>
+                    {r.status === 'PENDING' && (
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                        <button className="btn ghost" onClick={() => approveOvertime(r.id)}>승인</button>
+                        {rejectingId === r.id ? (
+                          <>
+                            <input
+                              className="input"
+                              placeholder="반려 사유"
+                              value={rejectReason}
+                              onChange={(e) => setRejectReason(e.target.value)}
+                              style={{ width: 160 }}
+                            />
+                            <button className="btn ghost" onClick={() => rejectOvertime(r.id)}>확인</button>
+                            <button className="btn ghost" onClick={() => { setRejectingId(null); setRejectReason('') }}>취소</button>
+                          </>
+                        ) : (
+                          <button className="btn ghost" onClick={() => setRejectingId(r.id)}>반려</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="admin-controls" style={{ marginTop: 24 }}>
+            <h3 style={{ margin: 0 }}>월별 집계</h3>
+            <input
+              type="month"
+              className="input"
+              value={overtimeMonth}
+              onChange={(e) => setOvertimeMonth(e.target.value)}
+            />
+          </div>
+
+          <div className="admin-table-container">
+            <div className="admin-table-header" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+              <div>직원</div>
+              <div style={{ textAlign: 'center' }}>잔업 시간</div>
+              <div style={{ textAlign: 'center' }}>잔업 일수</div>
+              <div style={{ textAlign: 'center' }}>특근 시간</div>
+              <div style={{ textAlign: 'center' }}>특근 일수</div>
+            </div>
+            {overtimeSummary.length === 0 ? (
+              <div className="admin-empty-state">승인된 기록이 없습니다.</div>
+            ) : (
+              overtimeSummary.map((s) => (
+                <div key={s.username} className="admin-table-row" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+                  <div>{s.displayName || s.username}</div>
+                  <div style={{ textAlign: 'center' }}>{(s.overtimeMinutes / 60).toFixed(1)}시간</div>
+                  <div style={{ textAlign: 'center' }}>{s.overtimeDays}</div>
+                  <div style={{ textAlign: 'center' }}>{(s.specialMinutes / 60).toFixed(1)}시간</div>
+                  <div style={{ textAlign: 'center' }}>{s.specialDays}</div>
+                </div>
+              ))
             )}
           </div>
         </div>

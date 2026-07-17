@@ -38,7 +38,7 @@ public class AdminLog {
     }
 
     public enum EntityType {
-        TODO, CALENDAR_EVENT, NOTICE, NOTICE_COMMENT, SCENARIO
+        TODO, CALENDAR_EVENT, NOTICE, NOTICE_COMMENT, SCENARIO, OVERTIME_RECORD
     }
 
     // 기본 생성자
