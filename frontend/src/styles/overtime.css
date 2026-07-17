@@ -1,0 +1,154 @@
+/* 잔업/특근 페이지 공용 스타일 (직원 페이지 + 관리자 탭) */
+
+/* ── 상태 pill ───────────────────────────────── */
+.ot-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.ot-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+}
+.ot-pill--pending  { color: #f59e0b; background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.32); }
+.ot-pill--approved { color: #10b981; background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.32); }
+.ot-pill--rejected { color: #ef4444; background: rgba(239, 68, 68, 0.12);  border-color: rgba(239, 68, 68, 0.32); }
+
+/* ── 구분 태그 (잔업/특근) ───────────────────── */
+.ot-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  border: 1px solid var(--border);
+  background: var(--accent-bg);
+  color: var(--accent-text);
+}
+.ot-tag--special { color: #a855f7; background: rgba(168, 85, 247, 0.12); border-color: rgba(168, 85, 247, 0.3); }
+
+/* ── 리스트 행 ───────────────────────────────── */
+.ot-record {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s ease, box-shadow 0.2s ease, padding-left 0.2s ease;
+  flex-wrap: wrap;
+}
+.ot-record:last-child { border-bottom: none; }
+.ot-record:hover {
+  background: var(--accent-bg);
+  box-shadow: inset 3px 0 0 var(--primary);
+  padding-left: 21px;
+}
+.ot-record__main { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.ot-record__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-weight: 600;
+  font-size: 15px;
+}
+.ot-record__date { color: var(--text); }
+.ot-record__meta { color: var(--muted); font-size: 13px; }
+.ot-record__reject { color: var(--danger); font-size: 13px; }
+
+.ot-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+
+/* ── 리스트 헤더 (섹션 제목 + 카운트) ────────── */
+.ot-list-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.ot-list-head h3 { margin: 0; font-size: 15px; }
+.ot-list-head .ot-count { color: var(--muted); font-size: 13px; font-weight: 500; }
+
+.ot-empty { padding: 40px 16px; text-align: center; color: var(--muted); font-size: 15px; }
+
+/* ── 폼 ─────────────────────────────────────── */
+.ot-form { display: grid; gap: 14px; }
+.ot-form--editing { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), 0 8px 24px rgba(0, 0, 0, 0.14); }
+.ot-form__title { margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+.ot-form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+.ot-form__label { display: grid; gap: 6px; font-size: 13px; font-weight: 500; color: var(--muted); text-align: left; }
+.ot-form__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── 힌트 / 알림 ────────────────────────────── */
+.ot-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--accent-text);
+  background: var(--accent-bg);
+  border: 1px solid var(--border);
+}
+.ot-alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--danger);
+  background: var(--danger-bg);
+  border: 1px solid var(--danger);
+}
+
+/* ── 위험(삭제) 고스트 버튼 ─────────────────── */
+.btn.ghost.ot-danger { color: var(--danger); border-color: rgba(239, 68, 68, 0.35); }
+.btn.ghost.ot-danger:hover {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-color: var(--danger);
+  box-shadow: 0 0 12px var(--glow-danger);
+}
+
+/* ── 관리자: 기본시간 설정 카드 ─────────────── */
+.ot-defaults { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; }
+.ot-defaults__group { display: grid; gap: 6px; }
+.ot-defaults__group > span:first-child { font-weight: 600; font-size: 14px; }
+.ot-defaults__range { display: flex; gap: 8px; align-items: center; }
+
+/* ── 작은 화면 대응 ─────────────────────────── */
+@media (max-width: 640px) {
+  .ot-record { align-items: flex-start; }
+  .ot-actions { width: 100%; }
+  .ot-actions .btn { flex: 1; }
+}

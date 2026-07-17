@@ -10,6 +10,7 @@ import {
   type OvertimeType,
 } from '../api/overtimeRecords'
 import { formatDate } from '../utils/formatDate'
+import '../styles/overtime.css'
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: '대기',
@@ -17,10 +18,10 @@ const STATUS_LABEL: Record<string, string> = {
   REJECTED: '반려',
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  PENDING: '#b58900',
-  APPROVED: '#2e7d32',
-  REJECTED: '#c62828',
+const STATUS_PILL: Record<string, string> = {
+  PENDING: 'ot-pill ot-pill--pending',
+  APPROVED: 'ot-pill ot-pill--approved',
+  REJECTED: 'ot-pill ot-pill--rejected',
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -170,20 +171,22 @@ export default function OvertimeRecordsPage() {
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', padding: 16 }}>
-      <h1>잔업/특근 기록</h1>
+    <div className="container">
+      <h1 className="title">잔업/특근 기록</h1>
       <p className="subtitle">잔업(평일 연장근무)과 특근(휴일/주말 근무)을 등록하면 관리자 승인 후 반영됩니다.</p>
 
-      {error && (
-        <div className="card" style={{ borderColor: '#c62828', color: '#c62828', marginBottom: 16 }}>
-          {error}
-        </div>
-      )}
+      {error && <div className="ot-alert">⚠️ {error}</div>}
 
-      <form onSubmit={onSubmit} className="card" style={{ marginBottom: 24, display: 'grid', gap: 12 }}>
-        <h3 style={{ margin: 0 }}>{editingId != null ? '기록 수정' : '새 기록 등록'}</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-          <label>
+      <form
+        onSubmit={onSubmit}
+        className={`card ot-form${editingId != null ? ' ot-form--editing' : ''}`}
+        style={{ marginBottom: 24 }}
+      >
+        <h3 className="ot-form__title">
+          {editingId != null ? '✏️ 기록 수정' : '➕ 새 기록 등록'}
+        </h3>
+        <div className="ot-form__grid">
+          <label className="ot-form__label">
             날짜
             <input
               type="date"
@@ -194,7 +197,7 @@ export default function OvertimeRecordsPage() {
               style={{ width: '100%' }}
             />
           </label>
-          <label>
+          <label className="ot-form__label">
             구분
             <select
               className="input"
@@ -206,7 +209,7 @@ export default function OvertimeRecordsPage() {
               <option value="SPECIAL">특근 (휴일/주말 근무)</option>
             </select>
           </label>
-          <label>
+          <label className="ot-form__label">
             시작 시간
             <input
               type="time"
@@ -216,7 +219,7 @@ export default function OvertimeRecordsPage() {
               style={{ width: '100%' }}
             />
           </label>
-          <label>
+          <label className="ot-form__label">
             종료 시간
             <input
               type="time"
@@ -226,7 +229,7 @@ export default function OvertimeRecordsPage() {
               style={{ width: '100%' }}
             />
           </label>
-          <label>
+          <label className="ot-form__label">
             또는 총 시간(분)
             <input
               type="number"
@@ -240,56 +243,63 @@ export default function OvertimeRecordsPage() {
           </label>
         </div>
         {form.type === 'SPECIAL' && (
-          <div style={{ color: 'var(--muted)', fontSize: 13 }}>
-            ※ 특근은 6시간 이상 근무 시 점심 휴게시간 1시간이 총 근무시간에서 자동 차감됩니다.
+          <div className="ot-hint">
+            <span>💡</span>
+            <span>특근은 6시간 이상 근무 시 점심 휴게시간 1시간이 총 근무시간에서 자동 차감됩니다.</span>
           </div>
         )}
-        <label>
+        <label className="ot-form__label">
           사유
           <textarea
             className="input"
             value={form.reason}
             onChange={(e) => setForm({ ...form, reason: e.target.value })}
+            placeholder="사유를 입력하세요 (선택)"
             style={{ width: '100%', minHeight: 60 }}
           />
         </label>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn" type="submit" disabled={submitting}>
-            {editingId != null ? '수정 저장' : '등록'}
-          </button>
+        <div className="ot-form__footer">
           {editingId != null && (
             <button className="btn ghost" type="button" onClick={cancelEdit}>취소</button>
           )}
+          <button className="btn" type="submit" disabled={submitting}>
+            {submitting ? '저장 중...' : editingId != null ? '수정 저장' : '등록'}
+          </button>
         </div>
       </form>
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="ot-list-head">
+          <h3>등록 내역</h3>
+          {!loading && records.length > 0 && <span className="ot-count">총 {records.length}건</span>}
+        </div>
         {loading ? (
-          <div style={{ padding: 16 }}>불러오는 중...</div>
+          <div className="ot-empty">불러오는 중...</div>
         ) : records.length === 0 ? (
-          <div style={{ padding: 16 }}>등록된 기록이 없습니다.</div>
+          <div className="ot-empty">아직 등록된 기록이 없습니다.</div>
         ) : (
           records.map((r) => (
-            <div key={r.id} style={{ padding: 16, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontWeight: 600 }}>
-                  {formatDate(r.workDate)} · {TYPE_LABEL[r.type]}
-                  <span style={{ marginLeft: 8, color: STATUS_COLOR[r.status], fontSize: 13 }}>
-                    ● {STATUS_LABEL[r.status]}
+            <div key={r.id} className="ot-record">
+              <div className="ot-record__main">
+                <div className="ot-record__head">
+                  <span className="ot-record__date">{formatDate(r.workDate)}</span>
+                  <span className={`ot-tag${r.type === 'SPECIAL' ? ' ot-tag--special' : ''}`}>
+                    {TYPE_LABEL[r.type]}
                   </span>
+                  <span className={STATUS_PILL[r.status]}>{STATUS_LABEL[r.status]}</span>
                 </div>
-                <div style={{ color: 'var(--muted)', fontSize: 13 }}>
-                  {r.startTime && r.endTime ? `${r.startTime} ~ ${r.endTime}` : `${r.totalMinutes}분`}
+                <div className="ot-record__meta">
+                  🕒 {r.startTime && r.endTime ? `${r.startTime} ~ ${r.endTime}` : `${r.totalMinutes}분`}
                   {r.reason ? ` · ${r.reason}` : ''}
                 </div>
                 {r.status === 'REJECTED' && r.rejectReason && (
-                  <div style={{ color: '#c62828', fontSize: 13 }}>반려 사유: {r.rejectReason}</div>
+                  <div className="ot-record__reject">반려 사유: {r.rejectReason}</div>
                 )}
               </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div className="ot-actions">
                 <button className="btn ghost" onClick={() => onEditClick(r)}>수정</button>
                 {r.status !== 'APPROVED' && (
-                  <button className="btn ghost" onClick={() => onDelete(r.id)}>삭제</button>
+                  <button className="btn ghost ot-danger" onClick={() => onDelete(r.id)}>삭제</button>
                 )}
               </div>
             </div>
