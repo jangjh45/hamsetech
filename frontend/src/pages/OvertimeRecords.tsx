@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   createOvertimeRecord,
   deleteOvertimeRecord,
@@ -10,6 +10,7 @@ import {
   type OvertimeType,
 } from '../api/overtimeRecords'
 import { formatDate } from '../utils/formatDate'
+import '../styles/overtime.css'
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: '대기',
@@ -17,15 +18,50 @@ const STATUS_LABEL: Record<string, string> = {
   REJECTED: '반려',
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  PENDING: '#b58900',
-  APPROVED: '#2e7d32',
-  REJECTED: '#c62828',
+const STATUS_PILL: Record<string, string> = {
+  PENDING: 'ot-pill ot-pill--pending',
+  APPROVED: 'ot-pill ot-pill--approved',
+  REJECTED: 'ot-pill ot-pill--rejected',
 }
 
 const TYPE_LABEL: Record<string, string> = {
   OVERTIME: '잔업',
   SPECIAL: '특근',
+}
+
+const PAGE_SIZE = 10
+
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
+
+function toYmd(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+interface CalCell { date: string; day: number; inMonth: boolean; dow: number }
+
+function monthMatrix(viewDate: Date): CalCell[] {
+  const year = viewDate.getFullYear()
+  const month = viewDate.getMonth()
+  const startDay = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const cells: CalCell[] = []
+  const prevMonthDays = new Date(year, month, 0).getDate()
+  for (let i = startDay - 1; i >= 0; i--) {
+    const dt = new Date(year, month - 1, prevMonthDays - i)
+    cells.push({ date: toYmd(dt), day: dt.getDate(), inMonth: false, dow: dt.getDay() })
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(year, month, d)
+    cells.push({ date: toYmd(dt), day: d, inMonth: true, dow: dt.getDay() })
+  }
+  for (let i = 1; cells.length < 42; i++) {
+    const dt = new Date(year, month + 1, i)
+    cells.push({ date: toYmd(dt), day: dt.getDate(), inMonth: false, dow: dt.getDay() })
+  }
+  return cells
 }
 
 interface FormState {
@@ -56,6 +92,16 @@ export default function OvertimeRecordsPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [defaults, setDefaults] = useState<OvertimeDefaults | null>(null)
+  const [page, setPage] = useState(0)
+  const [view, setView] = useState<'list' | 'calendar'>('list')
+  const [calMonth, setCalMonth] = useState<Date>(() => new Date())
+  const [selectedDate, setSelectedDate] = useState<string>(() => toYmd(new Date()))
+
+  const recordsByDate = useMemo(() => {
+    const map: Record<string, OvertimeRecord[]> = {}
+    for (const r of records) (map[r.workDate] ||= []).push(r)
+    return map
+  }, [records])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -86,6 +132,12 @@ export default function OvertimeRecordsPage() {
       .catch(() => { /* 기본시간은 편의 기능이라 실패해도 폼은 정상 동작 */ })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // 목록이 줄어 현재 페이지가 범위를 벗어나면 마지막 페이지로 보정
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE))
+    if (page > totalPages - 1) setPage(totalPages - 1)
+  }, [records, page])
 
   function startEdit(r: OvertimeRecord) {
     setEditingId(r.id)
@@ -169,21 +221,60 @@ export default function OvertimeRecordsPage() {
     }
   }
 
+  const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages - 1)
+  const pageRecords = records.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE)
+
+  const calCells = monthMatrix(calMonth)
+  const todayYmd = toYmd(new Date())
+  const selectedRecords = recordsByDate[selectedDate] || []
+
+  function recordRow(r: OvertimeRecord) {
+    return (
+      <div key={r.id} className="ot-record">
+        <div className="ot-record__main">
+          <div className="ot-record__head">
+            <span className="ot-record__date">{formatDate(r.workDate)}</span>
+            <span className={`ot-tag${r.type === 'SPECIAL' ? ' ot-tag--special' : ''}`}>
+              {TYPE_LABEL[r.type]}
+            </span>
+            <span className={STATUS_PILL[r.status]}>{STATUS_LABEL[r.status]}</span>
+          </div>
+          <div className="ot-record__meta">
+            🕒 {r.startTime && r.endTime ? `${r.startTime} ~ ${r.endTime}` : `${r.totalMinutes}분`}
+            {r.reason ? ` · ${r.reason}` : ''}
+          </div>
+          {r.status === 'REJECTED' && r.rejectReason && (
+            <div className="ot-record__reject">반려 사유: {r.rejectReason}</div>
+          )}
+        </div>
+        <div className="ot-actions">
+          <button className="btn ghost" onClick={() => onEditClick(r)}>수정</button>
+          {r.status !== 'APPROVED' && (
+            <button className="btn ghost ot-danger" onClick={() => onDelete(r.id)}>삭제</button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', padding: 16 }}>
-      <h1>잔업/특근 기록</h1>
+    <div className="container">
+      <h1 className="title">잔업/특근 기록</h1>
       <p className="subtitle">잔업(평일 연장근무)과 특근(휴일/주말 근무)을 등록하면 관리자 승인 후 반영됩니다.</p>
 
-      {error && (
-        <div className="card" style={{ borderColor: '#c62828', color: '#c62828', marginBottom: 16 }}>
-          {error}
-        </div>
-      )}
+      {error && <div className="ot-alert">⚠️ {error}</div>}
 
-      <form onSubmit={onSubmit} className="card" style={{ marginBottom: 24, display: 'grid', gap: 12 }}>
-        <h3 style={{ margin: 0 }}>{editingId != null ? '기록 수정' : '새 기록 등록'}</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-          <label>
+      <form
+        onSubmit={onSubmit}
+        className={`card ot-form${editingId != null ? ' ot-form--editing' : ''}`}
+        style={{ marginBottom: 24 }}
+      >
+        <h3 className="ot-form__title">
+          {editingId != null ? '✏️ 기록 수정' : '➕ 새 기록 등록'}
+        </h3>
+        <div className="ot-form__grid">
+          <label className="ot-form__label">
             날짜
             <input
               type="date"
@@ -194,7 +285,7 @@ export default function OvertimeRecordsPage() {
               style={{ width: '100%' }}
             />
           </label>
-          <label>
+          <label className="ot-form__label">
             구분
             <select
               className="input"
@@ -206,7 +297,7 @@ export default function OvertimeRecordsPage() {
               <option value="SPECIAL">특근 (휴일/주말 근무)</option>
             </select>
           </label>
-          <label>
+          <label className="ot-form__label">
             시작 시간
             <input
               type="time"
@@ -216,7 +307,7 @@ export default function OvertimeRecordsPage() {
               style={{ width: '100%' }}
             />
           </label>
-          <label>
+          <label className="ot-form__label">
             종료 시간
             <input
               type="time"
@@ -226,7 +317,7 @@ export default function OvertimeRecordsPage() {
               style={{ width: '100%' }}
             />
           </label>
-          <label>
+          <label className="ot-form__label">
             또는 총 시간(분)
             <input
               type="number"
@@ -240,60 +331,113 @@ export default function OvertimeRecordsPage() {
           </label>
         </div>
         {form.type === 'SPECIAL' && (
-          <div style={{ color: 'var(--muted)', fontSize: 13 }}>
-            ※ 특근은 6시간 이상 근무 시 점심 휴게시간 1시간이 총 근무시간에서 자동 차감됩니다.
+          <div className="ot-hint">
+            <span>💡</span>
+            <span>특근은 6시간 이상 근무 시 점심 휴게시간 1시간이 총 근무시간에서 자동 차감됩니다.</span>
           </div>
         )}
-        <label>
+        <label className="ot-form__label">
           사유
           <textarea
             className="input"
             value={form.reason}
             onChange={(e) => setForm({ ...form, reason: e.target.value })}
+            placeholder="사유를 입력하세요 (선택)"
             style={{ width: '100%', minHeight: 60 }}
           />
         </label>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn" type="submit" disabled={submitting}>
-            {editingId != null ? '수정 저장' : '등록'}
-          </button>
+        <div className="ot-form__footer">
           {editingId != null && (
             <button className="btn ghost" type="button" onClick={cancelEdit}>취소</button>
           )}
+          <button className="btn" type="submit" disabled={submitting}>
+            {submitting ? '저장 중...' : editingId != null ? '수정 저장' : '등록'}
+          </button>
         </div>
       </form>
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="ot-list-head">
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <h3>등록 내역</h3>
+            {!loading && records.length > 0 && <span className="ot-count">총 {records.length}건</span>}
+          </div>
+          <div className="ot-toggle">
+            <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>목록</button>
+            <button className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>달력</button>
+          </div>
+        </div>
+
         {loading ? (
-          <div style={{ padding: 16 }}>불러오는 중...</div>
-        ) : records.length === 0 ? (
-          <div style={{ padding: 16 }}>등록된 기록이 없습니다.</div>
+          <div className="ot-empty">불러오는 중...</div>
+        ) : view === 'list' ? (
+          records.length === 0 ? (
+            <div className="ot-empty">아직 등록된 기록이 없습니다.</div>
+          ) : (
+            <>
+              {pageRecords.map(recordRow)}
+              {totalPages > 1 && (
+                <div className="ot-pagination">
+                  <button className="btn ghost" onClick={() => setPage(0)} disabled={currentPage === 0}>처음</button>
+                  <button className="btn ghost" onClick={() => setPage(currentPage - 1)} disabled={currentPage === 0}>이전</button>
+                  <span className="ot-pagination__info">{currentPage + 1} / {totalPages} 페이지</span>
+                  <button className="btn ghost" onClick={() => setPage(currentPage + 1)} disabled={currentPage >= totalPages - 1}>다음</button>
+                  <button className="btn ghost" onClick={() => setPage(totalPages - 1)} disabled={currentPage >= totalPages - 1}>마지막</button>
+                </div>
+              )}
+            </>
+          )
         ) : (
-          records.map((r) => (
-            <div key={r.id} style={{ padding: 16, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-              <div>
-                <div style={{ fontWeight: 600 }}>
-                  {formatDate(r.workDate)} · {TYPE_LABEL[r.type]}
-                  <span style={{ marginLeft: 8, color: STATUS_COLOR[r.status], fontSize: 13 }}>
-                    ● {STATUS_LABEL[r.status]}
-                  </span>
+          <>
+            <div className="ot-cal">
+              <div className="ot-cal__head">
+                <div className="ot-cal__nav">
+                  <button className="btn ghost" onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1))}>◀</button>
+                  <button className="btn ghost" onClick={() => { const t = new Date(); setCalMonth(new Date(t.getFullYear(), t.getMonth(), 1)); setSelectedDate(toYmd(t)) }}>오늘</button>
+                  <button className="btn ghost" onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1))}>▶</button>
+                  <span className="ot-cal__month">{calMonth.getFullYear()}년 {calMonth.getMonth() + 1}월</span>
                 </div>
-                <div style={{ color: 'var(--muted)', fontSize: 13 }}>
-                  {r.startTime && r.endTime ? `${r.startTime} ~ ${r.endTime}` : `${r.totalMinutes}분`}
-                  {r.reason ? ` · ${r.reason}` : ''}
+                <div className="ot-cal__legend">
+                  <span><i className="ot-cal__dot ot-cal__dot--overtime" />잔업</span>
+                  <span><i className="ot-cal__dot ot-cal__dot--special" />특근</span>
                 </div>
-                {r.status === 'REJECTED' && r.rejectReason && (
-                  <div style={{ color: '#c62828', fontSize: 13 }}>반려 사유: {r.rejectReason}</div>
-                )}
               </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <button className="btn ghost" onClick={() => onEditClick(r)}>수정</button>
-                {r.status !== 'APPROVED' && (
-                  <button className="btn ghost" onClick={() => onDelete(r.id)}>삭제</button>
-                )}
+              <div className="ot-cal__grid">
+                {WEEKDAYS.map((w) => <div key={w} className="ot-cal__dow">{w}</div>)}
+                {calCells.map((cell) => {
+                  const dayRecords = recordsByDate[cell.date] || []
+                  const cls = [
+                    'ot-cal__cell',
+                    cell.inMonth ? '' : 'ot-cal__cell--out',
+                    cell.date === todayYmd ? 'ot-cal__cell--today' : '',
+                    cell.date === selectedDate ? 'ot-cal__cell--selected' : '',
+                    cell.dow === 0 ? 'ot-cal__cell--sun' : '',
+                    cell.dow === 6 ? 'ot-cal__cell--sat' : '',
+                  ].filter(Boolean).join(' ')
+                  return (
+                    <button key={cell.date} className={cls} onClick={() => setSelectedDate(cell.date)}>
+                      <span>{cell.day}</span>
+                      <span className="ot-cal__dots">
+                        {dayRecords.slice(0, 4).map((r) => (
+                          <i key={r.id} className={`ot-cal__dot ot-cal__dot--${r.type === 'SPECIAL' ? 'special' : 'overtime'}`} />
+                        ))}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
-          ))
+            <div className="ot-cal__day-panel">
+              <div className="ot-cal__day-panel-head">
+                {formatDate(selectedDate)} · {selectedRecords.length}건
+              </div>
+              {selectedRecords.length === 0 ? (
+                <div className="ot-empty">이 날짜에 등록된 기록이 없습니다.</div>
+              ) : (
+                selectedRecords.map(recordRow)
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>

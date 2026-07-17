@@ -6,6 +6,7 @@ import {
   listAllOvertimeRecords,
   approveOvertimeRecord,
   rejectOvertimeRecord,
+  deleteOvertimeRecord,
   getOvertimeSummary,
   getOvertimeDefaults,
   updateOvertimeDefaults,
@@ -14,8 +15,14 @@ import {
   type OvertimeDefaults,
 } from '../api/overtimeRecords'
 import '../styles/admin.css'
+import '../styles/overtime.css'
 
 const OVERTIME_STATUS_LABEL: Record<string, string> = { PENDING: '대기', APPROVED: '승인', REJECTED: '반려' }
+const OVERTIME_STATUS_PILL: Record<string, string> = {
+  PENDING: 'ot-pill ot-pill--pending',
+  APPROVED: 'ot-pill ot-pill--approved',
+  REJECTED: 'ot-pill ot-pill--rejected',
+}
 const OVERTIME_TYPE_LABEL: Record<string, string> = { OVERTIME: '잔업', SPECIAL: '특근' }
 
 interface AdminLog {
@@ -40,6 +47,7 @@ export default function AdminPage() {
   const [overtimeLoading, setOvertimeLoading] = useState(false)
   const [overtimeSummary, setOvertimeSummary] = useState<OvertimeSummary[]>([])
   const [overtimeFilters, setOvertimeFilters] = useState({ username: '', type: '', status: '' })
+  const [overtimePagination, setOvertimePagination] = useState({ currentPage: 0, totalPages: 0, totalElements: 0, size: 20 })
   const [overtimeMonth, setOvertimeMonth] = useState<string>(() => new Date().toISOString().slice(0, 7))
   const [rejectingId, setRejectingId] = useState<number | null>(null)
   const [rejectReason, setRejectReason] = useState('')
@@ -144,16 +152,24 @@ export default function AdminPage() {
     }
   }
 
-  async function loadOvertimeRecords() {
+  async function loadOvertimeRecords(page: number = 0) {
     try {
       setOvertimeLoading(true)
       const result = await listAllOvertimeRecords({
         username: overtimeFilters.username || undefined,
         type: (overtimeFilters.type || undefined) as any,
         status: (overtimeFilters.status || undefined) as any,
-        size: 100,
+        page,
+        size: overtimePagination.size,
       })
       setOvertimeRecords(result.content)
+      setOvertimePagination(prev => ({
+        ...prev,
+        currentPage: result.number ?? 0,
+        totalPages: result.totalPages ?? 0,
+        totalElements: result.totalElements ?? 0,
+        size: result.size ?? prev.size,
+      }))
     } catch (e: any) {
       setError(e.message || '잔업/특근 기록 로드 실패')
     } finally {
@@ -197,7 +213,7 @@ export default function AdminPage() {
   async function approveOvertime(id: number) {
     try {
       await approveOvertimeRecord(id)
-      await Promise.all([loadOvertimeRecords(), loadOvertimeSummary()])
+      await Promise.all([loadOvertimeRecords(overtimePagination.currentPage), loadOvertimeSummary()])
     } catch (e: any) {
       setError(e.message || '승인 실패')
     }
@@ -208,9 +224,22 @@ export default function AdminPage() {
       await rejectOvertimeRecord(id, rejectReason)
       setRejectingId(null)
       setRejectReason('')
-      await loadOvertimeRecords()
+      await loadOvertimeRecords(overtimePagination.currentPage)
     } catch (e: any) {
       setError(e.message || '반려 실패')
+    }
+  }
+
+  async function deleteOvertime(id: number) {
+    if (!window.confirm('이 기록을 삭제할까요? 삭제하면 되돌릴 수 없습니다.')) return
+    try {
+      await deleteOvertimeRecord(id)
+      // 마지막 페이지의 마지막 항목을 지우면 빈 페이지가 되므로, 필요 시 이전 페이지로 이동
+      const isLastItemOnPage = overtimeRecords.length === 1 && overtimePagination.currentPage > 0
+      const target = isLastItemOnPage ? overtimePagination.currentPage - 1 : overtimePagination.currentPage
+      await Promise.all([loadOvertimeRecords(target), loadOvertimeSummary()])
+    } catch (e: any) {
+      setError(e.message || '삭제 실패')
     }
   }
 
@@ -222,7 +251,7 @@ export default function AdminPage() {
       loadLogStats()
     }
     if (activeTab === 'overtime') {
-      loadOvertimeRecords()
+      loadOvertimeRecords(0)
       loadOvertimeSummary()
       loadOvertimeDefaults()
     }
@@ -236,7 +265,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (activeTab === 'overtime') {
-      loadOvertimeRecords()
+      loadOvertimeRecords(0) // 필터 변경 시 첫 페이지로
     }
   }, [overtimeFilters])
 
@@ -616,16 +645,18 @@ export default function AdminPage() {
       {activeTab === 'overtime' && (
         <div className="admin-content">
           {/* 기본 근무시간 설정 */}
-          <div className="admin-controls" style={{ display: 'block' }}>
-            <h3 style={{ margin: '0 0 4px' }}>기본 근무시간 설정</h3>
-            <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--muted)' }}>
+          <div className="card" style={{ marginBottom: 24 }}>
+            <h3 style={{ margin: '0 0 4px' }}>⏰ 기본 근무시간 설정</h3>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--muted)' }}>
               직원이 잔업/특근을 등록할 때 자동으로 채워지는 시작·종료 시간입니다. (특근은 6시간 이상 근무 시 점심 1시간 자동 차감)
             </p>
             {overtimeDefaults ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-end' }}>
-                <div>
-                  <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14 }}>잔업 (평일 연장)</div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div className="ot-defaults">
+                <div className="ot-defaults__group">
+                  <span>
+                    <span className="ot-tag" style={{ marginRight: 6 }}>잔업</span>평일 연장
+                  </span>
+                  <div className="ot-defaults__range">
                     <input
                       type="time"
                       className="input"
@@ -641,9 +672,11 @@ export default function AdminPage() {
                     />
                   </div>
                 </div>
-                <div>
-                  <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14 }}>특근 (휴일/주말)</div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div className="ot-defaults__group">
+                  <span>
+                    <span className="ot-tag ot-tag--special" style={{ marginRight: 6 }}>특근</span>휴일/주말
+                  </span>
+                  <div className="ot-defaults__range">
                     <input
                       type="time"
                       className="input"
@@ -659,11 +692,11 @@ export default function AdminPage() {
                     />
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                   <button className="btn" onClick={saveOvertimeDefaults} disabled={defaultsSaving}>
                     {defaultsSaving ? '저장 중...' : '저장'}
                   </button>
-                  {defaultsMsg && <span style={{ fontSize: 13, color: 'var(--muted)' }}>{defaultsMsg}</span>}
+                  {defaultsMsg && <span style={{ fontSize: 13, color: '#10b981' }}>✓ {defaultsMsg}</span>}
                 </div>
               </div>
             ) : (
@@ -716,47 +749,90 @@ export default function AdminPage() {
             ) : (
               overtimeRecords.map((r) => (
                 <div key={r.id} className="admin-table-row" style={{ gridTemplateColumns: '1fr', display: 'block', padding: 16 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                    <div>
-                      <div style={{ fontWeight: 600 }}>
-                        {r.displayName || r.username} · {r.workDate} · {OVERTIME_TYPE_LABEL[r.type]}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                    <div className="ot-record__main">
+                      <div className="ot-record__head">
+                        <span style={{ fontWeight: 700 }}>{r.displayName || r.username}</span>
+                        <span className="ot-record__date">{r.workDate}</span>
+                        <span className={`ot-tag${r.type === 'SPECIAL' ? ' ot-tag--special' : ''}`}>
+                          {OVERTIME_TYPE_LABEL[r.type]}
+                        </span>
+                        <span className={OVERTIME_STATUS_PILL[r.status]}>{OVERTIME_STATUS_LABEL[r.status]}</span>
                       </div>
-                      <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-                        {r.startTime && r.endTime ? `${r.startTime} ~ ${r.endTime}` : `${r.totalMinutes}분`}
+                      <div className="ot-record__meta">
+                        🕒 {r.startTime && r.endTime ? `${r.startTime} ~ ${r.endTime}` : `${r.totalMinutes}분`}
                         {r.reason ? ` · ${r.reason}` : ''}
                       </div>
-                      <div style={{ fontSize: 13 }}>
-                        <span className={`admin-badge ${r.status === 'APPROVED' ? 'badge-create' : r.status === 'REJECTED' ? 'badge-delete' : 'badge-read'}`}>
-                          {OVERTIME_STATUS_LABEL[r.status]}
-                        </span>
-                        {r.status === 'REJECTED' && r.rejectReason && (
-                          <span style={{ marginLeft: 8, color: 'var(--muted)' }}>사유: {r.rejectReason}</span>
-                        )}
-                      </div>
+                      {r.status === 'REJECTED' && r.rejectReason && (
+                        <div className="ot-record__reject">반려 사유: {r.rejectReason}</div>
+                      )}
                     </div>
-                    {r.status === 'PENDING' && (
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                        <button className="btn ghost" onClick={() => approveOvertime(r.id)}>승인</button>
-                        {rejectingId === r.id ? (
-                          <>
-                            <input
-                              className="input"
-                              placeholder="반려 사유"
-                              value={rejectReason}
-                              onChange={(e) => setRejectReason(e.target.value)}
-                              style={{ width: 160 }}
-                            />
-                            <button className="btn ghost" onClick={() => rejectOvertime(r.id)}>확인</button>
-                            <button className="btn ghost" onClick={() => { setRejectingId(null); setRejectReason('') }}>취소</button>
-                          </>
-                        ) : (
-                          <button className="btn ghost" onClick={() => setRejectingId(r.id)}>반려</button>
-                        )}
-                      </div>
-                    )}
+                    <div className="ot-actions" style={{ alignItems: 'flex-start' }}>
+                      {r.status === 'PENDING' && (
+                        <>
+                          <button className="btn" onClick={() => approveOvertime(r.id)}>승인</button>
+                          {rejectingId === r.id ? (
+                            <>
+                              <input
+                                className="input"
+                                placeholder="반려 사유"
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                style={{ width: 160 }}
+                              />
+                              <button className="btn ghost" onClick={() => rejectOvertime(r.id)}>확인</button>
+                              <button className="btn ghost" onClick={() => { setRejectingId(null); setRejectReason('') }}>취소</button>
+                            </>
+                          ) : (
+                            <button className="btn ghost" onClick={() => setRejectingId(r.id)}>반려</button>
+                          )}
+                        </>
+                      )}
+                      <button className="btn ghost ot-danger" onClick={() => deleteOvertime(r.id)}>삭제</button>
+                    </div>
                   </div>
                 </div>
               ))
+            )}
+
+            {/* 페이지네이션 */}
+            {overtimePagination.totalPages > 1 && (
+              <div className="admin-pagination">
+                <button
+                  className="btn ghost"
+                  onClick={() => loadOvertimeRecords(0)}
+                  disabled={overtimePagination.currentPage === 0 || overtimeLoading}
+                >
+                  처음
+                </button>
+                <button
+                  className="btn ghost"
+                  onClick={() => loadOvertimeRecords(overtimePagination.currentPage - 1)}
+                  disabled={overtimePagination.currentPage === 0 || overtimeLoading}
+                >
+                  이전
+                </button>
+
+                <span className="pagination-info">
+                  {overtimePagination.currentPage + 1} / {overtimePagination.totalPages} 페이지
+                  ({overtimePagination.totalElements}개 항목)
+                </span>
+
+                <button
+                  className="btn ghost"
+                  onClick={() => loadOvertimeRecords(overtimePagination.currentPage + 1)}
+                  disabled={overtimePagination.currentPage >= overtimePagination.totalPages - 1 || overtimeLoading}
+                >
+                  다음
+                </button>
+                <button
+                  className="btn ghost"
+                  onClick={() => loadOvertimeRecords(overtimePagination.totalPages - 1)}
+                  disabled={overtimePagination.currentPage >= overtimePagination.totalPages - 1 || overtimeLoading}
+                >
+                  마지막
+                </button>
+              </div>
             )}
           </div>
 
