@@ -6,6 +6,7 @@ import {
   listAllOvertimeRecords,
   approveOvertimeRecord,
   rejectOvertimeRecord,
+  deleteOvertimeRecord,
   getOvertimeSummary,
   getOvertimeDefaults,
   updateOvertimeDefaults,
@@ -211,6 +212,16 @@ export default function AdminPage() {
       await loadOvertimeRecords()
     } catch (e: any) {
       setError(e.message || '반려 실패')
+    }
+  }
+
+  async function deleteOvertime(id: number) {
+    if (!window.confirm('이 기록을 삭제할까요? 삭제하면 되돌릴 수 없습니다.')) return
+    try {
+      await deleteOvertimeRecord(id)
+      await Promise.all([loadOvertimeRecords(), loadOvertimeSummary()])
+    } catch (e: any) {
+      setError(e.message || '삭제 실패')
     }
   }
 
@@ -734,26 +745,29 @@ export default function AdminPage() {
                         )}
                       </div>
                     </div>
-                    {r.status === 'PENDING' && (
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                        <button className="btn ghost" onClick={() => approveOvertime(r.id)}>승인</button>
-                        {rejectingId === r.id ? (
-                          <>
-                            <input
-                              className="input"
-                              placeholder="반려 사유"
-                              value={rejectReason}
-                              onChange={(e) => setRejectReason(e.target.value)}
-                              style={{ width: 160 }}
-                            />
-                            <button className="btn ghost" onClick={() => rejectOvertime(r.id)}>확인</button>
-                            <button className="btn ghost" onClick={() => { setRejectingId(null); setRejectReason('') }}>취소</button>
-                          </>
-                        ) : (
-                          <button className="btn ghost" onClick={() => setRejectingId(r.id)}>반려</button>
-                        )}
-                      </div>
-                    )}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                      {r.status === 'PENDING' && (
+                        <>
+                          <button className="btn ghost" onClick={() => approveOvertime(r.id)}>승인</button>
+                          {rejectingId === r.id ? (
+                            <>
+                              <input
+                                className="input"
+                                placeholder="반려 사유"
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                style={{ width: 160 }}
+                              />
+                              <button className="btn ghost" onClick={() => rejectOvertime(r.id)}>확인</button>
+                              <button className="btn ghost" onClick={() => { setRejectingId(null); setRejectReason('') }}>취소</button>
+                            </>
+                          ) : (
+                            <button className="btn ghost" onClick={() => setRejectingId(r.id)}>반려</button>
+                          )}
+                        </>
+                      )}
+                      <button className="btn ghost" onClick={() => deleteOvertime(r.id)}>삭제</button>
+                    </div>
                   </div>
                 </div>
               ))
