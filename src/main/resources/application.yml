@@ -51,3 +51,9 @@ server:
       charset: UTF-8
       enabled: true
       force: true
+
+# Actuator: Redis 컨테이너가 아직 구성되지 않아 헬스체크 집계에서 제외
+management:
+  health:
+    redis:
+      enabled: false

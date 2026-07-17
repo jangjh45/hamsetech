@@ -33,13 +33,14 @@ COPY build.gradle settings.gradle ./
 # 의존성 미리 다운로드 (이미지 레이어 캐시)
 RUN ./gradlew dependencies --no-daemon -q || true
 
+COPY docker/backend-dev-entrypoint.sh ./docker/backend-dev-entrypoint.sh
+RUN chmod +x ./docker/backend-dev-entrypoint.sh
+
 EXPOSE 8080
 
 # 소스는 docker-compose 볼륨으로 마운트됨
-# bootRun이 DevTools와 함께 파일 변경을 감지하여 자동 재시작
-ENTRYPOINT ["./gradlew", "bootRun", \
-  "--no-daemon", \
-  "-Pspring.profiles.active=dev"]
+# 백그라운드에서 주기적으로 재컴파일하고, DevTools가 변경된 클래스를 감지해 자동 재시작
+ENTRYPOINT ["./docker/backend-dev-entrypoint.sh"]
 
 # ─────────────────────────────────────────────
 # Stage 3: Prod (최적화된 경량 이미지)
