@@ -98,6 +98,43 @@
 }
 .ot-pagination__info { color: var(--muted); font-size: 13px; margin: 0 8px; white-space: nowrap; }
 
+/* ── 목록/달력 전환 토글 ────────────────────── */
+.ot-toggle { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--input-bg); }
+.ot-toggle button {
+  padding: 6px 14px; border: none; background: transparent; color: var(--muted);
+  border-radius: 7px; cursor: pointer; font-weight: 600; font-size: 13px; transition: all 0.2s ease;
+}
+.ot-toggle button:hover:not(.active) { color: var(--text); }
+.ot-toggle button.active { background: var(--accent-bg); color: var(--primary); box-shadow: 0 0 8px var(--glow); }
+
+/* ── 달력 ───────────────────────────────────── */
+.ot-cal { padding: 16px 18px; }
+.ot-cal__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
+.ot-cal__nav { display: flex; gap: 6px; align-items: center; }
+.ot-cal__month { font-size: 16px; font-weight: 700; }
+.ot-cal__legend { display: flex; gap: 12px; align-items: center; font-size: 12px; color: var(--muted); }
+.ot-cal__legend span { display: inline-flex; align-items: center; gap: 5px; }
+.ot-cal__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.ot-cal__dow { text-align: center; font-size: 12px; color: var(--muted); padding: 4px 0; font-weight: 600; }
+.ot-cal__cell {
+  position: relative; min-height: 54px; border-radius: 10px; border: 1px solid transparent;
+  background: transparent; color: var(--text); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 6px 0 5px; transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; font-size: 13px;
+}
+.ot-cal__cell:hover:not(.ot-cal__cell--out) { background: var(--accent-bg); border-color: var(--border); }
+.ot-cal__cell--out { color: var(--muted); opacity: 0.35; cursor: default; }
+.ot-cal__cell--today { border-color: var(--primary); font-weight: 700; }
+.ot-cal__cell--selected { background: var(--accent-bg); border-color: var(--primary); box-shadow: 0 0 8px var(--glow); }
+.ot-cal__cell--sun:not(.ot-cal__cell--out) { color: #ef4444; }
+.ot-cal__cell--sat:not(.ot-cal__cell--out) { color: #3b82f6; }
+.ot-cal__dots { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; align-items: center; min-height: 8px; }
+.ot-cal__dot { width: 6px; height: 6px; border-radius: 50%; }
+.ot-cal__dot--overtime { background: var(--accent-text); box-shadow: 0 0 5px var(--accent-text); }
+.ot-cal__dot--special { background: #a855f7; box-shadow: 0 0 5px #a855f7; }
+.ot-cal__day-panel { border-top: 1px solid var(--border); }
+.ot-cal__day-panel-head { padding: 12px 18px 4px; font-size: 14px; font-weight: 700; }
+
 /* ── 폼 ─────────────────────────────────────── */
 .ot-form { display: grid; gap: 14px; }
 .ot-form--editing { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), 0 8px 24px rgba(0, 0, 0, 0.14); }

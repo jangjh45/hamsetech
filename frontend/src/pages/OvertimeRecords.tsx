@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   createOvertimeRecord,
   deleteOvertimeRecord,
@@ -31,6 +31,39 @@ const TYPE_LABEL: Record<string, string> = {
 
 const PAGE_SIZE = 10
 
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
+
+function toYmd(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+interface CalCell { date: string; day: number; inMonth: boolean; dow: number }
+
+function monthMatrix(viewDate: Date): CalCell[] {
+  const year = viewDate.getFullYear()
+  const month = viewDate.getMonth()
+  const startDay = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const cells: CalCell[] = []
+  const prevMonthDays = new Date(year, month, 0).getDate()
+  for (let i = startDay - 1; i >= 0; i--) {
+    const dt = new Date(year, month - 1, prevMonthDays - i)
+    cells.push({ date: toYmd(dt), day: dt.getDate(), inMonth: false, dow: dt.getDay() })
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(year, month, d)
+    cells.push({ date: toYmd(dt), day: d, inMonth: true, dow: dt.getDay() })
+  }
+  for (let i = 1; cells.length < 42; i++) {
+    const dt = new Date(year, month + 1, i)
+    cells.push({ date: toYmd(dt), day: dt.getDate(), inMonth: false, dow: dt.getDay() })
+  }
+  return cells
+}
+
 interface FormState {
   workDate: string
   type: OvertimeType
@@ -60,6 +93,15 @@ export default function OvertimeRecordsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [defaults, setDefaults] = useState<OvertimeDefaults | null>(null)
   const [page, setPage] = useState(0)
+  const [view, setView] = useState<'list' | 'calendar'>('list')
+  const [calMonth, setCalMonth] = useState<Date>(() => new Date())
+  const [selectedDate, setSelectedDate] = useState<string>(() => toYmd(new Date()))
+
+  const recordsByDate = useMemo(() => {
+    const map: Record<string, OvertimeRecord[]> = {}
+    for (const r of records) (map[r.workDate] ||= []).push(r)
+    return map
+  }, [records])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -183,6 +225,39 @@ export default function OvertimeRecordsPage() {
   const currentPage = Math.min(page, totalPages - 1)
   const pageRecords = records.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE)
 
+  const calCells = monthMatrix(calMonth)
+  const todayYmd = toYmd(new Date())
+  const selectedRecords = recordsByDate[selectedDate] || []
+
+  function recordRow(r: OvertimeRecord) {
+    return (
+      <div key={r.id} className="ot-record">
+        <div className="ot-record__main">
+          <div className="ot-record__head">
+            <span className="ot-record__date">{formatDate(r.workDate)}</span>
+            <span className={`ot-tag${r.type === 'SPECIAL' ? ' ot-tag--special' : ''}`}>
+              {TYPE_LABEL[r.type]}
+            </span>
+            <span className={STATUS_PILL[r.status]}>{STATUS_LABEL[r.status]}</span>
+          </div>
+          <div className="ot-record__meta">
+            🕒 {r.startTime && r.endTime ? `${r.startTime} ~ ${r.endTime}` : `${r.totalMinutes}분`}
+            {r.reason ? ` · ${r.reason}` : ''}
+          </div>
+          {r.status === 'REJECTED' && r.rejectReason && (
+            <div className="ot-record__reject">반려 사유: {r.rejectReason}</div>
+          )}
+        </div>
+        <div className="ot-actions">
+          <button className="btn ghost" onClick={() => onEditClick(r)}>수정</button>
+          {r.status !== 'APPROVED' && (
+            <button className="btn ghost ot-danger" onClick={() => onDelete(r.id)}>삭제</button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="container">
       <h1 className="title">잔업/특근 기록</h1>
@@ -283,51 +358,85 @@ export default function OvertimeRecordsPage() {
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="ot-list-head">
-          <h3>등록 내역</h3>
-          {!loading && records.length > 0 && <span className="ot-count">총 {records.length}건</span>}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <h3>등록 내역</h3>
+            {!loading && records.length > 0 && <span className="ot-count">총 {records.length}건</span>}
+          </div>
+          <div className="ot-toggle">
+            <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>목록</button>
+            <button className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>달력</button>
+          </div>
         </div>
+
         {loading ? (
           <div className="ot-empty">불러오는 중...</div>
-        ) : records.length === 0 ? (
-          <div className="ot-empty">아직 등록된 기록이 없습니다.</div>
+        ) : view === 'list' ? (
+          records.length === 0 ? (
+            <div className="ot-empty">아직 등록된 기록이 없습니다.</div>
+          ) : (
+            <>
+              {pageRecords.map(recordRow)}
+              {totalPages > 1 && (
+                <div className="ot-pagination">
+                  <button className="btn ghost" onClick={() => setPage(0)} disabled={currentPage === 0}>처음</button>
+                  <button className="btn ghost" onClick={() => setPage(currentPage - 1)} disabled={currentPage === 0}>이전</button>
+                  <span className="ot-pagination__info">{currentPage + 1} / {totalPages} 페이지</span>
+                  <button className="btn ghost" onClick={() => setPage(currentPage + 1)} disabled={currentPage >= totalPages - 1}>다음</button>
+                  <button className="btn ghost" onClick={() => setPage(totalPages - 1)} disabled={currentPage >= totalPages - 1}>마지막</button>
+                </div>
+              )}
+            </>
+          )
         ) : (
           <>
-            {pageRecords.map((r) => (
-              <div key={r.id} className="ot-record">
-                <div className="ot-record__main">
-                  <div className="ot-record__head">
-                    <span className="ot-record__date">{formatDate(r.workDate)}</span>
-                    <span className={`ot-tag${r.type === 'SPECIAL' ? ' ot-tag--special' : ''}`}>
-                      {TYPE_LABEL[r.type]}
-                    </span>
-                    <span className={STATUS_PILL[r.status]}>{STATUS_LABEL[r.status]}</span>
-                  </div>
-                  <div className="ot-record__meta">
-                    🕒 {r.startTime && r.endTime ? `${r.startTime} ~ ${r.endTime}` : `${r.totalMinutes}분`}
-                    {r.reason ? ` · ${r.reason}` : ''}
-                  </div>
-                  {r.status === 'REJECTED' && r.rejectReason && (
-                    <div className="ot-record__reject">반려 사유: {r.rejectReason}</div>
-                  )}
+            <div className="ot-cal">
+              <div className="ot-cal__head">
+                <div className="ot-cal__nav">
+                  <button className="btn ghost" onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1))}>◀</button>
+                  <button className="btn ghost" onClick={() => { const t = new Date(); setCalMonth(new Date(t.getFullYear(), t.getMonth(), 1)); setSelectedDate(toYmd(t)) }}>오늘</button>
+                  <button className="btn ghost" onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1))}>▶</button>
+                  <span className="ot-cal__month">{calMonth.getFullYear()}년 {calMonth.getMonth() + 1}월</span>
                 </div>
-                <div className="ot-actions">
-                  <button className="btn ghost" onClick={() => onEditClick(r)}>수정</button>
-                  {r.status !== 'APPROVED' && (
-                    <button className="btn ghost ot-danger" onClick={() => onDelete(r.id)}>삭제</button>
-                  )}
+                <div className="ot-cal__legend">
+                  <span><i className="ot-cal__dot ot-cal__dot--overtime" />잔업</span>
+                  <span><i className="ot-cal__dot ot-cal__dot--special" />특근</span>
                 </div>
               </div>
-            ))}
-
-            {totalPages > 1 && (
-              <div className="ot-pagination">
-                <button className="btn ghost" onClick={() => setPage(0)} disabled={currentPage === 0}>처음</button>
-                <button className="btn ghost" onClick={() => setPage(currentPage - 1)} disabled={currentPage === 0}>이전</button>
-                <span className="ot-pagination__info">{currentPage + 1} / {totalPages} 페이지</span>
-                <button className="btn ghost" onClick={() => setPage(currentPage + 1)} disabled={currentPage >= totalPages - 1}>다음</button>
-                <button className="btn ghost" onClick={() => setPage(totalPages - 1)} disabled={currentPage >= totalPages - 1}>마지막</button>
+              <div className="ot-cal__grid">
+                {WEEKDAYS.map((w) => <div key={w} className="ot-cal__dow">{w}</div>)}
+                {calCells.map((cell) => {
+                  const dayRecords = recordsByDate[cell.date] || []
+                  const cls = [
+                    'ot-cal__cell',
+                    cell.inMonth ? '' : 'ot-cal__cell--out',
+                    cell.date === todayYmd ? 'ot-cal__cell--today' : '',
+                    cell.date === selectedDate ? 'ot-cal__cell--selected' : '',
+                    cell.dow === 0 ? 'ot-cal__cell--sun' : '',
+                    cell.dow === 6 ? 'ot-cal__cell--sat' : '',
+                  ].filter(Boolean).join(' ')
+                  return (
+                    <button key={cell.date} className={cls} onClick={() => setSelectedDate(cell.date)}>
+                      <span>{cell.day}</span>
+                      <span className="ot-cal__dots">
+                        {dayRecords.slice(0, 4).map((r) => (
+                          <i key={r.id} className={`ot-cal__dot ot-cal__dot--${r.type === 'SPECIAL' ? 'special' : 'overtime'}`} />
+                        ))}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
-            )}
+            </div>
+            <div className="ot-cal__day-panel">
+              <div className="ot-cal__day-panel-head">
+                {formatDate(selectedDate)} · {selectedRecords.length}건
+              </div>
+              {selectedRecords.length === 0 ? (
+                <div className="ot-empty">이 날짜에 등록된 기록이 없습니다.</div>
+              ) : (
+                selectedRecords.map(recordRow)
+              )}
+            </div>
           </>
         )}
       </div>
