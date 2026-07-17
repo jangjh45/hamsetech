@@ -7,8 +7,11 @@ import {
   approveOvertimeRecord,
   rejectOvertimeRecord,
   getOvertimeSummary,
+  getOvertimeDefaults,
+  updateOvertimeDefaults,
   type OvertimeRecord,
   type OvertimeSummary,
+  type OvertimeDefaults,
 } from '../api/overtimeRecords'
 import '../styles/admin.css'
 
@@ -40,6 +43,9 @@ export default function AdminPage() {
   const [overtimeMonth, setOvertimeMonth] = useState<string>(() => new Date().toISOString().slice(0, 7))
   const [rejectingId, setRejectingId] = useState<number | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [overtimeDefaults, setOvertimeDefaults] = useState<OvertimeDefaults | null>(null)
+  const [defaultsSaving, setDefaultsSaving] = useState(false)
+  const [defaultsMsg, setDefaultsMsg] = useState('')
   const [logs, setLogs] = useState<AdminLog[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
   const [logStats, setLogStats] = useState<any>(null)
@@ -164,6 +170,30 @@ export default function AdminPage() {
     }
   }
 
+  async function loadOvertimeDefaults() {
+    try {
+      const d = await getOvertimeDefaults()
+      setOvertimeDefaults(d)
+    } catch (e: any) {
+      setError(e.message || '기본 근무시간 로드 실패')
+    }
+  }
+
+  async function saveOvertimeDefaults() {
+    if (!overtimeDefaults) return
+    setDefaultsSaving(true)
+    setDefaultsMsg('')
+    try {
+      const saved = await updateOvertimeDefaults(overtimeDefaults)
+      setOvertimeDefaults(saved)
+      setDefaultsMsg('저장되었습니다.')
+    } catch (e: any) {
+      setError(e.message || '기본 근무시간 저장 실패')
+    } finally {
+      setDefaultsSaving(false)
+    }
+  }
+
   async function approveOvertime(id: number) {
     try {
       await approveOvertimeRecord(id)
@@ -194,6 +224,7 @@ export default function AdminPage() {
     if (activeTab === 'overtime') {
       loadOvertimeRecords()
       loadOvertimeSummary()
+      loadOvertimeDefaults()
     }
   }, [activeTab])
 
@@ -584,6 +615,62 @@ export default function AdminPage() {
 
       {activeTab === 'overtime' && (
         <div className="admin-content">
+          {/* 기본 근무시간 설정 */}
+          <div className="admin-controls" style={{ display: 'block' }}>
+            <h3 style={{ margin: '0 0 4px' }}>기본 근무시간 설정</h3>
+            <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--muted)' }}>
+              직원이 잔업/특근을 등록할 때 자동으로 채워지는 시작·종료 시간입니다. (특근은 6시간 이상 근무 시 점심 1시간 자동 차감)
+            </p>
+            {overtimeDefaults ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24, alignItems: 'flex-end' }}>
+                <div>
+                  <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14 }}>잔업 (평일 연장)</div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input
+                      type="time"
+                      className="input"
+                      value={overtimeDefaults.overtimeStart}
+                      onChange={(e) => setOvertimeDefaults({ ...overtimeDefaults, overtimeStart: e.target.value })}
+                    />
+                    <span>~</span>
+                    <input
+                      type="time"
+                      className="input"
+                      value={overtimeDefaults.overtimeEnd}
+                      onChange={(e) => setOvertimeDefaults({ ...overtimeDefaults, overtimeEnd: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14 }}>특근 (휴일/주말)</div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input
+                      type="time"
+                      className="input"
+                      value={overtimeDefaults.specialStart}
+                      onChange={(e) => setOvertimeDefaults({ ...overtimeDefaults, specialStart: e.target.value })}
+                    />
+                    <span>~</span>
+                    <input
+                      type="time"
+                      className="input"
+                      value={overtimeDefaults.specialEnd}
+                      onChange={(e) => setOvertimeDefaults({ ...overtimeDefaults, specialEnd: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button className="btn" onClick={saveOvertimeDefaults} disabled={defaultsSaving}>
+                    {defaultsSaving ? '저장 중...' : '저장'}
+                  </button>
+                  {defaultsMsg && <span style={{ fontSize: 13, color: 'var(--muted)' }}>{defaultsMsg}</span>}
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>기본 근무시간을 불러오는 중...</div>
+            )}
+          </div>
+
           <div className="admin-controls">
             <div className="admin-filter-group">
               <input

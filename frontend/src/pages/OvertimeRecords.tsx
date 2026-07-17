@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import {
   createOvertimeRecord,
   deleteOvertimeRecord,
+  getOvertimeDefaults,
   listMyOvertimeRecords,
   updateOvertimeRecord,
+  type OvertimeDefaults,
   type OvertimeRecord,
   type OvertimeType,
 } from '../api/overtimeRecords'
@@ -39,6 +41,13 @@ function emptyForm(): FormState {
   return { workDate: '', type: 'OVERTIME', startTime: '', endTime: '', totalMinutes: '', reason: '' }
 }
 
+function defaultTimesFor(type: OvertimeType, defaults: OvertimeDefaults | null): [string, string] {
+  if (!defaults) return ['', '']
+  return type === 'SPECIAL'
+    ? [defaults.specialStart, defaults.specialEnd]
+    : [defaults.overtimeStart, defaults.overtimeEnd]
+}
+
 export default function OvertimeRecordsPage() {
   const [records, setRecords] = useState<OvertimeRecord[]>([])
   const [loading, setLoading] = useState(false)
@@ -46,6 +55,7 @@ export default function OvertimeRecordsPage() {
   const [form, setForm] = useState<FormState>(emptyForm())
   const [editingId, setEditingId] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [defaults, setDefaults] = useState<OvertimeDefaults | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -60,6 +70,22 @@ export default function OvertimeRecordsPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // 구분별 기본 근무시간을 불러와, 새 기록 작성 중이고 시간 칸이 비어 있으면 현재 구분값으로 채운다.
+  useEffect(() => {
+    getOvertimeDefaults()
+      .then((d) => {
+        setDefaults(d)
+        setForm((prev) => {
+          if (editingId != null) return prev
+          if (prev.startTime || prev.endTime || prev.totalMinutes) return prev
+          const [start, end] = defaultTimesFor(prev.type, d)
+          return { ...prev, startTime: start, endTime: end }
+        })
+      })
+      .catch(() => { /* 기본시간은 편의 기능이라 실패해도 폼은 정상 동작 */ })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function startEdit(r: OvertimeRecord) {
     setEditingId(r.id)
@@ -76,6 +102,17 @@ export default function OvertimeRecordsPage() {
   function cancelEdit() {
     setEditingId(null)
     setForm(emptyForm())
+  }
+
+  function onTypeChange(newType: OvertimeType) {
+    // 수정 모드에서는 저장된 시간을 덮어쓰지 않고 구분만 바꾼다.
+    if (editingId != null) {
+      setForm({ ...form, type: newType })
+      return
+    }
+    // 새 기록 등록 시에는 선택한 구분의 기본 시간을 채운다.
+    const [start, end] = defaultTimesFor(newType, defaults)
+    setForm({ ...form, type: newType, startTime: start, endTime: end, totalMinutes: '' })
   }
 
   async function onSubmit(e: FormEvent) {
@@ -113,8 +150,17 @@ export default function OvertimeRecordsPage() {
     }
   }
 
+  function onEditClick(r: OvertimeRecord) {
+    if (r.status !== 'PENDING') {
+      const ok = window.confirm('수정하면 다시 "승인 대기" 상태가 되어 관리자 재승인이 필요합니다. 계속할까요?')
+      if (!ok) return
+    }
+    startEdit(r)
+  }
+
   async function onDelete(id: number) {
     setError('')
+    if (!window.confirm('이 기록을 삭제할까요?')) return
     try {
       await deleteOvertimeRecord(id)
       await load()
@@ -153,7 +199,7 @@ export default function OvertimeRecordsPage() {
             <select
               className="input"
               value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value as OvertimeType })}
+              onChange={(e) => onTypeChange(e.target.value as OvertimeType)}
               style={{ width: '100%' }}
             >
               <option value="OVERTIME">잔업 (평일 연장근무)</option>
@@ -193,6 +239,11 @@ export default function OvertimeRecordsPage() {
             />
           </label>
         </div>
+        {form.type === 'SPECIAL' && (
+          <div style={{ color: 'var(--muted)', fontSize: 13 }}>
+            ※ 특근은 6시간 이상 근무 시 점심 휴게시간 1시간이 총 근무시간에서 자동 차감됩니다.
+          </div>
+        )}
         <label>
           사유
           <textarea
@@ -235,12 +286,12 @@ export default function OvertimeRecordsPage() {
                   <div style={{ color: '#c62828', fontSize: 13 }}>반려 사유: {r.rejectReason}</div>
                 )}
               </div>
-              {r.status === 'PENDING' && (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <button className="btn ghost" onClick={() => startEdit(r)}>수정</button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button className="btn ghost" onClick={() => onEditClick(r)}>수정</button>
+                {r.status !== 'APPROVED' && (
                   <button className="btn ghost" onClick={() => onDelete(r.id)}>삭제</button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           ))
         )}

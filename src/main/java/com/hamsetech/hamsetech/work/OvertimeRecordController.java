@@ -99,4 +99,17 @@ public class OvertimeRecordController {
         YearMonth ym = YearMonth.parse(month);
         return service.monthlySummary(ym.atDay(1), ym.atEndOfMonth());
     }
+
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/defaults")
+    public OvertimeDefaultsDto getDefaults() {
+        return service.getDefaults();
+    }
+
+    @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.OVERTIME_RECORD, details = "잔업/특근 기본 근무시간 수정")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    @PutMapping("/defaults")
+    public OvertimeDefaultsDto updateDefaults(@RequestBody OvertimeDefaultsDto req) {
+        return service.updateDefaults(req);
+    }
 }

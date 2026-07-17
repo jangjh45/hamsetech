@@ -97,3 +97,18 @@ export async function rejectOvertimeRecord(id: number, reason: string): Promise<
 export async function getOvertimeSummary(month: string): Promise<OvertimeSummary[]> {
   return apiFetch(`/api/overtime-records/summary?month=${month}`)
 }
+
+export interface OvertimeDefaults {
+  overtimeStart: string
+  overtimeEnd: string
+  specialStart: string
+  specialEnd: string
+}
+
+export async function getOvertimeDefaults(): Promise<OvertimeDefaults> {
+  return apiFetch('/api/overtime-records/defaults')
+}
+
+export async function updateOvertimeDefaults(data: OvertimeDefaults): Promise<OvertimeDefaults> {
+  return apiFetch('/api/overtime-records/defaults', { method: 'PUT', body: JSON.stringify(data) })
+}
