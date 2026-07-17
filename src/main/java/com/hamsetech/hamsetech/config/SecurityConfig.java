@@ -39,7 +39,7 @@ public class SecurityConfig {
                 .cors(cors -> {})
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/api/hello", "/error").permitAll()
+                        .requestMatchers("/api/auth/**", "/api/hello", "/error", "/actuator/health").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/notices", "/api/notices/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/notices/**").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/notices/**").authenticated()
