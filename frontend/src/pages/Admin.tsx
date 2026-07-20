@@ -692,7 +692,7 @@ export default function AdminPage() {
                     />
                   </div>
                 </div>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <div className="ot-defaults__actions">
                   <button className="btn" onClick={saveOvertimeDefaults} disabled={defaultsSaving}>
                     {defaultsSaving ? '저장 중...' : '저장'}
                   </button>
@@ -847,7 +847,7 @@ export default function AdminPage() {
           </div>
 
           <div className="admin-table-container">
-            <div className="admin-table-header" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+            <div className="admin-table-header summary-grid">
               <div>직원</div>
               <div style={{ textAlign: 'center' }}>잔업 시간</div>
               <div style={{ textAlign: 'center' }}>잔업 일수</div>
@@ -858,12 +858,27 @@ export default function AdminPage() {
               <div className="admin-empty-state">승인된 기록이 없습니다.</div>
             ) : (
               overtimeSummary.map((s) => (
-                <div key={s.username} className="admin-table-row" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-                  <div>{s.displayName || s.username}</div>
-                  <div style={{ textAlign: 'center' }}>{(s.overtimeMinutes / 60).toFixed(1)}시간</div>
-                  <div style={{ textAlign: 'center' }}>{s.overtimeDays}</div>
-                  <div style={{ textAlign: 'center' }}>{(s.specialMinutes / 60).toFixed(1)}시간</div>
-                  <div style={{ textAlign: 'center' }}>{s.specialDays}</div>
+                <div key={s.username} className="admin-table-row summary-grid">
+                  <div className="mobile-row-item">
+                    <span className="mobile-label">직원</span>
+                    <div style={{ fontWeight: 600 }}>{s.displayName || s.username}</div>
+                  </div>
+                  <div className="mobile-row-item">
+                    <span className="mobile-label">잔업 시간</span>
+                    <div className="summary-cell">{(s.overtimeMinutes / 60).toFixed(1)}시간</div>
+                  </div>
+                  <div className="mobile-row-item">
+                    <span className="mobile-label">잔업 일수</span>
+                    <div className="summary-cell">{s.overtimeDays}</div>
+                  </div>
+                  <div className="mobile-row-item">
+                    <span className="mobile-label">특근 시간</span>
+                    <div className="summary-cell">{(s.specialMinutes / 60).toFixed(1)}시간</div>
+                  </div>
+                  <div className="mobile-row-item">
+                    <span className="mobile-label">특근 일수</span>
+                    <div className="summary-cell">{s.specialDays}</div>
+                  </div>
                 </div>
               ))
             )}
