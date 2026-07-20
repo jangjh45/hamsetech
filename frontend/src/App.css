@@ -1,42 +1,10 @@
+/* 앱 루트 레이아웃 경계만 유지.
+   (Vite 스타터 기본 스타일은 디자인 시스템(ui.css)과 충돌해 제거함:
+    - #root text-align:center → 전역 가운데 정렬이 걸려 목록/카드 텍스트가 어긋남
+    - .card { padding: 0.5em } → ui.css의 .card 패딩(16px)을 덮어씀
+    - 로고 데모/read-the-docs 등 미사용 규칙) */
 #root {
   max-width: 1280px;
   margin: 0 auto;
   padding: 0.5rem;
-  text-align: center;
-}
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 0.5em;
-}
-
-.read-the-docs {
-  color: #888;
 }

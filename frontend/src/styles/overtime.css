@@ -190,14 +190,43 @@
 }
 
 /* ── 관리자: 기본시간 설정 카드 ─────────────── */
-.ot-defaults { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; }
-.ot-defaults__group { display: grid; gap: 6px; }
-.ot-defaults__group > span:first-child { font-weight: 600; font-size: 14px; }
+.ot-defaults { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: flex-end; }
+.ot-defaults__group { display: grid; gap: 8px; min-width: 0; }
+.ot-defaults__group > span:first-child {
+  display: inline-flex; align-items: center;
+  font-weight: 600; font-size: 14px;
+}
 .ot-defaults__range { display: flex; gap: 8px; align-items: center; }
+/* 데스크톱: 시간칸을 일정한 폭으로 고정해 두 칸이 항상 정렬되도록 */
+.ot-defaults__range .input { width: 130px; padding: 9px 10px; font-size: 14px; }
+.ot-defaults__range > span { color: var(--muted); flex: 0 0 auto; }
+.ot-defaults__actions { display: flex; gap: 10px; align-items: center; }
 
 /* ── 작은 화면 대응 ─────────────────────────── */
 @media (max-width: 640px) {
   .ot-record { align-items: flex-start; }
   .ot-actions { width: 100%; }
   .ot-actions .btn { flex: 1; }
+
+  /* 달력: 데스크톱 여백/셀높이가 좁은 화면에서 과해 비율이 깨지는 문제 완화 */
+  .ot-cal { padding: 12px 10px; }
+  .ot-cal__head { margin-bottom: 10px; }
+  .ot-cal__nav { flex-wrap: wrap; }
+  .ot-cal__month { font-size: 15px; }
+  .ot-cal__grid { gap: 2px; }
+  .ot-cal__cell {
+    min-height: 44px;
+    border-radius: 8px;
+    padding: 5px 0 4px;
+    font-size: 12px;
+  }
+  .ot-cal__dow { font-size: 11px; }
+  .ot-cal__dot { width: 5px; height: 5px; }
+  .ot-cal__day-panel-head { padding: 12px 14px 4px; }
+
+  /* 기본 근무시간 설정: 그룹을 전체폭으로, 시간칸은 균등 분할, 저장은 전체폭 CTA */
+  .ot-defaults__group { flex-basis: 100%; }
+  .ot-defaults__range .input { flex: 1 1 0; width: auto; min-width: 0; }
+  .ot-defaults__actions { width: 100%; }
+  .ot-defaults__actions .btn { flex: 1; }
 }
