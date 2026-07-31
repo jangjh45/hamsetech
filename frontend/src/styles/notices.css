@@ -1,481 +1,563 @@
-/* Notice Feature Styles */
+/*
+ * 공지사항 화면(목록/상세/등록) 전용 스타일.
+ *
+ * 토큰과 공용 프리미티브(.fl-page/.fl-card/.fl-btn/.fl-input ...)는
+ * dashboard.css에 있고 main.tsx에서 전역 로드된다. 여기에는 공지사항에만
+ * 필요한 .nt-* 클래스만 둔다. 색상 리터럴은 쓰지 않는다 — 전부 --fl-* 토큰이라
+ * 라이트/다크가 자동으로 따라온다.
+ *
+ * 값은 Claude Design 목업(공지사항.dc.html)에서 가져왔다.
+ */
 
-/* Container & Layout */
-.notice-container {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 24px;
-  animation: fadeIn 0.4s ease-out;
-}
+/* ── 목록 ────────────────────────────────────────────────────── */
 
-.notice-panel {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 24px;
-  backdrop-filter: blur(14px) saturate(180%);
-  -webkit-backdrop-filter: blur(14px) saturate(180%);
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.22), inset 0 1px 0 var(--glass-specular);
-}
-
-/* Header Section */
-.notice-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.notice-title {
-  font-size: 28px;
-  font-weight: 700;
-  margin: 0;
-  background: linear-gradient(135deg, var(--text) 0%, var(--muted) 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-/* Search Section */
-.notice-search {
-  display: flex;
+/* 목업의 5열(구분/제목/작성자/등록일/조회)에서 백엔드에 없는
+   구분·조회를 뺀 4열 */
+.nt-table-head,
+.nt-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 120px 110px;
   gap: 12px;
-  margin-bottom: 24px;
-  background: var(--input-bg);
-  padding: 8px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  backdrop-filter: blur(8px);
-  transition: all 0.3s ease;
-}
-.notice-search:focus-within {
-  border-color: var(--primary);
-  box-shadow: 0 0 12px var(--glow);
-}
-
-.notice-search input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  padding: 8px 12px;
-  font-size: 15px;
-  color: var(--text);
-  outline: none;
-}
-
-.notice-search button {
-  padding: 8px 20px;
-  border-radius: 8px;
-  font-weight: 600;
-}
-
-/* Empty State */
-.notice-empty {
-  padding: 48px;
-  text-align: center;
-  color: var(--muted);
-}
-
-.notice-empty-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-/* Pagination */
-.notice-pagination {
-  display: flex;
-  justify-content: center;
   align-items: center;
-  gap: 8px;
-  margin-top: 24px;
 }
 
-.notice-pagination-info {
-  padding: 0 12px;
-  color: var(--muted);
-}
-
-/* =====================
-   List View — Desktop
-   ===================== */
-.notice-list-header {
-  display: grid;
-  grid-template-columns: 80px 1fr 150px 150px;
-  padding: 16px 24px;
-  background: var(--bg);
-  border-radius: 12px 12px 0 0;
-  border-bottom: 1px solid var(--border);
+.nt-table-head {
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--fl-divider);
+  background: var(--fl-sunken);
+  font-size: 12px;
   font-weight: 600;
-  color: var(--muted);
-  font-size: 14px;
+  color: var(--fl-muted-2);
 }
 
-/* 데스크톱: 그리드 레이아웃, 모바일 영역 숨김 */
-.notice-item {
-  display: grid;
-  grid-template-columns: 80px 1fr 150px 150px;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--border);
-  align-items: center;
-  transition: all 0.2s ease;
-  cursor: pointer;
+.nt-row {
+  padding: 15px 22px;
+  border-bottom: 1px solid var(--fl-divider-soft);
+  color: var(--fl-text);
   text-decoration: none;
-  color: inherit;
+  transition: background-color 0.15s ease;
 }
 
-.notice-item .notice-mobile-header,
-.notice-item .notice-mobile-title,
-.notice-item .notice-mobile-author {
-  display: none;
-}
-
-.notice-item:last-child {
+.nt-row:last-child {
   border-bottom: none;
 }
 
-.notice-item:hover {
-  background-color: var(--accent-bg);
-  border-color: var(--primary);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15), 0 0 8px var(--glow);
-  transform: translateY(-2px);
+.nt-row:hover {
+  background: var(--fl-hover);
+  color: var(--fl-text);
 }
 
-.notice-item-id {
-  color: var(--muted);
+.nt-row-num {
+  font-size: 13px;
+  color: var(--fl-muted-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.nt-row-title {
+  min-width: 0;
+  font-size: 15px;
   font-weight: 500;
-  text-align: center;
-}
-
-.notice-item-title {
-  font-weight: 600;
-  font-size: 16px;
-  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-align: left;
 }
 
-.notice-item-author,
-.notice-item-date {
-  color: var(--muted);
+.nt-row-author {
   font-size: 14px;
-  text-align: center;
+  color: var(--fl-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* =====================
-   Detail View
-   ===================== */
-.notice-detail-header {
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 24px;
-  margin-bottom: 24px;
+.nt-row-date {
+  font-size: 13px;
+  color: var(--fl-muted-2);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
-.notice-detail-title {
-  font-size: 32px;
-  font-weight: 800;
-  margin: 0 0 16px 0;
-  line-height: 1.3;
-  text-align: left;
+/* 번호+날짜를 묶은 줄. 데스크톱에서는 각 컬럼이 따로 보이므로 감춘다 */
+.nt-row-meta {
+  display: none;
 }
 
-.notice-detail-meta {
-  display: flex;
-  gap: 16px;
-  color: var(--muted);
-  font-size: 14px;
-  align-items: center;
-}
-
-.notice-content {
-  font-size: 16px;
-  line-height: 1.8;
-  color: var(--text);
-  min-height: 200px;
-  white-space: pre-wrap;
-  text-align: left;
-  margin-bottom: 40px;
-}
-
-/* =====================
-   Comments Section
-   ===================== */
-.comments-section {
-  margin-top: 40px;
-  padding-top: 32px;
-  border-top: 1px solid var(--border);
-}
-
-.comments-header {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 24px;
+/* 검색 입력은 카드 헤드 우측에서 고정 폭 */
+.nt-search {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.comment-form {
-  background: var(--input-bg);
-  padding: 20px;
-  border-radius: 12px;
-  margin-bottom: 32px;
-  border: 1px solid var(--border);
-  backdrop-filter: blur(8px);
-  transition: all 0.3s ease;
-}
-.comment-form:focus-within {
-  border-color: var(--primary);
-  box-shadow: 0 0 12px var(--glow);
+.nt-search .fl-input {
+  width: 220px;
 }
 
-.comment-input {
-  width: 100%;
-  background: transparent;
-  border: none;
-  resize: vertical;
-  min-height: 80px;
-  font-size: 15px;
-  color: var(--text);
-  outline: none;
-  margin-bottom: 12px;
-  box-sizing: border-box;
-}
+/* ── 페이지네이션 ────────────────────────────────────────────── */
 
-.comment-actions {
+.nt-pager {
+  padding: 16px 22px;
+  border-top: 1px solid var(--fl-divider);
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
-.comment-tree {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.comment-node {
-  animation: slideIn 0.3s ease-out;
-}
-
-.comment-card {
-  background: var(--panel);
-  padding: 16px 20px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1), inset 0 1px 0 var(--glass-specular);
-  transition: all 0.25s ease;
-}
-.comment-card:hover {
-  border-color: var(--primary);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15), 0 0 10px var(--glow);
-}
-
-.comment-card.reply {
-  background: var(--panel);
-  border-left: 3px solid var(--primary);
-  margin-left: 24px;
-}
-
-.comment-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  font-size: 13px;
-}
-
-.comment-author {
-  font-weight: 600;
-  color: var(--text);
-}
-
-.comment-date {
-  color: var(--muted);
-}
-
-.comment-body {
-  font-size: 15px;
-  line-height: 1.6;
-  margin-bottom: 12px;
-  text-align: left;
-}
-
-.comment-footer {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-}
-
-.comment-replies {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.btn-text {
-  background: none;
-  border: none;
-  padding: 4px 8px;
-  font-size: 13px;
-  color: var(--muted);
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.btn-text:hover {
-  color: var(--primary);
-}
-
-.btn-text.danger:hover {
-  color: var(--danger);
-}
-
-/* Reply Form */
-.reply-form {
-  margin-top: 16px;
-  background: var(--bg);
-  border: 1px solid var(--border);
+.nt-page-btn {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
   border-radius: 8px;
-  padding: 12px;
+  border: 1px solid var(--fl-border);
+  background: var(--fl-surface);
+  color: var(--fl-muted);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: inherit;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.reply-form .comment-input {
-  background: transparent;
-  margin-bottom: 8px;
+.nt-page-btn:hover:not(:disabled):not(.is-active) {
+  background: var(--fl-hover);
+  border-color: var(--fl-muted-2);
+  color: var(--fl-text);
 }
 
-.reply-form-actions {
+.nt-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.nt-page-btn.is-active {
+  border-color: transparent;
+  background: var(--fl-primary);
+  color: var(--fl-on-primary);
+  font-weight: 600;
+}
+
+/* 이전/다음 화살표는 정사각 */
+.nt-page-btn.nt-page-arrow {
+  min-width: 34px;
+  width: 34px;
+  padding: 0;
+  font-size: 12px;
+}
+
+/* ── 상세 ────────────────────────────────────────────────────── */
+
+.nt-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 16px;
+  align-items: start;
+}
+
+.nt-crumb {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: var(--fl-muted);
+}
+
+.nt-crumb a {
+  color: var(--fl-muted);
+  text-decoration: none;
+}
+
+.nt-crumb a:hover {
+  color: var(--fl-text);
+}
+
+.nt-crumb-sep {
+  color: var(--fl-faint);
+}
+
+.nt-article-head {
+  padding: 26px 28px 20px;
+  border-bottom: 1px solid var(--fl-divider);
+}
+
+.nt-article-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.nt-article-meta {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: var(--fl-muted);
+}
+
+.nt-article-meta-author {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-.reply-form-actions .btn,
-.reply-form-actions .btn-submit {
-  padding: 8px 16px;
-  min-width: auto;
+.nt-article-meta time,
+.nt-article-meta .nt-tnum {
+  font-variant-numeric: tabular-nums;
 }
 
-/* =====================
-   Editor
-   ===================== */
-.editor-form {
+/* 메타 항목 사이 세로 구분선 */
+.nt-meta-sep {
+  width: 1px;
+  height: 12px;
+  background: var(--fl-border);
+}
+
+.nt-avatar-sm {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--fl-primary-soft);
+  color: var(--fl-primary);
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.nt-article-body {
+  padding: 26px 28px;
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--fl-text);
+  min-height: 160px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-align: left;
+}
+
+/* 목록/수정/삭제 액션 바. 기본은 카드 본문(22px)에 맞추고,
+   본문 여백이 넓은 상세 화면에서는 .nt-actions-article로 28px */
+.nt-actions {
+  padding: 18px 22px;
+  border-top: 1px solid var(--fl-divider);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.nt-actions.nt-actions-article {
+  padding: 18px 28px;
+}
+
+.nt-actions-right {
+  display: flex;
+  gap: 8px;
+}
+
+/* 위험 동작 버튼 — .fl-btn 위에 색만 얹는다 */
+.fl-btn.nt-btn-danger {
+  color: var(--fl-danger);
+}
+
+.fl-btn.nt-btn-danger:hover:not(:disabled) {
+  background: var(--fl-danger-soft);
+  border-color: var(--fl-danger);
+  color: var(--fl-danger);
+}
+
+/* ── 댓글 ────────────────────────────────────────────────────── */
+
+.nt-comments {
+  padding: 22px 28px 26px;
+  border-top: 1px solid var(--fl-divider);
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
 
-.editor-field label {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.nt-comments-title {
+  font-size: 15px;
   font-weight: 600;
-  margin-bottom: 8px;
-  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 7px;
 }
 
-.editor-char-count {
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--muted);
+.nt-comments-count {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fl-primary);
+  font-variant-numeric: tabular-nums;
 }
 
-.editor-input {
-  width: 100%;
-  padding: 16px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--input-bg);
-  color: var(--text);
-  font-size: 16px;
-  transition: all 0.3s ease;
-  box-sizing: border-box;
+.nt-comment-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.editor-input:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 12px var(--glow);
-  background: var(--panel);
-  outline: none;
+.nt-comment-node {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.editor-actions {
+.nt-comment {
+  border: 1px solid var(--fl-border);
+  border-radius: 11px;
+  background: var(--fl-sunken);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.nt-comment.is-reply {
+  margin-left: 24px;
+  border-left: 3px solid var(--fl-primary);
+}
+
+.nt-comment-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.nt-comment-author {
+  font-weight: 600;
+  color: var(--fl-text);
+}
+
+.nt-comment-date {
+  color: var(--fl-muted-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.nt-comment-body {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--fl-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  text-align: left;
+}
+
+.nt-comment-foot {
   display: flex;
   gap: 12px;
-  margin-top: 12px;
+  justify-content: flex-end;
 }
 
-/* =====================
-   Mobile (≤768px)
-   ===================== */
+.nt-comment-replies {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 답글/삭제 같은 인라인 텍스트 버튼 */
+.nt-textlink {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: inherit;
+  color: var(--fl-muted);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.nt-textlink:hover {
+  color: var(--fl-text);
+}
+
+.nt-textlink.nt-danger:hover {
+  color: var(--fl-danger);
+}
+
+/* 댓글/답글 작성 폼 */
+.nt-comment-form {
+  border: 1px solid var(--fl-border);
+  border-radius: 11px;
+  background: var(--fl-sunken);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nt-comment-form:focus-within {
+  border-color: var(--fl-primary);
+}
+
+/* 댓글 안의 답글 폼은 같은 sunken 배경이 겹치지 않게 surface로 */
+.nt-comment .nt-comment-form {
+  background: var(--fl-surface);
+}
+
+.nt-comment-form-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.nt-charcount {
+  font-size: 13px;
+  color: var(--fl-muted-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 입력 변형 ───────────────────────────────────────────────── */
+
+/* .fl-input의 textarea 변형 (높이 고정 대신 자유 높이) */
+.nt-textarea {
+  height: auto;
+  min-height: 84px;
+  padding: 12px;
+  line-height: 1.6;
+  resize: vertical;
+  width: 100%;
+}
+
+/* 폼 안에서는 카드가 이미 배경을 갖고 있어 보더 없이 쓴다 */
+.nt-comment-form .nt-textarea {
+  border-color: transparent;
+  background: transparent;
+  padding: 0;
+  min-height: 66px;
+}
+
+.nt-comment-form .nt-textarea:focus {
+  border-color: transparent;
+}
+
+/* 에디터의 큰 입력 (목업 44px) */
+.fl-input.nt-input-lg {
+  height: 44px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+.nt-textarea.nt-textarea-lg {
+  min-height: 280px;
+  border-radius: 10px;
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+/* ── 에디터 ──────────────────────────────────────────────────── */
+
+.nt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.nt-field-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fl-muted);
+}
+
+/* ── 반응형 ──────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .nt-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
-  .notice-container {
-    padding: 16px;
-  }
-
-  .notice-panel {
-    padding: 16px;
-  }
-
-  /* 헤더 컬럼 숨김 */
-  .notice-list-header {
+  /* 목록: 표 헤더를 감추고 행을 카드처럼 쌓는다 */
+  .nt-table-head {
     display: none;
   }
 
-  /* 데스크톱 그리드 컬럼 숨기고 모바일 레이아웃 표시 */
-  .notice-item {
+  .nt-row {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     gap: 6px;
-    padding: 16px 20px;
+    padding: 14px 16px;
   }
 
-  .notice-item-id,
-  .notice-item-title,
-  .notice-item-author,
-  .notice-item-date {
+  /* 개별 컬럼 대신 제목 + 요약 한 줄로 */
+  .nt-row-num,
+  .nt-row-author,
+  .nt-row-date {
     display: none;
   }
 
-  .notice-item .notice-mobile-header {
-    display: flex;
-    justify-content: space-between;
-    font-size: 13px;
-    color: var(--muted);
-  }
-
-  .notice-item .notice-mobile-title {
-    display: block;
-    font-size: 17px;
+  .nt-row-title {
+    width: 100%;
+    font-size: 16px;
     font-weight: 600;
+    white-space: normal;
+    overflow: visible;
   }
 
-  .notice-item .notice-mobile-author {
-    display: block;
+  .nt-row-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
     font-size: 13px;
-    color: var(--muted);
+    color: var(--fl-muted-2);
   }
 
-  .notice-detail-title {
-    font-size: 24px;
+  .nt-search {
+    width: 100%;
   }
 
-  .comment-card.reply {
-    margin-left: 16px;
+  .nt-search .fl-input {
+    width: auto;
+    flex: 1;
   }
-}
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+  .nt-article-head {
+    padding: 20px 16px 16px;
+  }
 
-@keyframes slideIn {
-  from { opacity: 0; transform: translateX(-10px); }
-  to { opacity: 1; transform: translateX(0); }
+  .nt-article-title {
+    font-size: 21px;
+  }
+
+  .nt-article-body,
+  .nt-actions,
+  .nt-actions.nt-actions-article {
+    padding: 20px 16px;
+  }
+
+  .nt-comments {
+    padding: 18px 16px 20px;
+  }
+
+  .nt-comment.is-reply {
+    margin-left: 12px;
+  }
+
+  .nt-pager {
+    padding: 14px 16px;
+  }
 }

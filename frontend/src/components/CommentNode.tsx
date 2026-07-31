@@ -42,66 +42,69 @@ export default function CommentNode({ node, noticeId, depth = 0, onReply, onDele
   }
 
   return (
-    <div className="comment-node">
-      <div className={`comment-card ${isReply ? 'reply' : ''}`}>
-        <div className="comment-header">
-          <span className="comment-author">
+    <div className="nt-comment-node">
+      <div className={isReply ? 'nt-comment is-reply' : 'nt-comment'}>
+        <div className="nt-comment-head">
+          <span className="nt-comment-author">
             {isReply && '↳ '}
             {node.authorUsername}
           </span>
-          <span className="comment-date">{formatDateTime(node.createdAt)}</span>
+          <span className="nt-comment-date">{formatDateTime(node.createdAt)}</span>
         </div>
 
-        <div className="comment-body">{node.content}</div>
+        <div className="nt-comment-body">{node.content}</div>
 
-        <div className="comment-footer">
+        <div className="nt-comment-foot">
           {isAuthenticated() && !isReply && (
             <button
-              className="btn-text"
+              className="nt-textlink"
               onClick={() => { setReplyOpen(!replyOpen); setReplyText(''); setError('') }}
             >
               {replyOpen ? '취소' : '답글'}
             </button>
           )}
           {isAuthenticated() && (isAdmin() || getUsername() === node.authorUsername) && (
-            <button className="btn-text danger" onClick={() => onDelete(node.id)}>
+            <button className="nt-textlink nt-danger" onClick={() => onDelete(node.id)}>
               삭제
             </button>
           )}
         </div>
 
         {replyOpen && (
-          <form onSubmit={handleReplySubmit} className="reply-form">
+          <form onSubmit={handleReplySubmit} className="nt-comment-form">
             <textarea
-              className="comment-input"
+              className="fl-input nt-textarea"
               placeholder="답글을 입력하세요..."
               value={replyText}
               onChange={(e) => setReplyText(e.target.value.slice(0, 500))}
               rows={3}
             />
-            {error && <p className="error" style={{ marginTop: 4, marginBottom: 0 }}>{error}</p>}
-            <div className="reply-form-actions">
-              <button
-                type="button"
-                className="btn ghost"
-                onClick={() => { setReplyOpen(false); setReplyText('') }}
-              >
-                취소
-              </button>
-              <button
-                type="submit"
-                className="btn btn-submit"
-                disabled={!replyText.trim() || submitting}
-              >
-                {submitting ? '...' : '등록'}
-              </button>
+            {error && <p className="fl-error">{error}</p>}
+            <div className="nt-comment-form-foot">
+              <span className="nt-charcount">{replyText.length}/500</span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  className="fl-btn fl-btn-sm"
+                  onClick={() => { setReplyOpen(false); setReplyText('') }}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="fl-btn fl-btn-primary fl-btn-sm"
+                  disabled={!replyText.trim() || submitting}
+                >
+                  {submitting ? '...' : '등록'}
+                </button>
+              </div>
             </div>
           </form>
         )}
       </div>
 
       {node.replies.length > 0 && (
-        <div className="comment-replies">
+        <div className="nt-comment-replies">
           {node.replies.map((reply) => (
             <CommentNode
               key={reply.id}
