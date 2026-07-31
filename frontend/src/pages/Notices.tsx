@@ -6,6 +6,15 @@ import { formatDate } from '../utils/formatDate'
 import '../styles/notices.css'
 
 const PAGE_SIZE = 10
+const PAGER_WINDOW = 5
+
+// 현재 페이지를 가운데 두되 양 끝에서는 밀어서 항상 최대 5개를 보여준다.
+function pageWindow(page: number, totalPages: number): number[] {
+  const size = Math.min(PAGER_WINDOW, totalPages)
+  let start = page - Math.floor(size / 2)
+  start = Math.max(0, Math.min(start, totalPages - size))
+  return Array.from({ length: size }, (_, i) => start + i)
+}
 
 export default function NoticesPage() {
   const [items, setItems] = useState<Notice[]>([])
@@ -44,81 +53,102 @@ export default function NoticesPage() {
   const startNumber = totalElements - page * PAGE_SIZE
 
   return (
-    <div className="notice-container">
-      <div className="notice-panel">
-        <div className="notice-header">
-          <h1 className="notice-title">공지사항</h1>
-          {isAdmin() && (
-            <Link className="btn btn-create" to="/notice/new">
-              ✨ 새 공지
-            </Link>
-          )}
+    <div className="fl-page">
+      <div className="fl-titleband">
+        <div>
+          <h1>공지사항</h1>
+          <p>전체 {totalElements}건</p>
+        </div>
+        {isAdmin() && (
+          <Link className="fl-btn fl-btn-primary" to="/notice/new">
+            공지 등록
+          </Link>
+        )}
+      </div>
+
+      <section className="fl-card">
+        <div className="fl-card-head">
+          <span className="fl-card-title">전체 목록</span>
+          <div className="nt-search">
+            <input
+              className="fl-input"
+              placeholder="제목 · 작성자 검색"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && onSearch()}
+            />
+            <button className="fl-btn" onClick={onSearch} disabled={loading}>
+              검색
+            </button>
+          </div>
         </div>
 
-        <div className="notice-search">
-          <input
-            placeholder="검색어를 입력하세요..."
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && onSearch()}
-          />
-          <button className="btn ghost" onClick={onSearch} disabled={loading}>
-            검색
-          </button>
-        </div>
-
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="notice-list-header">
-            <div style={{ textAlign: 'center' }}>번호</div>
+        <div className="fl-card-body fl-flush">
+          <div className="nt-table-head">
+            <div>번호</div>
             <div>제목</div>
-            <div style={{ textAlign: 'center' }}>작성자</div>
-            <div style={{ textAlign: 'center' }}>작성일</div>
+            <div>작성자</div>
+            <div style={{ textAlign: 'right' }}>등록일</div>
           </div>
 
-          {loading && (
-            <div className="notice-empty">불러오는 중...</div>
-          )}
+          {loading && <div className="fl-empty">불러오는 중...</div>}
 
-          {!loading && items.length === 0 && (
-            <div className="notice-empty">
-              <div className="notice-empty-icon">📭</div>
-              게시글이 없습니다.
-            </div>
-          )}
+          {!loading && items.length === 0 && <div className="fl-empty">게시글이 없습니다.</div>}
 
-          {!loading && items.map((n, idx) => (
-            <Link key={n.id} to={`/notice/${n.id}`} className="notice-item notice-mobile-item link-plain">
-              {/* 데스크톱 레이아웃 */}
-              <div className="notice-item-id">{startNumber - idx}</div>
-              <div className="notice-item-title">{n.title}</div>
-              <div className="notice-item-author">{n.authorDisplayName || n.authorUsername}</div>
-              <div className="notice-item-date">{formatDate(n.createdAt)}</div>
-
-              {/* 모바일 레이아웃 */}
-              <div className="notice-mobile-header">
-                <span>#{startNumber - idx}</span>
-                <span>{formatDate(n.createdAt)}</span>
-              </div>
-              <div className="notice-mobile-title">{n.title}</div>
-              <div className="notice-mobile-author">{n.authorDisplayName || n.authorUsername}</div>
-            </Link>
-          ))}
+          {!loading &&
+            items.map((n, idx) => {
+              const num = startNumber - idx
+              const author = n.authorDisplayName || n.authorUsername
+              return (
+                <Link key={n.id} to={`/notice/${n.id}`} className="nt-row">
+                  <span className="nt-row-num">{num}</span>
+                  <span className="nt-row-title">{n.title}</span>
+                  <span className="nt-row-author">{author}</span>
+                  <span className="nt-row-date">{formatDate(n.createdAt)}</span>
+                  {/* 모바일에서만 보이는 요약 줄 (번호·작성자·날짜) */}
+                  <span className="nt-row-meta">
+                    <span>#{num}</span>
+                    <span>·</span>
+                    <span>{author}</span>
+                    <span>·</span>
+                    <span>{formatDate(n.createdAt)}</span>
+                  </span>
+                </Link>
+              )
+            })}
         </div>
 
-        {totalPages > 0 && (
-          <div className="notice-pagination">
-            <button className="btn ghost" onClick={() => go(page - 1)} disabled={page <= 0}>
-              이전
+        {totalPages > 1 && (
+          <div className="nt-pager">
+            <button
+              className="nt-page-btn nt-page-arrow"
+              onClick={() => go(page - 1)}
+              disabled={page <= 0}
+              aria-label="이전 페이지"
+            >
+              ◀
             </button>
-            <span className="notice-pagination-info">
-              {page + 1} / {totalPages}
-            </span>
-            <button className="btn ghost" onClick={() => go(page + 1)} disabled={page >= totalPages - 1}>
-              다음
+            {pageWindow(page, totalPages).map((p) => (
+              <button
+                key={p}
+                className={p === page ? 'nt-page-btn is-active' : 'nt-page-btn'}
+                onClick={() => go(p)}
+                aria-current={p === page ? 'page' : undefined}
+              >
+                {p + 1}
+              </button>
+            ))}
+            <button
+              className="nt-page-btn nt-page-arrow"
+              onClick={() => go(page + 1)}
+              disabled={page >= totalPages - 1}
+              aria-label="다음 페이지"
+            >
+              ▶
             </button>
           </div>
         )}
-      </div>
+      </section>
     </div>
   )
 }

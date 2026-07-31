@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createNotice, getNotice, updateNotice } from '../api/notices'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { isAuthenticated } from '../auth/token'
+import { isAuthenticated, getDisplayName } from '../auth/token'
 import '../styles/notices.css'
 
 export default function NoticeEditorPage() {
@@ -49,60 +49,57 @@ export default function NoticeEditorPage() {
     }
   }
 
-  return (
-    <div className="notice-container">
-      <div className="notice-panel">
-        <div className="notice-header">
-          <h1 className="notice-title">공지 {editId ? '수정' : '등록'}</h1>
-        </div>
+  const author = getDisplayName()
 
-        <form className="editor-form" onSubmit={onSubmit}>
-          <div className="editor-field">
-            <label>
+  return (
+    <div className="fl-page">
+      <div className="fl-titleband">
+        <div>
+          <h1>공지 {editId ? '수정' : '등록'}</h1>
+          {author && <p>작성자 {author}</p>}
+        </div>
+      </div>
+
+      <form className="fl-card" onSubmit={onSubmit}>
+        <div className="fl-card-body" style={{ gap: 18 }}>
+          <div className="nt-field">
+            <span className="nt-field-label">
               제목
-              <span className="editor-char-count">{title.length}/200</span>
-            </label>
+              <span className="nt-charcount">{title.length}/200</span>
+            </span>
             <input
-              className="editor-input"
-              placeholder="제목을 입력하세요"
+              className="fl-input nt-input-lg"
+              placeholder="공지 제목을 입력하세요"
               value={title}
               maxLength={200}
               onChange={(e) => setTitle(e.target.value)}
             />
           </div>
 
-          <div className="editor-field">
-            <label>내용</label>
+          <div className="nt-field">
+            <span className="nt-field-label">내용</span>
             <textarea
-              className="editor-input"
-              rows={15}
-              placeholder="내용을 입력하세요"
+              className="fl-input nt-textarea nt-textarea-lg"
+              placeholder="공지 내용을 입력하세요"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              style={{ resize: 'vertical', minHeight: 200 }}
             />
           </div>
 
-          {error && <p className="error">{error}</p>}
+          {error && <p className="fl-error">{error}</p>}
+        </div>
 
-          <div className="editor-actions">
-            <button
-              className="btn btn-submit"
-              type="submit"
-              disabled={submitting}
-            >
-              {submitting ? '저장 중...' : '💾 저장'}
+        <div className="nt-actions">
+          <Link className="fl-btn" to={editId ? `/notice/${editId}` : '/notices'}>
+            취소
+          </Link>
+          <div className="nt-actions-right">
+            <button className="fl-btn fl-btn-primary" type="submit" disabled={submitting}>
+              {submitting ? '저장 중...' : editId ? '수정' : '등록'}
             </button>
-            <Link
-              className="btn ghost"
-              to={editId ? `/notice/${editId}` : '/notices'}
-              style={{ padding: '12px 24px', textDecoration: 'none' }}
-            >
-              취소
-            </Link>
           </div>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
   )
 }

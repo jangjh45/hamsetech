@@ -1,10 +1,22 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { addComment, getNotice, listComments, deleteNotice, deleteComment, type Notice, type NoticeComment } from '../api/notices'
+import {
+  addComment,
+  getNotice,
+  listComments,
+  listNotices,
+  deleteNotice,
+  deleteComment,
+  type Notice,
+  type NoticeComment,
+} from '../api/notices'
 import { isAuthenticated, isAdmin, getUsername } from '../auth/token'
 import { formatDateTime } from '../utils/formatDate'
 import CommentNode, { type CommentNodeData } from '../components/CommentNode'
 import '../styles/notices.css'
+
+// 이전·다음 글을 찾기 위해 훑는 목록 범위. 별도 API 없이 목록 API를 재사용한다.
+const NEIGHBOR_SCAN_SIZE = 50
 
 function buildCommentTree(flatComments: NoticeComment[]): CommentNodeData[] {
   const map = new Map<number, CommentNodeData>()
@@ -43,6 +55,9 @@ export default function NoticeDetailPage() {
   const [notice, setNotice] = useState<Notice | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [comments, setComments] = useState<NoticeComment[]>([])
+  // 서버가 id DESC로 내려주므로 목록에서 앞이 최신(다음 글), 뒤가 이전 글이다.
+  const [prev, setPrev] = useState<Notice | null>(null)
+  const [next, setNext] = useState<Notice | null>(null)
   const [text, setText] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -53,6 +68,24 @@ export default function NoticeDetailPage() {
       .then(setNotice)
       .catch(() => setNotFound(true))
     listComments(noticeId).then(setComments)
+  }, [noticeId])
+
+  // 이전·다음 글은 부가 정보라 실패해도 조용히 넘긴다.
+  useEffect(() => {
+    if (!noticeId) return
+    let cancelled = false
+    listNotices(0, NEIGHBOR_SCAN_SIZE)
+      .then((page) => {
+        if (cancelled) return
+        const idx = page.content.findIndex((n) => n.id === noticeId)
+        if (idx < 0) return
+        setNext(idx > 0 ? page.content[idx - 1] : null)
+        setPrev(idx < page.content.length - 1 ? page.content[idx + 1] : null)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
   }, [noticeId])
 
   async function refreshComments() {
@@ -107,16 +140,17 @@ export default function NoticeDetailPage() {
 
   if (notFound) {
     return (
-      <div className="notice-container">
-        <div className="notice-panel">
-          <div className="notice-empty">
-            <div className="notice-empty-icon">🔍</div>
-            존재하지 않는 게시글입니다.
-            <div style={{ marginTop: 16 }}>
-              <Link className="btn ghost" to="/notices">목록으로</Link>
+      <div className="fl-page">
+        <section className="fl-card">
+          <div className="fl-card-body">
+            <div className="fl-empty">존재하지 않는 게시글입니다.</div>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <Link className="fl-btn" to="/notices">
+                목록으로
+              </Link>
             </div>
           </div>
-        </div>
+        </section>
       </div>
     )
   }
@@ -125,92 +159,143 @@ export default function NoticeDetailPage() {
     ? Math.abs(new Date(notice.updatedAt).getTime() - new Date(notice.createdAt).getTime()) > 1000
     : false
 
+  const author = notice ? notice.authorDisplayName || notice.authorUsername : ''
+  const canEdit = !!notice && (isAdmin() || getUsername() === notice.authorUsername)
   const commentTree = buildCommentTree(comments)
 
   return (
-    <div className="notice-container">
-      <div className="notice-panel">
-        <div className="notice-detail-header">
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-            <Link className="btn ghost" to="/notices">← 목록</Link>
-            {notice && (isAdmin() || getUsername() === notice.authorUsername) && (
-              <div style={{ display: 'flex', gap: 8 }}>
-                <Link className="btn btn-edit" to={`/notice/${noticeId}/edit`}>수정</Link>
-                <button className="btn btn-delete" onClick={onDelete}>삭제</button>
-              </div>
-            )}
-          </div>
+    <div className="fl-page">
+      <div className="nt-crumb">
+        <Link to="/notices">공지사항</Link>
+        <span className="nt-crumb-sep">/</span>
+        <span>상세</span>
+      </div>
 
-          {notice && (
-            <>
-              <h1 className="notice-detail-title">{notice.title}</h1>
-              <div className="notice-detail-meta">
-                <span>{notice.authorDisplayName || notice.authorUsername}</span>
-                <span>·</span>
+      <div className="nt-detail-grid">
+        <section className="fl-card">
+          <div className="nt-article-head">
+            <h1 className="nt-article-title">{notice ? notice.title : '불러오는 중...'}</h1>
+            {notice && (
+              <div className="nt-article-meta">
+                <span className="nt-article-meta-author">
+                  <span className="nt-avatar-sm">{author.charAt(0)}</span>
+                  {author}
+                </span>
+                <span className="nt-meta-sep" />
                 <time>{formatDateTime(notice.createdAt)}</time>
                 {isUpdated && (
                   <>
-                    <span>·</span>
-                    <span>수정됨: {formatDateTime(notice.updatedAt)}</span>
+                    <span className="nt-meta-sep" />
+                    <span className="nt-tnum">수정됨 {formatDateTime(notice.updatedAt)}</span>
                   </>
                 )}
               </div>
-            </>
-          )}
-        </div>
-
-        {notice && (
-          <div className="notice-content">{notice.content}</div>
-        )}
-
-        <div className="comments-section">
-          <div className="comments-header">
-            댓글 <span style={{ color: 'var(--primary)', fontSize: '0.9em' }}>{comments.length}</span>
-          </div>
-
-          {isAuthenticated() && (
-            <form className="comment-form" onSubmit={onSubmit}>
-              <textarea
-                className="comment-input"
-                placeholder="댓글을 남겨보세요..."
-                value={text}
-                onChange={(e) => setText(e.target.value.slice(0, 500))}
-                rows={3}
-              />
-              <div className="comment-actions">
-                <span style={{ fontSize: 13, color: 'var(--muted)' }}>{text.length}/500</span>
-                <button
-                  className="btn btn-submit"
-                  type="submit"
-                  disabled={!text.trim() || submitting}
-                  style={{ padding: '8px 24px', minWidth: 'auto' }}
-                >
-                  {submitting ? '등록 중...' : '댓글 등록'}
-                </button>
-              </div>
-              {error && <p className="error" style={{ marginTop: 12 }}>{error}</p>}
-            </form>
-          )}
-
-          <div className="comment-tree">
-            {comments.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 32, color: 'var(--muted)' }}>
-                첫 번째 댓글을 남겨보세요!
-              </div>
-            ) : (
-              commentTree.map((root) => (
-                <CommentNode
-                  key={root.id}
-                  node={root}
-                  noticeId={noticeId}
-                  onReply={onReply}
-                  onDelete={onCommentDelete}
-                />
-              ))
             )}
           </div>
-        </div>
+
+          {notice && <div className="nt-article-body">{notice.content}</div>}
+
+          <div className="nt-actions nt-actions-article">
+            <Link className="fl-btn" to="/notices">
+              목록
+            </Link>
+            {canEdit && (
+              <div className="nt-actions-right">
+                <button className="fl-btn nt-btn-danger" onClick={onDelete}>
+                  삭제
+                </button>
+                <Link className="fl-btn fl-btn-primary" to={`/notice/${noticeId}/edit`}>
+                  수정
+                </Link>
+              </div>
+            )}
+          </div>
+
+          <div className="nt-comments">
+            <div className="nt-comments-title">
+              댓글 <span className="nt-comments-count">{comments.length}</span>
+            </div>
+
+            {isAuthenticated() && (
+              <form className="nt-comment-form" onSubmit={onSubmit}>
+                <textarea
+                  className="fl-input nt-textarea"
+                  placeholder="댓글을 남겨보세요..."
+                  value={text}
+                  onChange={(e) => setText(e.target.value.slice(0, 500))}
+                  rows={3}
+                />
+                {error && <p className="fl-error">{error}</p>}
+                <div className="nt-comment-form-foot">
+                  <span className="nt-charcount">{text.length}/500</span>
+                  <button
+                    className="fl-btn fl-btn-primary fl-btn-sm"
+                    type="submit"
+                    disabled={!text.trim() || submitting}
+                  >
+                    {submitting ? '등록 중...' : '댓글 등록'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {comments.length === 0 ? (
+              <div className="fl-empty">첫 번째 댓글을 남겨보세요!</div>
+            ) : (
+              <div className="nt-comment-tree">
+                {commentTree.map((root) => (
+                  <CommentNode
+                    key={root.id}
+                    node={root}
+                    noticeId={noticeId}
+                    onReply={onReply}
+                    onDelete={onCommentDelete}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {(prev || next) && (
+          <section className="fl-card">
+            <div className="fl-card-head">
+              <span className="fl-card-title">이전 · 다음 글</span>
+            </div>
+            <div className="fl-card-body fl-flush">
+              <NeighborRow label="이전" notice={prev} />
+              <NeighborRow label="다음" notice={next} />
+            </div>
+          </section>
+        )}
       </div>
     </div>
+  )
+}
+
+function NeighborRow({ label, notice }: { label: string; notice: Notice | null }) {
+  const body = (
+    <>
+      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--fl-muted-2)' }}>{label}</span>
+      <span className="fl-linkrow-title">
+        {notice ? notice.title : label === '이전' ? '첫 글입니다' : '최신 글입니다'}
+      </span>
+    </>
+  )
+
+  const style = { flexDirection: 'column' as const, alignItems: 'flex-start' as const, gap: 4 }
+
+  if (!notice) {
+    return (
+      <div className="fl-linkrow" style={{ ...style, color: 'var(--fl-muted-2)' }}>
+        {body}
+      </div>
+    )
+  }
+
+  return (
+    <Link className="fl-linkrow" to={`/notice/${notice.id}`} style={style}>
+      {body}
+    </Link>
   )
 }
