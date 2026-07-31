@@ -1,6 +1,7 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { clearToken, getToken, onAuthChange, isAdmin, getDisplayName } from '../auth/token'
 import { useEffect, useState } from 'react'
+import useIsMobile from '../hooks/useIsMobile'
 
 export default function Header() {
   const navigate = useNavigate()
@@ -8,7 +9,7 @@ export default function Header() {
   const [admin, setAdmin] = useState(isAdmin())
   const [displayName, setDisplayName] = useState<string | null>(getDisplayName())
   const [theme, setTheme] = useState<string>(() => (localStorage.getItem('theme') || 'light'))
-  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768)
+  const isMobile = useIsMobile()
   const [showMobileMenu, setShowMobileMenu] = useState<boolean>(false)
 
   useEffect(() => {
@@ -24,18 +25,10 @@ export default function Header() {
     applyTheme(theme)
   }, [theme])
 
-  // 화면 크기 변경 감지
+  // 데스크톱으로 넓어지면 열려 있던 모바일 메뉴를 닫는다
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768)
-      if (window.innerWidth >= 768) {
-        setShowMobileMenu(false)
-      }
-    }
-    
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
+    if (!isMobile) setShowMobileMenu(false)
+  }, [isMobile])
 
   function handleLogout() {
     clearToken()
@@ -48,113 +41,140 @@ export default function Header() {
     localStorage.setItem('theme', next)
   }
 
-  function toggleMobileMenu() {
-    setShowMobileMenu(!showMobileMenu)
-  }
+  const navLinks = [
+    { to: '/', label: '홈', end: true },
+    { to: '/notices', label: '공지사항', end: false },
+    { to: '/delivery', label: '적재 시뮬레이터', end: false },
+    ...(authed ? [{ to: '/overtime', label: '잔업특근', end: false }] : []),
+    ...(admin ? [{ to: '/admin', label: '관리자', end: false }] : []),
+  ]
+
+  const navClass = ({ isActive }: { isActive: boolean }) =>
+    isActive ? 'fl-nav-link is-active' : 'fl-nav-link'
+
+  const themeButton = (
+    <button className="fl-btn-icon" onClick={toggleTheme} title="테마 전환" aria-label="테마 전환">
+      {theme === 'dark' ? '☀️' : '🌙'}
+    </button>
+  )
+
+  const userChip = displayName ? (
+    <Link to="/profile" className="fl-userchip" onClick={() => setShowMobileMenu(false)}>
+      <span className="fl-avatar">{displayName.charAt(0)}</span>
+      <span>{displayName}님</span>
+    </Link>
+  ) : null
 
   return (
-    <div className="container">
-      <nav className="navbar" style={{ 
-        flexDirection: isMobile ? 'column' : 'row',
-        alignItems: isMobile ? 'stretch' : 'center',
-        gap: isMobile ? 8 : 16
-      }}>
-        {/* 모바일 메뉴 헤더 */}
-        {isMobile && (
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            padding: '8px 0'
-          }}>
-            <Link 
-              to="/" 
-              style={{ 
-                fontWeight: 'bold', 
-                fontSize: '18px',
-                textDecoration: 'none',
-                color: 'inherit'
-              }}
-              onClick={() => setShowMobileMenu(false)}
-            >
-              HamseTech
-            </Link>
-            <button 
-              className="btn ghost" 
-              onClick={toggleMobileMenu}
-              style={{ padding: '8px 12px' }}
-            >
-              {showMobileMenu ? '✕' : '☰'}
-            </button>
-          </div>
-        )}
+    <header className="fl-header">
+      <div className="fl-header-inner">
+        <Link to="/" className="fl-brand" onClick={() => setShowMobileMenu(false)}>
+          HamseTech
+        </Link>
 
-        {/* 데스크톱 메뉴 */}
         {!isMobile && (
           <>
-            <Link to="/">홈</Link>
-            <Link to="/notices">공지사항</Link>
-            <Link to="/delivery">적재 시뮬레이터</Link>
-            {authed && <Link to="/overtime">잔업특근</Link>}
-            {admin && <Link to="/admin">관리자</Link>}
-            <div className="spacer" />
-            <button className="btn ghost" onClick={toggleTheme}>{theme === 'dark' ? '☀️' : '🌙'}</button>
-            {!authed && <Link to="/register">회원가입</Link>}
-            {!authed && <Link to="/login">로그인</Link>}
-            {authed && displayName && (
-              <Link to="/profile" className="subtitle" style={{ margin: 0, textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>
-                {displayName}님
-              </Link>
-            )}
-            {authed && (<button className="btn ghost" onClick={handleLogout}>로그아웃</button>)}
+            <nav className="fl-nav">
+              {navLinks.map((link) => (
+                <NavLink key={link.to} to={link.to} end={link.end} className={navClass}>
+                  {link.label}
+                </NavLink>
+              ))}
+            </nav>
+            <div className="fl-spacer" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {themeButton}
+              {!authed && (
+                <NavLink to="/register" className={navClass}>
+                  회원가입
+                </NavLink>
+              )}
+              {!authed && (
+                <NavLink to="/login" className={navClass}>
+                  로그인
+                </NavLink>
+              )}
+              {authed && userChip}
+              {authed && (
+                <button className="fl-btn" onClick={handleLogout}>
+                  로그아웃
+                </button>
+              )}
+            </div>
           </>
         )}
 
-        {/* 모바일 메뉴 */}
+        {isMobile && (
+          <>
+            <div className="fl-spacer" />
+            <button
+              className="fl-btn-icon"
+              onClick={() => setShowMobileMenu((v) => !v)}
+              aria-label="메뉴"
+              aria-expanded={showMobileMenu}
+            >
+              {showMobileMenu ? '✕' : '☰'}
+            </button>
+          </>
+        )}
+
         {isMobile && showMobileMenu && (
-          <div style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: 8,
-            padding: '12px 0',
-            borderTop: '1px solid var(--border)'
-          }}>
-            <Link to="/" onClick={() => setShowMobileMenu(false)}>홈</Link>
-            <Link to="/notices" onClick={() => setShowMobileMenu(false)}>공지사항</Link>
-            <Link to="/delivery" onClick={() => setShowMobileMenu(false)}>적재 시뮬레이터</Link>
-            {authed && <Link to="/overtime" onClick={() => setShowMobileMenu(false)}>잔업특근</Link>}
-            {admin && <Link to="/admin" onClick={() => setShowMobileMenu(false)}>관리자</Link>}
-            {!authed && <Link to="/register" onClick={() => setShowMobileMenu(false)}>회원가입</Link>}
-            {!authed && <Link to="/login" onClick={() => setShowMobileMenu(false)}>로그인</Link>}
-            
-            {/* 하단 옵션들을 한 줄로 */}
-            <div style={{ 
-              display: 'flex', 
-              gap: 8,
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingTop: '8px',
-              borderTop: '1px solid var(--border)'
-            }}>
-              <button className="btn ghost" onClick={toggleTheme} style={{ padding: '8px 12px' }}>{theme === 'dark' ? '☀️' : '🌙'}</button>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, justifyContent: 'flex-end' }}>
-                {authed && displayName && (
-                  <Link 
-                    to="/profile" 
-                    onClick={() => setShowMobileMenu(false)}
-                    className="subtitle" 
-                    style={{ margin: 0, whiteSpace: 'nowrap', textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}
-                  >
-                    {displayName}님
-                  </Link>
+          <nav
+            style={{
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+              padding: '8px 0 12px',
+              borderTop: '1px solid var(--fl-divider)',
+            }}
+          >
+            {navLinks.map((link) => (
+              <NavLink
+                key={link.to}
+                to={link.to}
+                end={link.end}
+                className={navClass}
+                onClick={() => setShowMobileMenu(false)}
+              >
+                {link.label}
+              </NavLink>
+            ))}
+            {!authed && (
+              <NavLink to="/register" className={navClass} onClick={() => setShowMobileMenu(false)}>
+                회원가입
+              </NavLink>
+            )}
+            {!authed && (
+              <NavLink to="/login" className={navClass} onClick={() => setShowMobileMenu(false)}>
+                로그인
+              </NavLink>
+            )}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                justifyContent: 'space-between',
+                paddingTop: 10,
+                marginTop: 6,
+                borderTop: '1px solid var(--fl-divider)',
+              }}
+            >
+              {themeButton}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                {authed && userChip}
+                {authed && (
+                  <button className="fl-btn" onClick={handleLogout}>
+                    로그아웃
+                  </button>
                 )}
-                {authed && (<button className="btn ghost" onClick={handleLogout} style={{ padding: '8px 12px', whiteSpace: 'nowrap' }}>로그아웃</button>)}
               </div>
             </div>
-          </div>
+          </nav>
         )}
-      </nav>
-    </div>
+      </div>
+    </header>
   )
 }
 
@@ -163,5 +183,3 @@ function applyTheme(mode: string) {
   const theme = mode || 'light'
   root.setAttribute('data-theme', theme)
 }
-
-

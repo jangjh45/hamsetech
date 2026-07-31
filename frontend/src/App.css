@@ -1,10 +1,12 @@
-/* 앱 루트 레이아웃 경계만 유지.
+/* 앱 루트는 폭을 제한하지 않는다.
+   헤더가 화면 끝까지 닿아야 하고, 각 페이지 컨테이너가 이미 자기 폭을 갖고 있다.
+   (.container 960 / .notice-container 1000 / .admin-container 1200 /
+    .profile-container 680 / .fl-page 1240 — 모두 margin:0 auto로 가운데 정렬)
+
    (Vite 스타터 기본 스타일은 디자인 시스템(ui.css)과 충돌해 제거함:
     - #root text-align:center → 전역 가운데 정렬이 걸려 목록/카드 텍스트가 어긋남
     - .card { padding: 0.5em } → ui.css의 .card 패딩(16px)을 덮어씀
     - 로고 데모/read-the-docs 등 미사용 규칙) */
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 0.5rem;
+  width: 100%;
 }
