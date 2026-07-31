@@ -1,16 +1,47 @@
 // 메인화면 위젯 레이아웃(순서/숨김) 설정. localStorage에 저장한다.
 
-export type WidgetId = 'clock' | 'calendar' | 'notices' | 'overtime' | 'todo'
+export type WidgetId =
+  | 'clock'
+  | 'today'
+  | 'overtime'
+  | 'calendar'
+  | 'todo'
+  | 'notices'
+  | 'shortcuts'
 
-// 위젯 표시 순서 기본값 (CSS 다단 레이아웃 기준 위→아래, 왼쪽 열 먼저)
-export const DEFAULT_ORDER: WidgetId[] = ['clock', 'calendar', 'notices', 'overtime', 'todo']
+// 위젯 표시 순서 기본값. 크기(WIDGET_SIZES)와 맞물려 그리드에서
+// 컴팩트 3개 → 와이드 2개 → 와이드 2개 세 줄을 만든다.
+export const DEFAULT_ORDER: WidgetId[] = [
+  'clock',
+  'today',
+  'overtime',
+  'calendar',
+  'todo',
+  'notices',
+  'shortcuts',
+]
 
 export const WIDGET_LABELS: Record<WidgetId, string> = {
   clock: '시계',
-  calendar: '캘린더',
-  notices: '최근 공지사항',
+  today: '오늘 일정',
   overtime: '잔업/특근 요약',
+  calendar: '캘린더',
   todo: '할 일',
+  notices: '최근 공지사항',
+  shortcuts: '바로가기',
+}
+
+// 그리드에서 차지하는 폭. compact는 1/3, wide는 1/2 열을 쓴다.
+export type WidgetSize = 'compact' | 'wide'
+
+export const WIDGET_SIZES: Record<WidgetId, WidgetSize> = {
+  clock: 'compact',
+  today: 'compact',
+  overtime: 'compact',
+  calendar: 'wide',
+  todo: 'wide',
+  notices: 'wide',
+  shortcuts: 'wide',
 }
 
 export interface HomeLayout {
@@ -79,6 +110,24 @@ export function moveWidget(layout: HomeLayout, id: WidgetId, direction: 'up' | '
   const target = direction === 'up' ? index - 1 : index + 1
   if (target < 0 || target >= order.length) return layout
   ;[order[index], order[target]] = [order[target], order[index]]
+  return { ...layout, order }
+}
+
+// 드래그로 sourceId를 targetId 자리에 끼워 넣는다.
+// 아래로 끌면 대상 뒤, 위로 끌면 대상 앞에 놓여 손에 잡히는 대로 움직인다.
+export function reorderWidget(
+  layout: HomeLayout,
+  sourceId: WidgetId,
+  targetId: WidgetId,
+): HomeLayout {
+  if (sourceId === targetId) return layout
+  const sourceIndex = layout.order.indexOf(sourceId)
+  const targetIndex = layout.order.indexOf(targetId)
+  if (sourceIndex === -1 || targetIndex === -1) return layout
+
+  const order = layout.order.filter((id) => id !== sourceId)
+  const insertAt = order.indexOf(targetId) + (sourceIndex < targetIndex ? 1 : 0)
+  order.splice(insertAt, 0, sourceId)
   return { ...layout, order }
 }
 

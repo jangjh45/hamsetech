@@ -4,31 +4,27 @@ import CalendarWidget from '../components/CalendarWidget'
 import TodoList from '../components/TodoList'
 import RecentNotices from '../components/RecentNotices'
 import OvertimeSummary from '../components/OvertimeSummary'
+import TodayScheduleWidget from '../components/TodayScheduleWidget'
+import ShortcutsWidget from '../components/ShortcutsWidget'
 import HomeEditPanel from '../components/HomeEditPanel'
-import { loadLayout, saveLayout, visibleOrder, type WidgetId, type HomeLayout } from '../utils/homeLayout'
-
-function toYmd(date: Date) {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
+import useDashboardData from '../hooks/useDashboardData'
+import { toYmd } from '../utils/formatDate'
+import {
+  loadLayout,
+  saveLayout,
+  visibleOrder,
+  WIDGET_SIZES,
+  type WidgetId,
+  type HomeLayout,
+} from '../utils/homeLayout'
 
 export default function HomePage() {
-  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768)
   const [viewDate, setViewDate] = useState<Date>(new Date())
   const [selected, setSelected] = useState<string>(toYmd(new Date()))
   const [layout, setLayout] = useState<HomeLayout>(() => loadLayout())
   const [editing, setEditing] = useState<boolean>(false)
 
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
+  const { authenticated, todayEvents, todayTodos, monthOvertime, refresh } = useDashboardData()
 
   // 레이아웃 변경 시 localStorage에 저장
   useEffect(() => {
@@ -39,111 +35,86 @@ export default function HomePage() {
   const monthStart = toYmd(new Date(viewDate.getFullYear(), viewDate.getMonth(), 1))
   const monthEnd = toYmd(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0))
 
+  const visible = visibleOrder(layout)
+  const pendingCount = monthOvertime.filter((r) => r.status === 'PENDING').length
+  const remainingTodoCount = todayTodos.filter((t) => !t.completed).length
+
+  // "오늘 일정" 위젯 → 캘린더 위젯으로 이동. 캘린더가 숨겨져 있으면 링크를 감춘다.
+  const showCalendar = visible.includes('calendar')
+  function goToCalendar() {
+    const today = new Date()
+    setViewDate(new Date(today.getFullYear(), today.getMonth(), 1))
+    setSelected(toYmd(today))
+    document.getElementById('widget-calendar')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   // 위젯 레지스트리: id → 렌더 함수 (Home의 상태를 클로저로 참조)
   const registry: Record<WidgetId, () => ReactNode> = {
     clock: () => <Clock />,
+    today: () => (
+      <TodayScheduleWidget events={todayEvents} onShowAll={showCalendar ? goToCalendar : undefined} />
+    ),
+    overtime: () => <OvertimeSummary records={monthOvertime} authenticated={authenticated} />,
     calendar: () => (
       <CalendarWidget
         viewDate={viewDate}
         setViewDate={setViewDate}
         selected={selected}
         setSelected={setSelected}
+        onEventsChanged={refresh}
+      />
+    ),
+    todo: () => (
+      <TodoList
+        selectedDate={selected}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+        onTodosChanged={refresh}
       />
     ),
     notices: () => <RecentNotices />,
-    overtime: () => <OvertimeSummary />,
-    todo: () => <TodoList selectedDate={selected} monthStart={monthStart} monthEnd={monthEnd} />,
+    shortcuts: () => <ShortcutsWidget pendingCount={pendingCount} />,
   }
 
-  const visible = visibleOrder(layout)
-  // 정렬된 위젯을 두 열로 분배: 앞쪽 절반 → 왼쪽, 나머지 → 오른쪽
-  const mid = Math.ceil(visible.length / 2)
-  const leftCol = isMobile ? visible : visible.slice(0, mid)
-  const rightCol = isMobile ? [] : visible.slice(mid)
-
-  const renderCard = (id: WidgetId) => (
-    <div key={id} className="card" style={{ padding: isMobile ? 12 : 16 }}>
-      {registry[id]()}
-    </div>
-  )
+  // 비로그인 상태에서는 토큰이 필요한 항목을 요약에서 뺀다
+  const summaryParts = [
+    `오늘 일정 ${todayEvents.length}건`,
+    ...(authenticated
+      ? [`남은 할 일 ${remainingTodoCount}건`, `승인 대기 ${pendingCount}건`]
+      : []),
+  ]
 
   return (
-    <div className="container" style={{
-      display: 'flex',
-      justifyContent: 'center',
-      padding: isMobile ? '16px' : '24px'
-    }}>
-      <div className="panel" style={{
-        maxWidth: isMobile ? '100%' : 1400,
-        width: '100%',
-        margin: '0 auto'
-      }}>
-        {/* 편집 툴바 */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          marginTop: isMobile ? 8 : 16
-        }}>
-          <button
-            className="btn ghost"
-            onClick={() => setEditing((v) => !v)}
-            style={{ padding: '6px 14px', fontSize: isMobile ? 13 : 14 }}
-          >
-            {editing ? '✕ 편집 닫기' : '⚙️ 편집'}
-          </button>
+    <div className="fl-page">
+      <div className="fl-titleband">
+        <div>
+          <h1>오늘 업무 현황</h1>
+          <p>{summaryParts.join(' · ')}</p>
         </div>
+        <button className="fl-btn" onClick={() => setEditing((v) => !v)}>
+          {editing ? '편집 닫기' : '위젯 편집'}
+        </button>
+      </div>
 
-        {editing && (
-          <HomeEditPanel
-            layout={layout}
-            onChange={setLayout}
-            onClose={() => setEditing(false)}
-            isMobile={isMobile}
-          />
-        )}
+      {editing && (
+        <HomeEditPanel layout={layout} onChange={setLayout} onClose={() => setEditing(false)} />
+      )}
 
-        {visible.length === 0 ? (
-          <div className="card" style={{
-            textAlign: 'center',
-            padding: isMobile ? '32px 16px' : '48px 32px',
-            marginTop: isMobile ? 8 : 16,
-            opacity: 0.7,
-            fontSize: isMobile ? 14 : 16
-          }}>
+      {visible.length === 0 ? (
+        <div className="fl-card">
+          <div className="fl-empty" style={{ padding: '48px 24px' }}>
             모든 위젯이 숨겨졌습니다. 편집에서 다시 켜주세요.
           </div>
-        ) : (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
-            gap: isMobile ? 16 : 24,
-            marginTop: isMobile ? 8 : 16,
-            alignItems: 'start'
-          }}>
-            {/* 왼쪽 열 */}
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: isMobile ? 16 : 20,
-              width: '100%'
-            }}>
-              {leftCol.map(renderCard)}
-            </div>
-
-            {/* 오른쪽 열 (데스크톱만) */}
-            {!isMobile && (
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 20,
-                width: '100%'
-              }}>
-                {rightCol.map(renderCard)}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="fl-grid">
+          {visible.map((id) => (
+            <section key={id} id={`widget-${id}`} className={`fl-card fl-w-${WIDGET_SIZES[id]}`}>
+              {registry[id]()}
+            </section>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

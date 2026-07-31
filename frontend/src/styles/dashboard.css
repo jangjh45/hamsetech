@@ -1,0 +1,848 @@
+/*
+ * 메인 페이지(개선안) 전용 플랫 디자인 시스템.
+ *
+ * ui.css의 글래스 토큰(--panel/--border/--primary ...)을 덮어쓰지 않고
+ * --fl-* 네임스페이스를 따로 쓴다. 이 파일을 쓰는 화면은 메인 페이지와
+ * 헤더뿐이고, 나머지 페이지는 지금까지의 ui.css 스타일을 그대로 유지한다.
+ *
+ * 라이트 값은 Claude Design 목업(메인 페이지 (개선안).dc.html)에서 그대로 가져왔고,
+ * 다크 값은 목업의 색상이 아니라 구조(surface/sunken/border/divider/accent)에
+ * 맞춰 새로 설계했다.
+ */
+
+:root[data-theme='light'] {
+  --fl-bg: #f3f5f9;
+  --fl-surface: #ffffff;
+  --fl-sunken: #fafbfd;
+  --fl-border: #e4e8f0;
+  --fl-divider: #eef1f6;
+  --fl-divider-soft: #f4f6fa;
+
+  --fl-text: #101528;
+  --fl-muted: #6b7794;
+  --fl-muted-2: #8b94a9;
+  --fl-faint: #cfd5e0;
+
+  --fl-primary: #0066cc;
+  --fl-primary-hover: #004e9e;
+  --fl-primary-soft: #eff4fb;
+  --fl-on-primary: #ffffff;
+
+  --fl-danger: #b42318;
+  --fl-danger-soft: #fdf0ef;
+  --fl-warn: #b45309;
+  --fl-warn-soft: #fdf6ea;
+  --fl-neutral: #6b7794;
+  --fl-neutral-soft: #f1f3f7;
+
+  --fl-sat: #2f6bbf;
+  --fl-sun: #c0392b;
+  --fl-success: #12a150;
+
+  --fl-track: #f3f5f9;
+  --fl-shadow: 0 1px 2px rgba(16, 21, 40, 0.04);
+  --fl-shadow-raised: 0 1px 2px rgba(16, 21, 40, 0.06);
+  --fl-hover: rgba(16, 21, 40, 0.03);
+}
+
+:root[data-theme='dark'] {
+  --fl-bg: #0e1117;
+  --fl-surface: #161b26;
+  --fl-sunken: #1b2130;
+  --fl-border: #262d3d;
+  --fl-divider: #212836;
+  --fl-divider-soft: #1d2431;
+
+  --fl-text: #e8ecf5;
+  --fl-muted: #9aa5bd;
+  --fl-muted-2: #7c869e;
+  --fl-faint: #3a4459;
+
+  --fl-primary: #4d9fff;
+  --fl-primary-hover: #7ab8ff;
+  --fl-primary-soft: rgba(77, 159, 255, 0.12);
+  --fl-on-primary: #0b1220;
+
+  --fl-danger: #ff9b93;
+  --fl-danger-soft: rgba(255, 99, 86, 0.12);
+  --fl-warn: #f0b45c;
+  --fl-warn-soft: rgba(240, 180, 92, 0.12);
+  --fl-neutral: #9aa5bd;
+  --fl-neutral-soft: rgba(154, 165, 189, 0.12);
+
+  --fl-sat: #7aa9e8;
+  --fl-sun: #f08a7a;
+  --fl-success: #3ecf7f;
+
+  --fl-track: #1b2130;
+  --fl-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --fl-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --fl-hover: rgba(255, 255, 255, 0.04);
+}
+
+/* ── 페이지 셸 ───────────────────────────────────────────────── */
+
+/* 메인 페이지에서만 body 배경을 플랫 색으로 (ui.css의 그라데이션 대체) */
+body:has(.fl-page) {
+  background: var(--fl-bg);
+}
+
+.fl-page {
+  color: var(--fl-text);
+  padding: 28px 24px 56px;
+  max-width: 1240px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* ── 헤더 ────────────────────────────────────────────────────── */
+
+.fl-header {
+  background: var(--fl-surface);
+  border-bottom: 1px solid var(--fl-border);
+  color: var(--fl-text);
+}
+
+.fl-header-inner {
+  /* .fl-page와 같은 1240px 총폭이어야 브랜드와 카드 좌측이 맞는다 */
+  box-sizing: border-box;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+  min-height: 64px;
+}
+
+.fl-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--fl-text);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  text-decoration: none;
+}
+
+.fl-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.fl-nav-link {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--fl-muted);
+  text-decoration: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.fl-nav-link:hover {
+  background: var(--fl-hover);
+  color: var(--fl-text);
+}
+
+.fl-nav-link.is-active {
+  color: var(--fl-text);
+  font-weight: 600;
+  background: var(--fl-primary-soft);
+}
+
+.fl-spacer {
+  flex: 1;
+  min-width: 12px;
+}
+
+.fl-userchip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 10px 5px 5px;
+  border-radius: 999px;
+  border: 1px solid var(--fl-border);
+  color: var(--fl-text);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.fl-userchip:hover {
+  background: var(--fl-hover);
+  color: var(--fl-text);
+}
+
+.fl-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--fl-primary-soft);
+  color: var(--fl-primary);
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── 버튼 / 입력 ─────────────────────────────────────────────── */
+
+.fl-btn {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 9px;
+  border: 1px solid var(--fl-border);
+  background: var(--fl-surface);
+  color: var(--fl-muted);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.fl-btn:hover:not(:disabled) {
+  background: var(--fl-hover);
+  border-color: var(--fl-muted-2);
+  color: var(--fl-text);
+}
+
+.fl-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.fl-btn.fl-btn-sm {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.fl-btn-primary {
+  border-color: transparent;
+  background: var(--fl-primary);
+  color: var(--fl-on-primary);
+  font-weight: 600;
+}
+
+.fl-btn-primary:hover:not(:disabled) {
+  background: var(--fl-primary-hover);
+  border-color: transparent;
+  color: var(--fl-on-primary);
+}
+
+/* 정사각형 아이콘 버튼 (테마 토글, 캘린더 이전/다음) */
+.fl-btn-icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 9px;
+  border: 1px solid var(--fl-border);
+  background: var(--fl-surface);
+  color: var(--fl-muted);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.fl-btn-icon:hover:not(:disabled) {
+  background: var(--fl-hover);
+  border-color: var(--fl-muted-2);
+  color: var(--fl-text);
+}
+
+.fl-btn-icon:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.fl-btn-icon.fl-btn-sm {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+/* 리스트 행의 × 삭제 버튼 */
+.fl-btn-x {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid var(--fl-border);
+  background: var(--fl-surface);
+  color: var(--fl-muted-2);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.fl-btn-x:hover {
+  background: var(--fl-danger-soft);
+  border-color: var(--fl-danger);
+  color: var(--fl-danger);
+}
+
+.fl-input {
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid var(--fl-border);
+  background: var(--fl-sunken);
+  color: var(--fl-text);
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: inherit;
+  box-sizing: border-box;
+  min-width: 0;
+  transition: border-color 0.15s ease;
+}
+
+.fl-input::placeholder {
+  color: var(--fl-muted-2);
+}
+
+.fl-input:focus {
+  outline: none;
+  border-color: var(--fl-primary);
+}
+
+/* 세그먼트 컨트롤 (전체/남은 일, 중요도) */
+.fl-seg {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 9px;
+  background: var(--fl-track);
+  flex-shrink: 0;
+}
+
+.fl-seg-btn {
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--fl-muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.fl-seg-btn:hover:not(.is-active) {
+  color: var(--fl-text);
+}
+
+.fl-seg-btn.is-active {
+  background: var(--fl-surface);
+  color: var(--fl-text);
+  font-weight: 600;
+  box-shadow: var(--fl-shadow-raised);
+}
+
+.fl-seg-btn.is-active.fl-tone-warn { color: var(--fl-warn); }
+.fl-seg-btn.is-active.fl-tone-danger { color: var(--fl-danger); }
+
+/* ── 배지 / 링크 ─────────────────────────────────────────────── */
+
+.fl-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 4px 9px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: var(--fl-neutral-soft);
+  color: var(--fl-neutral);
+}
+
+.fl-badge.fl-tone-primary { background: var(--fl-primary-soft); color: var(--fl-primary); }
+.fl-badge.fl-tone-danger { background: var(--fl-danger-soft); color: var(--fl-danger); }
+.fl-badge.fl-tone-warn { background: var(--fl-warn-soft); color: var(--fl-warn); }
+
+/* 사각형 배지 (할 일 중요도) */
+.fl-badge.fl-badge-square {
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.fl-link {
+  color: var(--fl-primary);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.fl-link:hover {
+  color: var(--fl-primary-hover);
+  text-decoration: none;
+}
+
+/* 링크처럼 보이지만 페이지 내 동작을 하는 버튼 */
+button.fl-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+/* ── 타이틀 밴드 ─────────────────────────────────────────────── */
+
+.fl-titleband {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.fl-titleband h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+.fl-titleband p {
+  margin: 5px 0 0;
+  font-size: 15px;
+  color: var(--fl-muted);
+}
+
+/* ── 그리드 ──────────────────────────────────────────────────── */
+
+.fl-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.fl-w-compact { grid-column: span 2; }
+.fl-w-wide { grid-column: span 3; }
+
+/* ── 카드 ────────────────────────────────────────────────────── */
+
+.fl-card {
+  background: var(--fl-surface);
+  border: 1px solid var(--fl-border);
+  border-radius: 14px;
+  box-shadow: var(--fl-shadow);
+  color: var(--fl-text);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.fl-card-head {
+  padding: 20px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--fl-divider);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* 구분선 없는 헤드 (컴팩트 카드) */
+.fl-card-head.fl-plain {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.fl-card-body {
+  padding: 16px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 좌우 여백 없는 본문 (전폭 리스트) */
+.fl-card-body.fl-flush {
+  padding: 0;
+  gap: 0;
+}
+
+.fl-card-foot {
+  padding: 0 22px 22px;
+}
+
+.fl-card-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.fl-card-count {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--fl-muted);
+}
+
+.fl-empty {
+  color: var(--fl-muted);
+  font-size: 14px;
+  text-align: center;
+  padding: 24px 0;
+}
+
+/* ── 리스트 행 / 타일 ────────────────────────────────────────── */
+
+.fl-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: 9px;
+  background: var(--fl-sunken);
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.fl-row-time {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fl-primary);
+  font-variant-numeric: tabular-nums;
+  min-width: 42px;
+  flex-shrink: 0;
+}
+
+.fl-row-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fl-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 전폭 링크 리스트 (최근 공지사항) */
+.fl-linkrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--fl-divider-soft);
+  color: var(--fl-text);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.fl-linkrow:last-child { border-bottom: none; }
+.fl-linkrow:hover { background: var(--fl-hover); color: var(--fl-text); }
+
+.fl-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--fl-faint);
+  flex-shrink: 0;
+  margin: 0 12px 0 8px;
+}
+
+.fl-linkrow-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fl-linkrow-date {
+  font-size: 13px;
+  color: var(--fl-muted-2);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.fl-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.fl-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--fl-border);
+  border-radius: 11px;
+  background: var(--fl-sunken);
+  color: var(--fl-text);
+  text-decoration: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.fl-tile:hover {
+  border-color: var(--fl-primary);
+  color: var(--fl-text);
+}
+
+.fl-tile-title { font-size: 15px; font-weight: 600; }
+.fl-tile-sub { font-size: 13px; color: var(--fl-muted); }
+
+/* ── 시계 ────────────────────────────────────────────────────── */
+
+.fl-clock {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.fl-clock-time {
+  font-size: 54px;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+.fl-clock-sec {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--fl-muted-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 캘린더 ──────────────────────────────────────────────────── */
+
+.fl-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  text-align: center;
+}
+
+.fl-cal-wd {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fl-muted-2);
+  padding: 4px 0;
+}
+
+.fl-cal-wd.fl-sun { color: var(--fl-sun); }
+.fl-cal-wd.fl-sat { color: var(--fl-sat); }
+
+.fl-day {
+  position: relative;
+  padding: 9px 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fl-text);
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: inherit;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 0.15s ease;
+}
+
+.fl-day:hover:not(.is-selected) { background: var(--fl-hover); }
+.fl-day.fl-sun { color: var(--fl-sun); }
+.fl-day.fl-sat { color: var(--fl-sat); }
+
+.fl-day.is-outside {
+  color: var(--fl-faint);
+  cursor: default;
+}
+
+.fl-day.is-outside:hover { background: transparent; }
+
+.fl-day.is-today {
+  font-weight: 600;
+  color: var(--fl-primary);
+}
+
+.fl-day.is-selected {
+  background: var(--fl-primary);
+  color: var(--fl-on-primary);
+  font-weight: 600;
+}
+
+.fl-day-dot {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--fl-primary);
+}
+
+.fl-day.is-selected .fl-day-dot { background: var(--fl-on-primary); }
+
+/* ── 할 일 ───────────────────────────────────────────────────── */
+
+.fl-check {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--fl-primary);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.fl-todo-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.fl-todo-title.is-done {
+  font-weight: 400;
+  color: var(--fl-muted-2);
+  text-decoration: line-through;
+}
+
+/* ── 인라인 폼 ───────────────────────────────────────────────── */
+
+.fl-form-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.fl-form-row .fl-input { flex: 1 1 140px; }
+/* 브라우저 기본 시간 입력은 시계 아이콘까지 들어가 112px에서는 잘린다 */
+.fl-form-row .fl-input[type='time'] { flex: 0 0 148px; width: 148px; }
+.fl-form-row .fl-btn { flex-shrink: 0; }
+
+/* ── 위젯 편집 패널 ──────────────────────────────────────────── */
+
+.fl-edit-panel {
+  margin-bottom: 16px;
+  padding: 20px 22px 22px;
+}
+
+.fl-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: var(--fl-sunken);
+}
+
+.fl-edit-row.is-hidden { opacity: 0.55; }
+
+/* 드래그 정렬 */
+.fl-drag-handle {
+  flex-shrink: 0;
+  padding: 0 2px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--fl-muted-2);
+  cursor: grab;
+  user-select: none;
+}
+
+.fl-edit-row.is-dragging {
+  opacity: 0.4;
+}
+
+.fl-edit-row.is-dragging .fl-drag-handle {
+  cursor: grabbing;
+}
+
+/* 드롭될 자리 표시 */
+.fl-edit-row.is-over {
+  outline: 2px dashed var(--fl-primary);
+  outline-offset: -2px;
+}
+
+.fl-edit-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.fl-edit-label.is-hidden span { text-decoration: line-through; }
+
+/* ── 반응형 ──────────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .fl-grid { grid-template-columns: repeat(2, 1fr); }
+  .fl-w-compact { grid-column: span 1; }
+  .fl-w-wide { grid-column: span 2; }
+}
+
+@media (max-width: 768px) {
+  /* 헤더 안쪽 여백(16px)과 카드 좌우를 맞춘다 */
+  .fl-page { padding: 20px 16px 40px; }
+  .fl-header-inner { padding: 0 16px; gap: 12px; }
+  .fl-grid { grid-template-columns: 1fr; gap: 12px; }
+  .fl-w-compact,
+  .fl-w-wide { grid-column: span 1; }
+
+  .fl-titleband h1 { font-size: 22px; }
+  .fl-titleband p { font-size: 14px; }
+  .fl-card-head { padding: 16px; }
+  .fl-card-body { padding: 12px 16px 16px; }
+  .fl-card-body.fl-flush { padding: 0; }
+  .fl-card-foot { padding: 0 16px 16px; }
+  .fl-edit-panel { padding: 16px; }
+  .fl-linkrow { padding: 12px 16px; }
+  .fl-clock-time { font-size: 40px; }
+  .fl-clock-sec { font-size: 16px; }
+  .fl-cal-wd { font-size: 11px; }
+  .fl-day { font-size: 13px; padding: 8px 0; }
+  /* 모바일에서 추가 버튼은 한 줄을 차지하도록 */
+  .fl-form-row .fl-btn-primary { flex: 1 1 100%; }
+}
