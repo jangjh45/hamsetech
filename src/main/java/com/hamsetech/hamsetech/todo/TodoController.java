@@ -131,7 +131,7 @@ public class TodoController {
                 .map(todo -> {
                     // 권한 확인: 본인의 할일만 수정 가능
                     if (!todo.getUser().getId().equals(user.getId())) {
-                        return ResponseEntity.status(403).body(Map.of("error", "Forbidden"));
+                        return ResponseEntity.status(403).body(Map.of("code", "FORBIDDEN", "error", "본인의 할 일만 처리할 수 있습니다."));
                     }
 
                     if (req.getDate() != null && !req.getDate().isBlank()) {
@@ -170,7 +170,7 @@ public class TodoController {
                 .map(todo -> {
                     // 권한 확인: 본인의 할일만 삭제 가능
                     if (!todo.getUser().getId().equals(user.getId())) {
-                        return ResponseEntity.status(403).body(Map.of("error", "Forbidden"));
+                        return ResponseEntity.status(403).body(Map.of("code", "FORBIDDEN", "error", "본인의 할 일만 처리할 수 있습니다."));
                     }
 
                     todoRepo.deleteById(id);

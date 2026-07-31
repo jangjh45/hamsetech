@@ -44,7 +44,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/notices/**").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/notices/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/notices/**").authenticated()
-                        .requestMatchers("/api/calendar/**").permitAll()
+                        // 조회는 비로그인도 허용(사내 일정만 내려간다), 등록·수정·삭제는 로그인 필요
+                        .requestMatchers(HttpMethod.GET, "/api/calendar", "/api/calendar/**").permitAll()
+                        .requestMatchers("/api/calendar", "/api/calendar/**").authenticated()
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN","SUPER_ADMIN")
                         .anyRequest().authenticated()
                 );
