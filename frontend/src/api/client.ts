@@ -37,17 +37,30 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
   }
   
   // 토큰 만료 감지 (401 Unauthorized 또는 403 Forbidden)
+  // 만료된 토큰은 필터에서 걸러져 익명 요청이 되고, Spring은 그때 401이 아니라 403을 준다.
+  // 그래서 403도 만료로 취급해야 하는데, "남의 항목이라 안 됨"도 같은 403이라
+  // 그대로 두면 정상 로그인 사용자가 권한 거부 한 번에 로그아웃된다.
+  // 서버가 code: FORBIDDEN을 붙인 응답은 만료가 아닌 권한 거부로 구분한다.
   if (!res.ok && (res.status === 401 || res.status === 403)) {
     const bodyData = await readResponseBody()
     let message = ''
-    
+
     if (typeof bodyData === 'object' && bodyData !== null) {
       message = (bodyData as any).error || (bodyData as any).message || ''
       if (!message) message = JSON.stringify(bodyData)
     } else {
       message = String(bodyData)
     }
-    
+
+    const isPermissionDenied =
+      typeof bodyData === 'object' && bodyData !== null && (bodyData as any).code === 'FORBIDDEN'
+
+    if (isPermissionDenied) {
+      const err = new Error(message || '권한이 없습니다.')
+      try { console.warn('apiFetch forbidden', { url, status: res.status, message }) } catch {}
+      throw err
+    }
+
     // 토큰이 있는 경우 만료로 간주하고 자동 로그아웃 처리
     if (token) {
       console.warn('토큰이 만료되었습니다. 자동 로그아웃 처리합니다.', { url, status: res.status, message })

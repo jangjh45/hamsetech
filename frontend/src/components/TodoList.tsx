@@ -28,6 +28,10 @@ export default function TodoList({
   const [newPriority, setNewPriority] = useState(1)
   const [filter, setFilter] = useState<Filter>('all')
   const [authenticated, setAuthenticated] = useState<boolean>(isAuthenticated())
+  const [editingId, setEditingId] = useState<number | string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editPriority, setEditPriority] = useState(1)
+  const [error, setError] = useState('')
 
   // 인증 상태 변경 감시
   useEffect(() => {
@@ -41,8 +45,14 @@ export default function TodoList({
     if (!authenticated) return
     listTodos(monthStart, monthEnd)
       .then((data) => setTodos(data))
-      .catch(() => {})
+      .catch((e) => setError(e instanceof Error ? e.message : '할 일을 불러오지 못했습니다.'))
   }, [monthStart, monthEnd, authenticated])
+
+  // 다른 날짜를 고르면 편집 중이던 행이 화면에서 사라지므로 편집 상태를 정리한다
+  useEffect(() => {
+    setEditingId(null)
+    setError('')
+  }, [selectedDate])
 
   // 선택된 날짜의 todos 필터링
   const selectedTodos = todos.filter((t) => t.date === selectedDate)
@@ -60,24 +70,61 @@ export default function TodoList({
       setTodos((prev) => [...prev, created])
       setNewTitle('')
       setNewPriority(1)
+      setError('')
       onTodosChanged?.()
-    } catch {}
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '할 일을 추가하지 못했습니다.')
+    }
   }
 
   async function toggleTodo(todo: Todo) {
     try {
       const updated = await updateTodo(todo.id, { completed: !todo.completed })
       setTodos((prev) => prev.map((t) => (t.id === todo.id ? updated : t)))
+      setError('')
       onTodosChanged?.()
-    } catch {}
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '할 일을 수정하지 못했습니다.')
+    }
+  }
+
+  function startEdit(todo: Todo) {
+    setEditingId(todo.id)
+    setEditTitle(todo.title)
+    setEditPriority(todo.priority)
+    setError('')
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setEditTitle('')
+    setEditPriority(1)
+  }
+
+  async function saveEdit(todo: Todo) {
+    const title = editTitle.trim()
+    if (!title) return
+    try {
+      const updated = await updateTodo(todo.id, { title, priority: editPriority })
+      setTodos((prev) => prev.map((t) => (t.id === todo.id ? updated : t)))
+      cancelEdit()
+      setError('')
+      onTodosChanged?.()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '할 일을 수정하지 못했습니다.')
+    }
   }
 
   async function removeTodo(id: number | string) {
     try {
       await deleteTodo(id)
       setTodos((prev) => prev.filter((t) => t.id !== id))
+      if (editingId === id) cancelEdit()
+      setError('')
       onTodosChanged?.()
-    } catch {}
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '할 일을 삭제하지 못했습니다.')
+    }
   }
 
   if (!authenticated) {
@@ -147,41 +194,94 @@ export default function TodoList({
           </button>
         </div>
 
+        {error && <div className="fl-error">{error}</div>}
+
         {visibleTodos.length === 0 ? (
           <div className="fl-empty">
             {filter === 'remaining' ? '남은 할 일이 없습니다.' : '할 일이 없습니다.'}
           </div>
         ) : (
           <div className="fl-list">
-            {visibleTodos.map((todo) => (
-              <label key={todo.id} className="fl-row" style={{ padding: 12, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  className="fl-check"
-                  checked={todo.completed}
-                  onChange={() => toggleTodo(todo)}
-                />
-                <span className={`fl-todo-title${todo.completed ? ' is-done' : ''}`}>
-                  {todo.title}
-                </span>
-                <span
-                  className={`fl-badge fl-badge-square ${PRIORITY_TONES[todo.priority] || ''}`}
-                >
-                  {PRIORITY_LABELS[todo.priority] || PRIORITY_LABELS[0]}
-                </span>
-                <button
-                  className="fl-btn-x"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    removeTodo(todo.id)
-                  }}
-                  title="삭제"
-                  aria-label="할 일 삭제"
-                >
-                  ×
-                </button>
-              </label>
-            ))}
+            {visibleTodos.map((todo) =>
+              editingId === todo.id ? (
+                // 편집 중에는 label을 쓰지 않는다. label 안에서는 입력 클릭이 체크박스 토글로 새어 나간다.
+                <div key={todo.id} className="fl-row is-editing" style={{ padding: 12 }}>
+                  <input
+                    className="fl-input fl-row-edit-title"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveEdit(todo)
+                      if (e.key === 'Escape') cancelEdit()
+                    }}
+                    aria-label="할 일 제목"
+                    autoFocus
+                  />
+                  <div className="fl-seg">
+                    {PRIORITY_LABELS.map((label, priority) => (
+                      <button
+                        key={label}
+                        className={`fl-seg-btn${
+                          editPriority === priority ? ` is-active ${PRIORITY_TONES[priority]}` : ''
+                        }`}
+                        onClick={() => setEditPriority(priority)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    className="fl-btn fl-btn-primary fl-btn-sm"
+                    onClick={() => saveEdit(todo)}
+                    disabled={!editTitle.trim()}
+                  >
+                    저장
+                  </button>
+                  <button className="fl-btn fl-btn-sm" onClick={cancelEdit}>
+                    취소
+                  </button>
+                </div>
+              ) : (
+                <label key={todo.id} className="fl-row" style={{ padding: 12, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    className="fl-check"
+                    checked={todo.completed}
+                    onChange={() => toggleTodo(todo)}
+                  />
+                  <span className={`fl-todo-title${todo.completed ? ' is-done' : ''}`}>
+                    {todo.title}
+                  </span>
+                  <span
+                    className={`fl-badge fl-badge-square ${PRIORITY_TONES[todo.priority] || ''}`}
+                  >
+                    {PRIORITY_LABELS[todo.priority] || PRIORITY_LABELS[0]}
+                  </span>
+                  <button
+                    className="fl-btn-e"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      startEdit(todo)
+                    }}
+                    title="수정"
+                    aria-label="할 일 수정"
+                  >
+                    ✎
+                  </button>
+                  <button
+                    className="fl-btn-x"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      removeTodo(todo.id)
+                    }}
+                    title="삭제"
+                    aria-label="할 일 삭제"
+                  >
+                    ×
+                  </button>
+                </label>
+              )
+            )}
           </div>
         )}
       </div>

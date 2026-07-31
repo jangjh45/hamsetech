@@ -279,8 +279,9 @@ body:has(.fl-page) {
   font-size: 12px;
 }
 
-/* 리스트 행의 × 삭제 버튼 */
-.fl-btn-x {
+/* 리스트 행의 ✎ 수정 / × 삭제 버튼 */
+.fl-btn-x,
+.fl-btn-e {
   width: 28px;
   height: 28px;
   border-radius: 7px;
@@ -302,6 +303,12 @@ body:has(.fl-page) {
   background: var(--fl-danger-soft);
   border-color: var(--fl-danger);
   color: var(--fl-danger);
+}
+
+.fl-btn-e:hover {
+  background: var(--fl-primary-soft);
+  border-color: var(--fl-primary);
+  color: var(--fl-primary);
 }
 
 .fl-input {
@@ -522,6 +529,16 @@ button.fl-link {
   padding: 24px 0;
 }
 
+/* 위젯 안에서 실패한 동작을 알린다 (기존엔 catch로 조용히 삼켰다) */
+.fl-error {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fl-danger);
+  background: var(--fl-danger-soft);
+  border-radius: 8px;
+  padding: 9px 11px;
+}
+
 /* ── 리스트 행 / 타일 ────────────────────────────────────────── */
 
 .fl-row {
@@ -559,6 +576,24 @@ button.fl-link {
   flex-direction: column;
   gap: 2px;
 }
+
+/* 리스트 행의 인라인 편집 (일정 / 할 일) */
+.fl-row.is-editing {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fl-row.is-editing .fl-input {
+  height: 32px;
+  font-size: 13px;
+  background: var(--fl-surface);
+}
+
+.fl-row-edit-title { flex: 1 1 140px; min-width: 0; }
+.fl-row-edit-time { flex: 0 0 132px; }
+
+.fl-row.is-editing .fl-btn { flex-shrink: 0; }
+.fl-row.is-editing .fl-seg { background: var(--fl-track); }
 
 /* 전폭 링크 리스트 (최근 공지사항) */
 .fl-linkrow {

@@ -40,6 +40,12 @@ export default function TodayScheduleWidget({ events, onShowAll }: TodaySchedule
                     <div style={{ fontSize: 15, fontWeight: 500, wordBreak: 'break-word' }}>
                       {event.title}
                     </div>
+                    {event.scope === 'COMPANY' && (
+                      <div style={{ fontSize: 13, color: 'var(--fl-muted)', marginTop: 2 }}>
+                        전체 공유
+                        {event.createdByDisplayName ? ` · ${event.createdByDisplayName}` : ''}
+                      </div>
+                    )}
                   </div>
                 </div>
               </Fragment>

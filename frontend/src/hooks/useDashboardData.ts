@@ -32,12 +32,13 @@ export default function useDashboardData(): DashboardData {
     return () => window.removeEventListener('auth-changed', handleAuthChange)
   }, [])
 
+  // 로그인 여부에 따라 개인 일정이 포함되거나 빠지므로 authenticated에도 반응해야 한다
   useEffect(() => {
     const today = toYmd(new Date())
     listEvents(today, today)
       .then(setTodayEvents)
       .catch(() => {})
-  }, [tick])
+  }, [tick, authenticated])
 
   useEffect(() => {
     if (!authenticated) {
