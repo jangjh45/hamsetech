@@ -120,6 +120,12 @@
   word-break: break-word;
 }
 
+/* 조회 이력 보존기간 안내 */
+.ad-log-note {
+  font-size: 12.5px;
+  color: var(--fl-muted-2);
+}
+
 /* ── 반응형 ──────────────────────────────────────────────────── */
 
 @media (max-width: 768px) {

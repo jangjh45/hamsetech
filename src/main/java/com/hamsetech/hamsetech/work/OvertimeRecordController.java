@@ -39,6 +39,8 @@ public class OvertimeRecordController {
 
     public record RejectReq(String reason) {}
 
+    @AdminLoggable(action = AdminLog.Action.CREATE, entityType = AdminLog.EntityType.OVERTIME_RECORD,
+            details = "잔업/특근 신청", adminOnly = false)
     @PreAuthorize("isAuthenticated()")
     @PostMapping
     public ResponseEntity<OvertimeRecord> create(@Valid @RequestBody OvertimeRecordReq req) {
@@ -53,6 +55,8 @@ public class OvertimeRecordController {
         return service.listMine(from, to);
     }
 
+    @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.OVERTIME_RECORD,
+            details = "잔업/특근 수정", adminOnly = false)
     @PreAuthorize("isAuthenticated()")
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable @NonNull Long id, @Valid @RequestBody OvertimeRecordReq req) {
@@ -60,12 +64,15 @@ public class OvertimeRecordController {
                 req.totalMinutes(), req.reason());
     }
 
+    @AdminLoggable(action = AdminLog.Action.DELETE, entityType = AdminLog.EntityType.OVERTIME_RECORD,
+            details = "잔업/특근 삭제", adminOnly = false)
     @PreAuthorize("isAuthenticated()")
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable @NonNull Long id) {
         return service.delete(id);
     }
 
+    @AdminLoggable(action = AdminLog.Action.READ, entityType = AdminLog.EntityType.OVERTIME_RECORD, details = "잔업/특근 전체 목록 조회")
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @GetMapping
     public Page<OvertimeRecord> listAll(@RequestParam(required = false) String username,

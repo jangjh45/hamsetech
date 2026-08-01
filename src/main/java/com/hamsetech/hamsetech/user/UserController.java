@@ -1,5 +1,7 @@
 package com.hamsetech.hamsetech.user;
 
+import com.hamsetech.hamsetech.admin.AdminLog;
+import com.hamsetech.hamsetech.admin.AdminLoggable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -36,6 +38,8 @@ public class UserController {
         ));
     }
 
+    @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.USER,
+            details = "내 프로필 수정", adminOnly = false)
     @PutMapping("/me")
     public ResponseEntity<?> updateMyProfile(@RequestBody UpdateProfileRequest req, Authentication authentication) {
         UserAccount user = getCurrentUser(authentication);

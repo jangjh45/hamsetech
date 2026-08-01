@@ -43,6 +43,10 @@ admin:
   email: ${ADMIN_EMAIL:admin@example.com}
   password: ${ADMIN_PASSWORD:admin1234}
   reset-password-on-start: true
+  # 조회(READ) 로그는 별도 테이블에 쌓고 보존기간이 지나면 매일 새벽 정리 (0 이하면 정리 안 함)
+  read-log:
+    retention-days: ${READ_LOG_RETENTION_DAYS:90}
+    cleanup-cron: "0 30 4 * * *"
 
 # Character encoding
 server:

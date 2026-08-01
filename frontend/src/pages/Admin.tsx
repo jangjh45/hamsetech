@@ -31,6 +31,18 @@ const LOG_ACTION_TONE: Record<string, string> = {
   UPDATE: 'fl-tone-warn',
   DELETE: 'fl-tone-danger',
 }
+const LOG_ENTITY_OPTIONS = [
+  { value: '', label: '모든 엔티티' },
+  { value: 'TODO', label: '할일' },
+  { value: 'CALENDAR_EVENT', label: '일정' },
+  { value: 'NOTICE', label: '공지사항' },
+  { value: 'NOTICE_COMMENT', label: '댓글' },
+  { value: 'SCENARIO', label: '적재 시뮬레이션' },
+  { value: 'OVERTIME_RECORD', label: '잔업/특근' },
+  { value: 'USER', label: '사용자 계정' },
+  { value: 'AUTH', label: '인증(로그인/비밀번호)' },
+  { value: 'PROGRESS', label: '진행상황(이전 기능)' },
+]
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -68,7 +80,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([])
   const [q, setQ] = useState('')
   const [tokenExpired, setTokenExpired] = useState(false)
-  const [activeTab, setActiveTab] = useState<'users' | 'logs' | 'overtime'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'logs' | 'readLogs' | 'overtime'>('users')
   const [overtimeRecords, setOvertimeRecords] = useState<OvertimeRecord[]>([])
   const [overtimeLoading, setOvertimeLoading] = useState(false)
   const [overtimeSummary, setOvertimeSummary] = useState<OvertimeSummary[]>([])
@@ -93,6 +105,20 @@ export default function AdminPage() {
     adminUsername: '',
     entityType: '',
     action: '',
+    startDate: '',
+    endDate: ''
+  })
+  const [readLogs, setReadLogs] = useState<AdminLog[]>([])
+  const [readLogsLoading, setReadLogsLoading] = useState(false)
+  const [readLogPagination, setReadLogPagination] = useState({
+    currentPage: 0,
+    totalPages: 0,
+    totalElements: 0,
+    size: 20
+  })
+  const [readLogFilters, setReadLogFilters] = useState({
+    adminUsername: '',
+    entityType: '',
     startDate: '',
     endDate: ''
   })
@@ -166,6 +192,32 @@ export default function AdminPage() {
       setError(e.message || '로그 로드 실패')
     } finally {
       setLogsLoading(false)
+    }
+  }
+
+  async function loadReadLogs(page: number = 0, customSize?: number) {
+    try {
+      setReadLogsLoading(true)
+      const pageSize = customSize !== undefined ? customSize : readLogPagination.size
+      const params = new URLSearchParams({
+        page: page.toString(),
+        size: pageSize.toString(),
+        ...Object.fromEntries(
+          Object.entries(readLogFilters).filter(([_, value]) => value && value.trim() !== '')
+        )
+      })
+      const result = await apiFetch(`/api/admin/logs/read?${params}`)
+      setReadLogs(result.content || [])
+      setReadLogPagination({
+        currentPage: result.number || 0,
+        totalPages: result.totalPages || 0,
+        totalElements: result.totalElements || 0,
+        size: result.size || 20
+      })
+    } catch (e: any) {
+      setError(e.message || '조회 로그 로드 실패')
+    } finally {
+      setReadLogsLoading(false)
     }
   }
 
@@ -276,6 +328,10 @@ export default function AdminPage() {
       loadLogs(0) // 탭 변경 시 첫 페이지로 이동
       loadLogStats()
     }
+    if (activeTab === 'readLogs') {
+      loadReadLogs(0)
+      loadLogStats()
+    }
     if (activeTab === 'overtime') {
       loadOvertimeRecords(0)
       loadOvertimeSummary()
@@ -288,6 +344,12 @@ export default function AdminPage() {
       loadLogs(0) // 필터 변경 시 첫 페이지로 이동
     }
   }, [logFilters])
+
+  useEffect(() => {
+    if (activeTab === 'readLogs') {
+      loadReadLogs(0) // 필터 변경 시 첫 페이지로 이동
+    }
+  }, [readLogFilters])
 
   useEffect(() => {
     if (activeTab === 'overtime') {
@@ -344,7 +406,13 @@ export default function AdminPage() {
             className={`fl-seg-btn${activeTab === 'logs' ? ' is-active' : ''}`}
             onClick={() => setActiveTab('logs')}
           >
-            로그
+            변경 이력
+          </button>
+          <button
+            className={`fl-seg-btn${activeTab === 'readLogs' ? ' is-active' : ''}`}
+            onClick={() => setActiveTab('readLogs')}
+          >
+            조회 이력
           </button>
           <button
             className={`fl-seg-btn${activeTab === 'overtime' ? ' is-active' : ''}`}
@@ -470,14 +538,14 @@ export default function AdminPage() {
           {logStats && (
             <div className="fl-stat-grid ad-stat-grid">
               <div className="fl-stat">
-                <div className="fl-stat-label">총 로그 수</div>
+                <div className="fl-stat-label">총 변경 로그 수</div>
                 <div className="fl-stat-value">
                   <span className="fl-stat-num">{logStats.totalLogs}</span>
                   <span className="fl-stat-unit">건</span>
                 </div>
               </div>
               <div className="fl-stat">
-                <div className="fl-stat-label">오늘 로그 수</div>
+                <div className="fl-stat-label">오늘 변경 로그 수</div>
                 <div className="fl-stat-value">
                   <span className="fl-stat-num">{logStats.todayLogs}</span>
                   <span className="fl-stat-unit">건</span>
@@ -496,7 +564,7 @@ export default function AdminPage() {
           <section className="fl-card">
             <div className="fl-card-head">
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span className="fl-card-title">활동 로그</span>
+                <span className="fl-card-title">변경 이력</span>
                 <span className="fl-card-count">총 {logPagination.totalElements}건</span>
               </div>
               <div className="ad-filters">
@@ -513,12 +581,9 @@ export default function AdminPage() {
                   onChange={(e) => setLogFilters((prev) => ({ ...prev, entityType: e.target.value }))}
                   aria-label="엔티티 필터"
                 >
-                  <option value="">모든 엔티티</option>
-                  <option value="TODO">할일</option>
-                  <option value="CALENDAR_EVENT">일정</option>
-                  <option value="NOTICE">공지사항</option>
-                  <option value="NOTICE_COMMENT">댓글</option>
-                  <option value="SCENARIO">적재 시뮬레이션</option>
+                  {LOG_ENTITY_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
                 </select>
                 <select
                   className="fl-input"
@@ -528,7 +593,6 @@ export default function AdminPage() {
                 >
                   <option value="">모든 작업</option>
                   <option value="CREATE">생성</option>
-                  <option value="READ">조회</option>
                   <option value="UPDATE">수정</option>
                   <option value="DELETE">삭제</option>
                 </select>
@@ -581,47 +645,7 @@ export default function AdminPage() {
                 <div>IP 주소</div>
               </div>
 
-              {logsLoading ? (
-                <div className="fl-empty">불러오는 중...</div>
-              ) : logs.length === 0 ? (
-                <div className="fl-empty">로그가 없습니다.</div>
-              ) : (
-                logs.map((log: AdminLog) => (
-                  <div key={log.id} className="fl-tr ad-log-row">
-                    <span className="ad-log-time">
-                      <span className="ad-label">시간</span>
-                      {log.timestamp}
-                    </span>
-
-                    <span className="ad-log-admin">
-                      <span className="ad-label">관리자</span>
-                      {log.adminUsername}
-                    </span>
-
-                    <span>
-                      <span className="ad-label">작업</span>
-                      <span
-                        className={`fl-badge fl-badge-square ${LOG_ACTION_TONE[log.action] || ''}`}
-                      >
-                        {log.action}
-                      </span>
-                    </span>
-
-                    <span className="ad-log-detail">
-                      <span className="ad-label">내용</span>
-                      <span className="ad-log-entity">
-                        {log.entityType} {log.entityId != null && `(ID: ${log.entityId})`}
-                      </span>
-                      {log.details && <span className="ad-log-text">{log.details}</span>}
-                    </span>
-
-                    <span className="ad-log-ip">
-                      <span className="ad-label">IP</span>
-                      {log.ipAddress || '-'}
-                    </span>
-                  </div>
-                ))
-              )}
+              <LogRows logs={logs} loading={logsLoading} />
             </div>
 
             <Pager
@@ -629,6 +653,121 @@ export default function AdminPage() {
               totalPages={logPagination.totalPages}
               onChange={loadLogs}
               disabled={logsLoading}
+            />
+          </section>
+        </>
+      )}
+
+      {activeTab === 'readLogs' && (
+        <>
+          {logStats && (
+            <div className="fl-stat-grid ad-stat-grid">
+              <div className="fl-stat">
+                <div className="fl-stat-label">총 조회 로그 수</div>
+                <div className="fl-stat-value">
+                  <span className="fl-stat-num">{logStats.totalReadLogs}</span>
+                  <span className="fl-stat-unit">건</span>
+                </div>
+              </div>
+              <div className="fl-stat">
+                <div className="fl-stat-label">오늘 조회 로그 수</div>
+                <div className="fl-stat-value">
+                  <span className="fl-stat-num">{logStats.todayReadLogs}</span>
+                  <span className="fl-stat-unit">건</span>
+                </div>
+              </div>
+              <div className="fl-stat">
+                <div className="fl-stat-label">활동 관리자 수</div>
+                <div className="fl-stat-value">
+                  <span className="fl-stat-num">{logStats.adminUsers}</span>
+                  <span className="fl-stat-unit">명</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <section className="fl-card">
+            <div className="fl-card-head">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span className="fl-card-title">조회 이력</span>
+                <span className="fl-card-count">총 {readLogPagination.totalElements}건</span>
+                <span className="ad-log-note">90일 후 자동 삭제</span>
+              </div>
+              <div className="ad-filters">
+                <input
+                  className="fl-input"
+                  placeholder="관리자명"
+                  value={readLogFilters.adminUsername}
+                  onChange={(e) => setReadLogFilters((prev) => ({ ...prev, adminUsername: e.target.value }))}
+                  style={{ width: 130 }}
+                />
+                <select
+                  className="fl-input"
+                  value={readLogFilters.entityType}
+                  onChange={(e) => setReadLogFilters((prev) => ({ ...prev, entityType: e.target.value }))}
+                  aria-label="엔티티 필터"
+                >
+                  {LOG_ENTITY_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <input
+                  type="date"
+                  className="fl-input"
+                  value={readLogFilters.startDate}
+                  onChange={(e) => setReadLogFilters((prev) => ({ ...prev, startDate: e.target.value }))}
+                  aria-label="시작일"
+                />
+                <input
+                  type="date"
+                  className="fl-input"
+                  value={readLogFilters.endDate}
+                  onChange={(e) => setReadLogFilters((prev) => ({ ...prev, endDate: e.target.value }))}
+                  aria-label="종료일"
+                />
+                <select
+                  className="fl-input"
+                  value={readLogPagination.size}
+                  onChange={(e) => {
+                    const newSize = parseInt(e.target.value)
+                    setReadLogPagination((prev) => ({ ...prev, size: newSize, currentPage: 0 }))
+                    loadReadLogs(0, newSize)
+                  }}
+                  aria-label="페이지당 항목 수"
+                >
+                  <option value="10">10개씩</option>
+                  <option value="20">20개씩</option>
+                  <option value="50">50개씩</option>
+                  <option value="100">100개씩</option>
+                </select>
+                <button
+                  className="fl-btn"
+                  onClick={() =>
+                    setReadLogFilters({ adminUsername: '', entityType: '', startDate: '', endDate: '' })
+                  }
+                >
+                  초기화
+                </button>
+              </div>
+            </div>
+
+            <div className="fl-card-body fl-flush">
+              <div className="fl-th ad-log-head">
+                <div>시간</div>
+                <div>관리자</div>
+                <div>작업</div>
+                <div>내용</div>
+                <div>IP 주소</div>
+              </div>
+
+              <LogRows logs={readLogs} loading={readLogsLoading} />
+            </div>
+
+            <Pager
+              page={readLogPagination.currentPage}
+              totalPages={readLogPagination.totalPages}
+              onChange={loadReadLogs}
+              disabled={readLogsLoading}
             />
           </section>
         </>
@@ -924,6 +1063,50 @@ export default function AdminPage() {
         </div>
       )}
     </div>
+  )
+}
+
+/** 변경 이력·조회 이력 탭이 공유하는 로그 행 목록 */
+function LogRows({ logs, loading }: { logs: AdminLog[]; loading: boolean }) {
+  if (loading) return <div className="fl-empty">불러오는 중...</div>
+  if (logs.length === 0) return <div className="fl-empty">로그가 없습니다.</div>
+
+  return (
+    <>
+      {logs.map((log: AdminLog) => (
+        <div key={log.id} className="fl-tr ad-log-row">
+          <span className="ad-log-time">
+            <span className="ad-label">시간</span>
+            {log.timestamp}
+          </span>
+
+          <span className="ad-log-admin">
+            <span className="ad-label">관리자</span>
+            {log.adminUsername}
+          </span>
+
+          <span>
+            <span className="ad-label">작업</span>
+            <span className={`fl-badge fl-badge-square ${LOG_ACTION_TONE[log.action] || ''}`}>
+              {log.action}
+            </span>
+          </span>
+
+          <span className="ad-log-detail">
+            <span className="ad-label">내용</span>
+            <span className="ad-log-entity">
+              {log.entityType} {log.entityId != null && `(ID: ${log.entityId})`}
+            </span>
+            {log.details && <span className="ad-log-text">{log.details}</span>}
+          </span>
+
+          <span className="ad-log-ip">
+            <span className="ad-label">IP</span>
+            {log.ipAddress || '-'}
+          </span>
+        </div>
+      ))}
+    </>
   )
 }
 
