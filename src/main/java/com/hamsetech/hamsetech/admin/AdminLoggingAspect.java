@@ -8,6 +8,7 @@ import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -40,19 +41,19 @@ public class AdminLoggingAspect {
     )
     public void logAdminAction(JoinPoint joinPoint, AdminLoggable adminLoggable, Object result) {
         try {
-            if (!adminLogService.isAdminUser()) {
+            if (adminLoggable.adminOnly() && !adminLogService.isAdminUser()) {
                 return;
             }
 
             Long entityId = extractEntityId(joinPoint, result);
             String details = buildDetails(adminLoggable, joinPoint);
 
-            adminLogService.logAdminAction(
-                adminLoggable.action(),
-                adminLoggable.entityType(),
-                entityId,
-                details
-            );
+            // 예외 없이 4xx/5xx를 반환한 경우(권한 없음·중복 등)도 실패로 표시한다
+            if (result instanceof ResponseEntity<?> response && !response.getStatusCode().is2xxSuccessful()) {
+                details = details + " | FAILED: HTTP " + response.getStatusCode().value();
+            }
+
+            record(adminLoggable, entityId, details);
 
             logger.debug("Admin log recorded: action={}, entityType={}, entityId={}",
                 adminLoggable.action(), adminLoggable.entityType(), entityId);
@@ -71,19 +72,14 @@ public class AdminLoggingAspect {
     )
     public void logAdminActionFailure(JoinPoint joinPoint, AdminLoggable adminLoggable, Throwable ex) {
         try {
-            if (!adminLogService.isAdminUser()) {
+            if (adminLoggable.adminOnly() && !adminLogService.isAdminUser()) {
                 return;
             }
 
             Long entityId = extractEntityId(joinPoint, null);
             String details = buildDetails(adminLoggable, joinPoint) + " | FAILED: " + ex.getMessage();
 
-            adminLogService.logAdminAction(
-                adminLoggable.action(),
-                adminLoggable.entityType(),
-                entityId,
-                details
-            );
+            record(adminLoggable, entityId, details);
 
             logger.debug("Admin failure log recorded: action={}, entityType={}, error={}",
                 adminLoggable.action(), adminLoggable.entityType(), ex.getMessage());
@@ -94,9 +90,32 @@ public class AdminLoggingAspect {
     }
 
     /**
+     * adminOnly 설정에 따라 로그를 기록한다.
+     * adminOnly=false면 관리자 권한 체크 없이 현재 사용자 이름으로 기록한다.
+     */
+    private void record(AdminLoggable adminLoggable, Long entityId, String details) {
+        if (adminLoggable.adminOnly()) {
+            adminLogService.logAdminAction(
+                adminLoggable.action(),
+                adminLoggable.entityType(),
+                entityId,
+                details
+            );
+        } else {
+            adminLogService.logSystemAction(
+                adminLogService.getCurrentUsername(),
+                adminLoggable.action(),
+                adminLoggable.entityType(),
+                entityId,
+                details
+            );
+        }
+    }
+
+    /**
      * Entity ID를 추출합니다.
      * 1. @PathVariable이 붙은 Long 타입 파라미터에서 추출 ("id" 우선, 없으면 첫 번째 Long)
-     * 2. 반환값에서 getId() 메서드 호출
+     * 2. 반환값에서 getId() 메서드 호출 (ResponseEntity는 본문을 꺼내서 확인)
      * 3. 추출 실패 시 null 반환
      */
     private Long extractEntityId(JoinPoint joinPoint, Object result) {
@@ -105,10 +124,11 @@ public class AdminLoggingAspect {
             return idFromPathVariable;
         }
 
-        if (result != null) {
+        Object body = (result instanceof ResponseEntity<?> response) ? response.getBody() : result;
+        if (body != null) {
             try {
-                Method getIdMethod = result.getClass().getMethod("getId");
-                Object id = getIdMethod.invoke(result);
+                Method getIdMethod = body.getClass().getMethod("getId");
+                Object id = getIdMethod.invoke(body);
                 if (id instanceof Long) {
                     return (Long) id;
                 }

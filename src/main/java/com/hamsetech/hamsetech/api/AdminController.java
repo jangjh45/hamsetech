@@ -2,7 +2,11 @@ package com.hamsetech.hamsetech.api;
 
 import com.hamsetech.hamsetech.admin.AdminLog;
 import com.hamsetech.hamsetech.admin.AdminLogRepository;
+import com.hamsetech.hamsetech.admin.AdminLoggable;
 import com.hamsetech.hamsetech.admin.AdminLogSpecification;
+import com.hamsetech.hamsetech.admin.AdminReadLog;
+import com.hamsetech.hamsetech.admin.AdminReadLogRepository;
+import com.hamsetech.hamsetech.admin.AdminReadLogSpecification;
 import com.hamsetech.hamsetech.user.UserAccount;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
 import com.hamsetech.hamsetech.user.UserRole;
@@ -24,6 +28,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 @RestController
@@ -34,10 +39,13 @@ public class AdminController {
 
 	private final UserAccountRepository userRepo;
 	private final AdminLogRepository adminLogRepo;
+	private final AdminReadLogRepository adminReadLogRepo;
 
-	public AdminController(UserAccountRepository userRepo, AdminLogRepository adminLogRepo) {
+	public AdminController(UserAccountRepository userRepo, AdminLogRepository adminLogRepo,
+			AdminReadLogRepository adminReadLogRepo) {
 		this.userRepo = userRepo;
 		this.adminLogRepo = adminLogRepo;
+		this.adminReadLogRepo = adminReadLogRepo;
 	}
 
 	@GetMapping("/ping")
@@ -49,6 +57,7 @@ public class AdminController {
 
 	public record UpdateDisplayNameReq(String displayName) {}
 
+	@AdminLoggable(action = AdminLog.Action.READ, entityType = AdminLog.EntityType.USER, details = "사용자 목록 조회")
 	@GetMapping("/users")
 	public List<UserDto> listUsers(@RequestParam(name = "q", defaultValue = "") String q) {
 		List<UserAccount> all = userRepo.findAll(Sort.by(Sort.Direction.DESC, "id"));
@@ -61,6 +70,7 @@ public class AdminController {
 				.collect(Collectors.toList());
 	}
 
+	@AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.USER, details = "관리자 권한 부여")
 	@PostMapping("/users/{id}/grant-admin")
 	public ResponseEntity<?> grantAdmin(@PathVariable(name = "id") @NonNull Long id) {
 		return userRepo.findById(id)
@@ -72,6 +82,7 @@ public class AdminController {
 				.orElseGet(() -> ResponseEntity.notFound().build());
 	}
 
+	@AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.USER, details = "관리자 권한 해제")
 	@PostMapping("/users/{id}/revoke-admin")
 	public ResponseEntity<?> revokeAdmin(@PathVariable(name = "id") @NonNull Long id) {
 		return userRepo.findById(id)
@@ -87,6 +98,7 @@ public class AdminController {
 				.orElseGet(() -> ResponseEntity.notFound().build());
 	}
 
+	@AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.USER, details = "사용자 표시이름 변경")
 	@PutMapping("/users/{id}/display-name")
 	public ResponseEntity<?> updateDisplayName(@PathVariable(name = "id") @NonNull Long id, @RequestBody UpdateDisplayNameReq req) {
 		if (req == null || req.displayName() == null || req.displayName().isBlank()) {
@@ -116,50 +128,21 @@ public class AdminController {
 			@RequestParam(name = "endDate", required = false) String endDate) {
 
 		try {
-			// JPQL에서 이미 ORDER BY를 지정했으므로 Pageable에서는 정렬을 제거
-			Pageable pageable = PageRequest.of(page, Math.min(size, 100));
+			// 정렬은 Pageable로 일원화 (Specification / 단순 조회 모두 동일하게 적용)
+			Pageable pageable = PageRequest.of(page, Math.min(size, 100), Sort.by(Sort.Direction.DESC, "timestamp"));
 
-			Instant startInstant = null;
-			if (startDate != null && !startDate.trim().isEmpty()) {
-				try {
-					LocalDate localDate = LocalDate.parse(startDate.trim());
-					startInstant = localDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
-				} catch (Exception e) {
-					logger.warn("Invalid startDate format: '{}' (will be ignored)", startDate);
-				}
-			}
+			Instant startInstant = parseStartDate(startDate);
+			Instant endInstant = parseEndDate(endDate);
+			AdminLog.EntityType entityType = parseEntityType(entityTypeStr);
 
-			Instant endInstant = null;
-			if (endDate != null && !endDate.trim().isEmpty()) {
-				try {
-					LocalDate localDate = LocalDate.parse(endDate.trim());
-					endInstant = localDate.atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant();
-				} catch (Exception e) {
-					logger.warn("Invalid endDate format: '{}' (will be ignored)", endDate);
-				}
-			}
-
-			// Enum 변환 (잘못된 값이나 빈 문자열이 들어와도 예외 발생하지 않도록)
-			AdminLog.EntityType entityType = null;
-			if (entityTypeStr != null && !entityTypeStr.trim().isEmpty()) {
-				try {
-					entityType = AdminLog.EntityType.valueOf(entityTypeStr.trim());
-				} catch (IllegalArgumentException e) {
-					logger.warn("Invalid entityType: '{}' (will be ignored)", entityTypeStr);
-				}
-			}
-
-			AdminLog.Action action = null;
-			if (actionStr != null && !actionStr.trim().isEmpty()) {
-				try {
-					action = AdminLog.Action.valueOf(actionStr.trim());
-				} catch (IllegalArgumentException e) {
-					logger.warn("Invalid action: '{}' (will be ignored)", actionStr);
-				}
+			// 조회(READ)는 admin_read_logs로 분리됐으므로 이 API에서는 무시한다
+			AdminLog.Action action = parseAction(actionStr);
+			if (action == AdminLog.Action.READ) {
+				action = null;
 			}
 
 			// adminUsername이 빈 문자열인 경우 null로 처리
-			String effectiveAdminUsername = (adminUsername != null && !adminUsername.trim().isEmpty()) ? adminUsername.trim() : null;
+			String effectiveAdminUsername = blankToNull(adminUsername);
 
 			logger.info("Admin logs request - page: {}, size: {}, adminUsername: '{}', entityType: {}, action: {}, startDate: '{}', endDate: '{}'",
 				page, size, effectiveAdminUsername, entityType, action, startDate, endDate);
@@ -172,41 +155,135 @@ public class AdminController {
 					pageable
 				);
 			} else {
-				logs = adminLogRepo.findAllByOrderByTimestampDesc(pageable);
+				logs = adminLogRepo.findAll(pageable);
 			}
 
-			return logs.map(log -> {
-				String timestampStr = LocalDateTime.ofInstant(log.getTimestamp(), ZoneId.systemDefault())
-						.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-				return new AdminLogDto(
-						log.getId(),
-						timestampStr,
-						log.getAdminUsername(),
-						log.getAction().toString(),
-						log.getEntityType().toString(),
-						log.getEntityId(),
-						log.getDetails(),
-						log.getIpAddress()
-				);
-			});
+			return logs.map(log -> new AdminLogDto(
+					log.getId(),
+					formatTimestamp(log.getTimestamp()),
+					log.getAdminUsername(),
+					log.getAction() == null ? "UNKNOWN" : log.getAction().toString(),
+					log.getEntityType() == null ? "UNKNOWN" : log.getEntityType().toString(),
+					log.getEntityId(),
+					log.getDetails(),
+					log.getIpAddress()
+			));
 		} catch (Exception e) {
 			logger.error("Error in getAdminLogs: {}", e.getMessage(), e);
 			throw e;
 		}
 	}
 
+	// 조회(READ) 이력 - admin_read_logs 전용 (보존기간이 지나면 자동 삭제됨)
+	@GetMapping("/logs/read")
+	public Page<AdminLogDto> getAdminReadLogs(
+			@RequestParam(name = "page", defaultValue = "0") int page,
+			@RequestParam(name = "size", defaultValue = "20") int size,
+			@RequestParam(name = "adminUsername", required = false) String adminUsername,
+			@RequestParam(name = "entityType", required = false) String entityTypeStr,
+			@RequestParam(name = "startDate", required = false) String startDate,
+			@RequestParam(name = "endDate", required = false) String endDate) {
+
+		try {
+			Pageable pageable = PageRequest.of(page, Math.min(size, 100), Sort.by(Sort.Direction.DESC, "timestamp"));
+
+			Instant startInstant = parseStartDate(startDate);
+			Instant endInstant = parseEndDate(endDate);
+			AdminLog.EntityType entityType = parseEntityType(entityTypeStr);
+			String effectiveAdminUsername = blankToNull(adminUsername);
+
+			Page<AdminReadLog> logs;
+			if (effectiveAdminUsername != null || entityType != null || startInstant != null || endInstant != null) {
+				logs = adminReadLogRepo.findAll(
+					AdminReadLogSpecification.withFilters(effectiveAdminUsername, entityType, startInstant, endInstant),
+					pageable
+				);
+			} else {
+				logs = adminReadLogRepo.findAll(pageable);
+			}
+
+			return logs.map(log -> new AdminLogDto(
+					log.getId(),
+					formatTimestamp(log.getTimestamp()),
+					log.getAdminUsername(),
+					AdminLog.Action.READ.toString(),
+					log.getEntityType() == null ? "UNKNOWN" : log.getEntityType().toString(),
+					log.getEntityId(),
+					log.getDetails(),
+					log.getIpAddress()
+			));
+		} catch (Exception e) {
+			logger.error("Error in getAdminReadLogs: {}", e.getMessage(), e);
+			throw e;
+		}
+	}
+
 	@GetMapping("/logs/stats")
 	public Map<String, Object> getAdminLogStats() {
-		List<String> adminUsernames = adminLogRepo.findDistinctAdminUsernames();
-		long totalLogs = adminLogRepo.count();
-		long todayLogs = adminLogRepo.countLogsSince(Instant.now().minusSeconds(86400)); // 24시간
+		Instant since24h = Instant.now().minusSeconds(86400);
+
+		Set<String> adminUsernames = new TreeSet<>(adminLogRepo.findDistinctAdminUsernames());
+		adminUsernames.addAll(adminReadLogRepo.findDistinctAdminUsernames());
 
 		return Map.of(
-			"totalLogs", totalLogs,
-			"todayLogs", todayLogs,
+			"totalLogs", adminLogRepo.count(),
+			"todayLogs", adminLogRepo.countLogsSince(since24h),
+			"totalReadLogs", adminReadLogRepo.count(),
+			"todayReadLogs", adminReadLogRepo.countLogsSince(since24h),
 			"adminUsers", adminUsernames.size(),
-			"adminUsernames", adminUsernames
+			"adminUsernames", List.copyOf(adminUsernames)
 		);
+	}
+
+	private String formatTimestamp(Instant timestamp) {
+		if (timestamp == null) return "";
+		return LocalDateTime.ofInstant(timestamp, ZoneId.systemDefault())
+				.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+	}
+
+	private String blankToNull(String value) {
+		return (value != null && !value.trim().isEmpty()) ? value.trim() : null;
+	}
+
+	private Instant parseStartDate(String startDate) {
+		if (blankToNull(startDate) == null) return null;
+		try {
+			return LocalDate.parse(startDate.trim()).atStartOfDay(ZoneId.systemDefault()).toInstant();
+		} catch (Exception e) {
+			logger.warn("Invalid startDate format: '{}' (will be ignored)", startDate);
+			return null;
+		}
+	}
+
+	private Instant parseEndDate(String endDate) {
+		if (blankToNull(endDate) == null) return null;
+		try {
+			return LocalDate.parse(endDate.trim()).atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant();
+		} catch (Exception e) {
+			logger.warn("Invalid endDate format: '{}' (will be ignored)", endDate);
+			return null;
+		}
+	}
+
+	// 잘못된 값이나 빈 문자열이 들어와도 예외 없이 무시한다
+	private AdminLog.EntityType parseEntityType(String entityTypeStr) {
+		if (blankToNull(entityTypeStr) == null) return null;
+		try {
+			return AdminLog.EntityType.valueOf(entityTypeStr.trim());
+		} catch (IllegalArgumentException e) {
+			logger.warn("Invalid entityType: '{}' (will be ignored)", entityTypeStr);
+			return null;
+		}
+	}
+
+	private AdminLog.Action parseAction(String actionStr) {
+		if (blankToNull(actionStr) == null) return null;
+		try {
+			return AdminLog.Action.valueOf(actionStr.trim());
+		} catch (IllegalArgumentException e) {
+			logger.warn("Invalid action: '{}' (will be ignored)", actionStr);
+			return null;
+		}
 	}
 }
 

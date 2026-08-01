@@ -3,9 +3,18 @@ package com.hamsetech.hamsetech.admin;
 import jakarta.persistence.*;
 import java.time.Instant;
 
+/**
+ * 조회(READ) 이력 전용 로그.
+ *
+ * <p>조회 로그는 변경 이력보다 수십 배 빠르게 쌓여 실제 변경 이력을 묻어버리므로
+ * {@link AdminLog}(생성/수정/삭제)와 테이블을 분리해 보관하고, 보존기간이 지나면
+ * {@link AdminReadLogRetention}이 정리한다.
+ */
 @Entity
-@Table(name = "admin_logs")
-public class AdminLog {
+@Table(name = "admin_read_logs", indexes = {
+        @Index(name = "idx_admin_read_logs_timestamp", columnList = "timestamp")
+})
+public class AdminReadLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,12 +27,8 @@ public class AdminLog {
     private String adminUsername;
 
     @Column(nullable = false)
-    @Enumerated(EnumType.STRING)
-    private Action action;
-
-    @Column(nullable = false)
     @Convert(converter = EntityTypeConverter.class)
-    private EntityType entityType;
+    private AdminLog.EntityType entityType;
 
     @Column(nullable = true)
     private Long entityId;
@@ -33,35 +38,17 @@ public class AdminLog {
 
     private String ipAddress;
 
-    public enum Action {
-        CREATE, READ, UPDATE, DELETE
-    }
-
-    public enum EntityType {
-        TODO, CALENDAR_EVENT, NOTICE, NOTICE_COMMENT, SCENARIO, OVERTIME_RECORD,
-        // 사용자 계정(권한/프로필) 및 인증(로그인·비밀번호) 이벤트
-        USER, AUTH,
-        // 삭제된 기능이지만 과거 로그가 남아 있어 조회를 위해 유지
-        PROGRESS,
-        // DB에 남아 있는 알 수 없는 값을 읽을 때 사용 (EntityTypeConverter)
-        UNKNOWN
-    }
-
-    // 기본 생성자
-    public AdminLog() {
+    public AdminReadLog() {
         this.timestamp = Instant.now();
     }
 
-    // 생성자 (entityId는 목록 조회 등에서 null 가능)
-    public AdminLog(String adminUsername, Action action, EntityType entityType, Long entityId) {
+    public AdminReadLog(String adminUsername, AdminLog.EntityType entityType, Long entityId) {
         this();
         this.adminUsername = adminUsername;
-        this.action = action;
         this.entityType = entityType;
         this.entityId = entityId;
     }
 
-    // Getters and Setters
     public Long getId() {
         return id;
     }
@@ -86,19 +73,11 @@ public class AdminLog {
         this.adminUsername = adminUsername;
     }
 
-    public Action getAction() {
-        return action;
-    }
-
-    public void setAction(Action action) {
-        this.action = action;
-    }
-
-    public EntityType getEntityType() {
+    public AdminLog.EntityType getEntityType() {
         return entityType;
     }
 
-    public void setEntityType(EntityType entityType) {
+    public void setEntityType(AdminLog.EntityType entityType) {
         this.entityType = entityType;
     }
 

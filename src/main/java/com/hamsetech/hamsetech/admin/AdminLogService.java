@@ -15,10 +15,14 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class AdminLogService {
 
     private final AdminLogRepository adminLogRepository;
+    private final AdminReadLogRepository adminReadLogRepository;
     private final UserAccountRepository userAccountRepository;
 
-    public AdminLogService(AdminLogRepository adminLogRepository, UserAccountRepository userAccountRepository) {
+    public AdminLogService(AdminLogRepository adminLogRepository,
+                           AdminReadLogRepository adminReadLogRepository,
+                           UserAccountRepository userAccountRepository) {
         this.adminLogRepository = adminLogRepository;
+        this.adminReadLogRepository = adminReadLogRepository;
         this.userAccountRepository = userAccountRepository;
     }
 
@@ -65,21 +69,7 @@ public class AdminLogService {
             return; // 관리자가 아니면 로깅하지 않음
         }
 
-        String username = getCurrentUsername();
-        AdminLog log = new AdminLog(username, action, entityType, entityId);
-        log.setDetails(details);
-
-        // IP 주소 추출 (선택사항)
-        try {
-            ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
-            HttpServletRequest request = attrs.getRequest();
-            String ipAddress = getClientIpAddress(request);
-            log.setIpAddress(ipAddress);
-        } catch (Exception e) {
-            // IP 주소 추출 실패 시 무시
-        }
-
-        adminLogRepository.save(log);
+        save(getCurrentUsername(), action, entityType, entityId, details);
     }
 
     /**
@@ -87,19 +77,41 @@ public class AdminLogService {
      */
     @Transactional
     public void logSystemAction(String adminUsername, AdminLog.Action action, AdminLog.EntityType entityType, Long entityId, String details) {
+        save(adminUsername, action, entityType, entityId, details);
+    }
+
+    /**
+     * 조회(READ)는 admin_read_logs, 나머지 변경 작업은 admin_logs에 저장한다.
+     */
+    private void save(String adminUsername, AdminLog.Action action, AdminLog.EntityType entityType, Long entityId, String details) {
+        String ipAddress = currentIpAddress();
+
+        if (action == AdminLog.Action.READ) {
+            AdminReadLog readLog = new AdminReadLog(adminUsername, entityType, entityId);
+            readLog.setDetails(details);
+            readLog.setIpAddress(ipAddress);
+            adminReadLogRepository.save(readLog);
+            return;
+        }
+
         AdminLog log = new AdminLog(adminUsername, action, entityType, entityId);
         log.setDetails(details);
+        log.setIpAddress(ipAddress);
+        adminLogRepository.save(log);
+    }
 
-        // IP 주소 추출
+    /**
+     * 현재 요청의 클라이언트 IP (HTTP 요청 컨텍스트가 없으면 null)
+     */
+    private String currentIpAddress() {
         try {
             ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
             HttpServletRequest request = attrs.getRequest();
-            log.setIpAddress(getClientIpAddress(request));
+            return getClientIpAddress(request);
         } catch (Exception e) {
             // HTTP 요청 컨텍스트를 사용할 수 없는 경우 무시 (배치/스케줄러 등)
+            return null;
         }
-
-        adminLogRepository.save(log);
     }
 
     /**
