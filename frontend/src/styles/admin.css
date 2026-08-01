@@ -1,322 +1,157 @@
-/* Admin Page Styles */
+/*
+ * 관리자 화면(사용자 / 활동 로그 / 잔업특근) 전용 스타일.
+ *
+ * 토큰과 공용 프리미티브(.fl-page/.fl-card/.fl-th/.fl-tr/.fl-stat ...)는
+ * dashboard.css에 있고 main.tsx에서 전역 로드된다. 여기에는 관리자 화면의
+ * 표 열 정의와 몇 가지 배치만 둔다. 색상 리터럴은 쓰지 않는다 — 전부
+ * --fl-* 토큰이라 라이트/다크가 자동으로 따라온다.
+ */
 
-.admin-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px;
-  animation: fadeIn 0.4s ease-out;
-}
+/* ── 공통 ────────────────────────────────────────────────────── */
 
-.admin-header {
-  margin-bottom: 32px;
-  text-align: center;
-}
-
-.admin-title {
-  font-size: 32px;
-  font-weight: 700;
-  margin: 0 0 8px 0;
-  background: linear-gradient(135deg, var(--text) 0%, var(--muted) 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.admin-subtitle {
-  color: var(--muted);
-  font-size: 15px;
-  margin: 0;
-}
-
-/* Tabs */
-.admin-tabs {
+/* 카드 헤드에 들어가는 검색/필터 줄 */
+.ad-filters {
   display: flex;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 24px;
-  gap: 2px;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.admin-tab-button {
-  flex: 1;
-  padding: 16px;
-  border: none;
-  background: none;
-  color: var(--muted);
+.ad-filters .fl-input {
+  flex-shrink: 0;
+}
+
+.ad-search .fl-input {
+  width: 200px;
+}
+
+/* 로그 통계는 3장 */
+.fl-stat-grid.ad-stat-grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/*
+ * 좁은 화면에서 .fl-tr이 세로로 쌓이면 값만 남아 무슨 칸인지 알 수 없다.
+ * 그래서 각 칸 앞에 라벨을 두고 데스크톱에서만 감춘다.
+ */
+.ad-label {
+  display: none;
+}
+
+/* ── 사용자 탭 ───────────────────────────────────────────────── */
+
+/* ID / 사용자 / 역할 / 이름·닉네임 / 권한 */
+.ad-user-head,
+.ad-user-row {
+  grid-template-columns: 64px minmax(0, 1fr) 150px 250px 128px;
+}
+
+.ad-user-name {
   font-weight: 500;
-  font-size: 16px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border-bottom: 2px solid transparent;
-  position: relative;
-}
-
-.admin-tab-button:hover {
-  color: var(--text);
-  background: rgba(109, 139, 255, 0.04);
-}
-
-.admin-tab-button.active {
-  color: var(--primary);
-  font-weight: 600;
-  border-bottom-color: var(--primary);
-}
-
-/* Alerts */
-.admin-alert {
-  padding: 16px;
-  border-radius: 12px;
-  margin-bottom: 24px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.admin-alert.danger {
-  background: var(--danger-bg);
-  border: 1px solid var(--danger);
-  color: var(--danger);
-}
-
-.admin-alert.info {
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  color: var(--primary);
-}
-
-/* Search & Filters */
-.admin-controls {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.admin-search-wrapper {
-  flex: 1;
-  display: flex;
-  gap: 8px;
-  min-width: 300px;
-}
-
-.admin-filter-group {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  flex: 1;
-}
-
-.admin-select {
-  min-width: 120px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--input-bg);
-  color: var(--text);
-}
-
-/* Stats Cards */
-.admin-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.admin-stat-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 20px;
-  text-align: center;
-  backdrop-filter: blur(14px) saturate(180%);
-  -webkit-backdrop-filter: blur(14px) saturate(180%);
-  box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.12), inset 0 1px 0 var(--glass-specular);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.admin-stat-card:hover {
-  border-color: var(--primary);
-  box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.2), 0 0 12px var(--glow);
-  transform: translateY(-2px);
-}
-
-.admin-stat-value {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--primary);
-  margin-bottom: 4px;
-  text-shadow: 0 0 8px var(--glow);
-}
-
-.admin-stat-label {
-  color: var(--muted);
-  font-size: 14px;
-}
-
-/* Tables */
-.admin-table-container {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  min-width: 0;
   overflow: hidden;
-  backdrop-filter: blur(14px) saturate(180%);
-  -webkit-backdrop-filter: blur(14px) saturate(180%);
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.22), inset 0 1px 0 var(--glass-specular);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.admin-table-header {
-  display: grid;
-  background: rgba(0, 242, 254, 0.04);
-  border-bottom: 1px solid var(--border);
-  padding: 12px 16px;
-  font-weight: 600;
-  color: var(--muted);
-  font-size: 14px;
-  align-items: center;
+.ad-user-roles {
+  font-size: 13px;
+  color: var(--fl-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.admin-table-row {
-  display: grid;
-  padding: 16px;
-  border-bottom: 1px solid var(--border);
-  align-items: center;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  font-size: 14px;
-}
-
-.admin-table-row:last-child {
-  border-bottom: none;
-}
-
-.admin-table-row:hover {
-  background-color: var(--accent-bg);
-  box-shadow: inset 3px 0 0 var(--primary);
-  padding-left: 18px; /* 미세하게 오른쪽으로 밀리는 부드러운 효과 */
-}
-
-/* User Table Specifics */
-.user-grid {
-  grid-template-columns: 80px 2fr 1fr 260px 140px;
-  gap: 16px;
-}
-
-/* Log Table Specifics */
-.log-grid {
-  grid-template-columns: 160px 140px 100px 1fr 140px;
-  gap: 16px;
-}
-
-/* Overtime Summary Table Specifics */
-.summary-grid {
-  grid-template-columns: repeat(5, 1fr);
-  gap: 16px;
-}
-.summary-cell { text-align: center; }
-
-.admin-empty-state {
-  padding: 48px;
-  text-align: center;
-  color: var(--muted);
-  font-size: 15px;
-}
-
-/* Badges */
-.admin-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.badge-create { background: rgba(16, 185, 129, 0.1); color: #10b981; }
-.badge-update { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
-.badge-delete { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
-.badge-read { background: rgba(107, 114, 128, 0.1); color: #6b7280; }
-
-/* Pagination */
-.admin-pagination {
+/* 닉네임 입력 + 저장 버튼 */
+.ad-name-edit {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  padding: 20px;
-  border-top: 1px solid var(--border);
+  gap: 6px;
+  min-width: 0;
 }
 
-.pagination-info {
-  color: var(--muted);
+.ad-name-edit .fl-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  font-size: 13px;
+}
+
+.ad-name-edit .fl-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ── 로그 탭 ─────────────────────────────────────────────────── */
+
+/* 시간 / 관리자 / 작업 / 내용 / IP */
+.ad-log-head,
+.ad-log-row {
+  grid-template-columns: 168px 120px 88px minmax(0, 1fr) 128px;
+}
+
+.ad-log-time,
+.ad-log-ip {
+  font-size: 13px;
+  color: var(--fl-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-log-admin {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ad-log-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ad-log-entity {
+  font-size: 12.5px;
+  color: var(--fl-muted-2);
+}
+
+.ad-log-text {
   font-size: 14px;
-  margin: 0 16px;
+  word-break: break-word;
 }
 
-.mobile-label { display: none; }
+/* ── 반응형 ──────────────────────────────────────────────────── */
 
-/* Mobile Responsive */
 @media (max-width: 768px) {
-  .admin-container {
-    padding: 16px;
+  .ad-search,
+  .ad-search .fl-input,
+  .ad-filters {
+    width: 100%;
   }
 
-  .admin-search-wrapper,
-  .admin-filter-group {
-    min-width: 100%;
+  .ad-search .fl-input {
+    flex: 1;
   }
 
-  .admin-table-header {
-    display: none; /* Hide table headers on mobile */
+  .fl-stat-grid.ad-stat-grid {
+    grid-template-columns: 1fr;
   }
 
-  /* 행은 그리드 대신 세로 스택으로. (그리드 클래스에 display를 다시 주면
-     동일 특이도의 .admin-table-header 규칙을 덮어써 헤더가 다시 보이므로 여기서 한 번만 처리) */
-  .admin-table-row,
-  .admin-table-row.user-grid,
-  .admin-table-row.log-grid,
-  .admin-table-row.summary-grid {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-    padding: 20px;
-  }
-
-  .mobile-row-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-  }
-
-  /* 모바일에서는 라벨/값을 좌우로 배치하므로 가운데 정렬 해제 */
-  .summary-cell { text-align: right; }
-
-  .mobile-label {
+  /* 세로로 쌓인 행에서는 라벨과 값을 좌우로 놓는다 */
+  .ad-label {
     display: block;
     font-size: 12px;
-    color: var(--muted);
+    font-weight: 600;
+    color: var(--fl-muted-2);
+    margin-bottom: 4px;
   }
 
-  /* 탭: 좁은 화면에서 글자 줄바꿈으로 높이가 들쭉날쭉해지는 문제 완화 */
-  .admin-tab-button {
-    padding: 12px 6px;
-    font-size: 14px;
-    line-height: 1.3;
+  .fl-tr.ad-user-row .fl-cell-actions,
+  .fl-tr.ad-log-row .fl-cell-actions {
+    justify-content: stretch;
   }
 
-  /* 잔업/특근 관리 카드: 반려 입력창이 고정폭(160px)이라 넘치는 문제 해결 */
-  .admin-table-row .ot-actions {
-    flex-wrap: wrap;
+  .fl-tr.ad-user-row .fl-btn {
+    flex: 1;
   }
-  .admin-table-row .ot-actions .input {
-    flex: 1 1 140px;
-    width: auto !important;
-    min-width: 0;
-  }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
 }
