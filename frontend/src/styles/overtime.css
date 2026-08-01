@@ -1,232 +1,440 @@
-/* 잔업/특근 페이지 공용 스타일 (직원 페이지 + 관리자 탭) */
+/*
+ * 잔업/특근 화면(직원 페이지 + 관리자 탭) 전용 스타일.
+ *
+ * 토큰과 공용 프리미티브(.fl-page/.fl-card/.fl-th/.fl-tr/.fl-badge/.fl-modal ...)는
+ * dashboard.css에 있고 main.tsx에서 전역 로드된다. 여기에는 잔업/특근에만 필요한
+ * .ot-* 클래스 — 주로 표의 열 정의와 달력 셀 보정 — 만 둔다. 색상 리터럴은 쓰지
+ * 않는다. 전부 --fl-* 토큰이라 라이트/다크가 자동으로 따라온다.
+ *
+ * 값은 Claude Design 목업(잔업특근 개선안.dc.html)에서 가져왔다.
+ */
 
-/* ── 상태 pill ───────────────────────────────── */
-.ot-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px 3px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.5;
-  border: 1px solid transparent;
+/* ── 직원: 등록 내역 표 ──────────────────────────────────────── */
+
+/* 근무일 / 구분 / 시간 / 사유 / 상태 / 관리 */
+.ot-table-head,
+.ot-row {
+  grid-template-columns: 112px 62px 168px minmax(0, 1fr) 78px 92px;
+}
+
+.ot-row-date {
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 배지가 표의 칸에 직접 놓이면 그리드가 칸 너비만큼 늘려버린다 */
+.ot-badge-type,
+.ot-badge-status {
+  justify-self: start;
+  justify-content: center;
+}
+
+.ot-row-time {
+  font-size: 13.5px;
+  color: var(--fl-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 사유 칸은 반려 사유 상자를 아래에 달 수 있어야 해서 세로 스택 */
+.ot-row-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.ot-row-reason-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.ot-pill::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 6px currentColor;
-}
-.ot-pill--pending  { color: #f59e0b; background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.32); }
-.ot-pill--approved { color: #10b981; background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.32); }
-.ot-pill--rejected { color: #ef4444; background: rgba(239, 68, 68, 0.12);  border-color: rgba(239, 68, 68, 0.32); }
 
-/* ── 구분 태그 (잔업/특근) ───────────────────── */
-.ot-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 9px;
-  border-radius: 7px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  border: 1px solid var(--border);
-  background: var(--accent-bg);
-  color: var(--accent-text);
-}
-.ot-tag--special { color: #a855f7; background: rgba(168, 85, 247, 0.12); border-color: rgba(168, 85, 247, 0.3); }
-
-/* ── 리스트 행 ───────────────────────────────── */
-.ot-record {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.2s ease, box-shadow 0.2s ease, padding-left 0.2s ease;
-  flex-wrap: wrap;
-}
-.ot-record:last-child { border-bottom: none; }
-.ot-record:hover {
-  background: var(--accent-bg);
-  box-shadow: inset 3px 0 0 var(--primary);
-  padding-left: 21px;
-}
-.ot-record__main { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.ot-record__head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-weight: 600;
-  font-size: 15px;
-}
-.ot-record__date { color: var(--text); }
-.ot-record__meta { color: var(--muted); font-size: 13px; }
-.ot-record__reject { color: var(--danger); font-size: 13px; }
-
-.ot-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
-
-/* ── 리스트 헤더 (섹션 제목 + 카운트) ────────── */
-.ot-list-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--border);
-}
-.ot-list-head h3 { margin: 0; font-size: 15px; }
-.ot-list-head .ot-count { color: var(--muted); font-size: 13px; font-weight: 500; }
-
-.ot-empty { padding: 40px 16px; text-align: center; color: var(--muted); font-size: 15px; }
-
-/* ── 페이지네이션 ───────────────────────────── */
-.ot-pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  padding: 16px;
-  border-top: 1px solid var(--border);
-  flex-wrap: wrap;
-}
-.ot-pagination__info { color: var(--muted); font-size: 13px; margin: 0 8px; white-space: nowrap; }
-
-/* ── 목록/달력 전환 토글 ────────────────────── */
-.ot-toggle { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--input-bg); }
-.ot-toggle button {
-  padding: 6px 14px; border: none; background: transparent; color: var(--muted);
-  border-radius: 7px; cursor: pointer; font-weight: 600; font-size: 13px; transition: all 0.2s ease;
-}
-.ot-toggle button:hover:not(.active) { color: var(--text); }
-.ot-toggle button.active { background: var(--accent-bg); color: var(--primary); box-shadow: 0 0 8px var(--glow); }
-
-/* ── 달력 ───────────────────────────────────── */
-.ot-cal { padding: 16px 18px; }
-.ot-cal__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
-.ot-cal__nav { display: flex; gap: 6px; align-items: center; }
-.ot-cal__month { font-size: 16px; font-weight: 700; }
-.ot-cal__legend { display: flex; gap: 12px; align-items: center; font-size: 12px; color: var(--muted); }
-.ot-cal__legend span { display: inline-flex; align-items: center; gap: 5px; }
-.ot-cal__grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-.ot-cal__dow { text-align: center; font-size: 12px; color: var(--muted); padding: 4px 0; font-weight: 600; }
-.ot-cal__cell {
-  position: relative; min-height: 54px; border-radius: 10px; border: 1px solid transparent;
-  background: transparent; color: var(--text); cursor: pointer;
-  display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 6px 0 5px; transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; font-size: 13px;
-}
-.ot-cal__cell:hover:not(.ot-cal__cell--out) { background: var(--accent-bg); border-color: var(--border); }
-.ot-cal__cell--out { color: var(--muted); opacity: 0.35; cursor: default; }
-.ot-cal__cell--today { border-color: var(--primary); font-weight: 700; }
-.ot-cal__cell--selected { background: var(--accent-bg); border-color: var(--primary); box-shadow: 0 0 8px var(--glow); }
-.ot-cal__cell--sun:not(.ot-cal__cell--out) { color: #ef4444; }
-.ot-cal__cell--sat:not(.ot-cal__cell--out) { color: #3b82f6; }
-.ot-cal__dots { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; align-items: center; min-height: 8px; }
-.ot-cal__dot { width: 6px; height: 6px; border-radius: 50%; }
-.ot-cal__dot--overtime { background: var(--accent-text); box-shadow: 0 0 5px var(--accent-text); }
-.ot-cal__dot--special { background: #a855f7; box-shadow: 0 0 5px #a855f7; }
-.ot-cal__day-panel { border-top: 1px solid var(--border); }
-.ot-cal__day-panel-head { padding: 12px 18px 4px; font-size: 14px; font-weight: 700; }
-
-/* ── 폼 ─────────────────────────────────────── */
-.ot-form { display: grid; gap: 14px; }
-.ot-form--editing { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), 0 8px 24px rgba(0, 0, 0, 0.14); }
-.ot-form__title { margin: 0; font-size: 16px; display: flex; align-items: center; gap: 8px; }
-.ot-form__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
-}
-.ot-form__label { display: grid; gap: 6px; font-size: 13px; font-weight: 500; color: var(--muted); text-align: left; }
-.ot-form__footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+.ot-row-reason-text.is-empty {
+  color: var(--fl-muted-2);
 }
 
-/* ── 힌트 / 알림 ────────────────────────────── */
-.ot-hint {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  font-size: 13px;
+.ot-reject-note {
+  font-size: 12.5px;
   line-height: 1.5;
-  color: var(--accent-text);
-  background: var(--accent-bg);
-  border: 1px solid var(--border);
+  color: var(--fl-danger);
+  background: var(--fl-danger-soft);
+  border-radius: 7px;
+  padding: 6px 9px;
+  white-space: normal;
 }
-.ot-alert {
+
+/* 카드 헤드의 필터 줄 (상태 세그먼트 · 구분 · 월 · 뷰 전환) */
+.ot-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ot-filters .fl-input {
+  flex-shrink: 0;
+}
+
+/* ── 직원: 달력 뷰 ───────────────────────────────────────────── */
+
+.ot-cal-nav {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 16px;
-  border-radius: 12px;
-  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.ot-cal-month {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.ot-cal-body {
+  padding: 16px 22px 20px;
+}
+
+.ot-legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ot-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--fl-muted);
+}
+
+.ot-legend-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--fl-primary);
+  display: inline-block;
+}
+
+.ot-legend-dot.fl-dot-special {
+  background: var(--fl-special);
+}
+
+/* 메인 위젯 달력보다 키를 키워 점 여러 개가 들어갈 자리를 만든다 */
+.fl-day.ot-day {
+  min-height: 62px;
+  padding: 8px 0 6px;
+  font-size: 13.5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+/* 앞뒤 달 칸도 누르면 그 달로 넘어가므로 클릭 가능하게 보여야 한다 */
+.fl-day.ot-day.is-outside {
+  cursor: pointer;
+}
+
+.fl-day.ot-day.is-outside:hover {
+  background: var(--fl-hover);
+}
+
+/* 선택한 날짜의 기록 목록 */
+.ot-day-panel-head {
+  padding: 14px 22px 10px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid var(--fl-divider);
+}
+
+.ot-day-panel-date {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ot-day-panel-count {
+  font-size: 13px;
+  color: var(--fl-muted);
+}
+
+/* 근무일 칸이 없는 것만 빼면 목록 표와 같은 열 */
+.ot-day-row {
+  grid-template-columns: 62px 168px minmax(0, 1fr) 78px 92px;
+  border-bottom: none;
+}
+
+/* ── 직원: 등록 모달 ─────────────────────────────────────────── */
+
+/* 잔업 / 특근 중 하나를 고르는 큰 버튼 두 개 */
+.ot-choice-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.ot-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--fl-border);
+  background: var(--fl-surface);
+  color: var(--fl-text);
+  font-family: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.ot-choice:hover:not(.is-active) {
+  border-color: var(--fl-muted-2);
+}
+
+.ot-choice-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ot-choice-sub {
+  font-size: 12.5px;
+  color: var(--fl-muted);
+}
+
+.ot-choice.is-active {
+  border-color: var(--fl-primary);
+  background: var(--fl-primary-soft);
+}
+
+.ot-choice.is-active .ot-choice-name {
+  color: var(--fl-primary);
+}
+
+.ot-choice.is-active.ot-choice-special {
+  border-color: var(--fl-special);
+  background: var(--fl-special-soft);
+}
+
+.ot-choice.is-active.ot-choice-special .ot-choice-name {
+  color: var(--fl-special);
+}
+
+.ot-modal-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+/* 시작–종료에서 계산된 근무시간을 라벨 우측에 보여준다 */
+.ot-duration {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fl-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 관리자: 승인 탭 ─────────────────────────────────────────── */
+
+.ot-admin-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 16px;
+  align-items: start;
+}
+
+.ot-admin-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 직원 / 근무일 / 구분 / 시간 / 사유 / 처리 */
+.ot-approve-head,
+.ot-approve-row {
+  grid-template-columns: 140px 100px 56px 148px minmax(0, 1fr) 172px;
+}
+
+.ot-person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ot-person-name {
   font-size: 14px;
   font-weight: 500;
-  color: var(--danger);
-  background: var(--danger-bg);
-  border: 1px solid var(--danger);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* ── 위험(삭제) 고스트 버튼 ─────────────────── */
-.btn.ghost.ot-danger { color: var(--danger); border-color: rgba(239, 68, 68, 0.35); }
-.btn.ghost.ot-danger:hover {
-  color: var(--danger);
-  background: var(--danger-bg);
-  border-color: var(--danger);
-  box-shadow: 0 0 12px var(--glow-danger);
+/* 반려 사유 입력은 행 전체 폭을 쓰되 직원·근무일 칸만큼 들여쓴다 */
+.ot-reject-inline {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-left: 162px;
 }
 
-/* ── 관리자: 기본시간 설정 카드 ─────────────── */
-.ot-defaults { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: flex-end; }
-.ot-defaults__group { display: grid; gap: 8px; min-width: 0; }
-.ot-defaults__group > span:first-child {
-  display: inline-flex; align-items: center;
-  font-weight: 600; font-size: 14px;
+.ot-reject-inline .fl-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--fl-surface);
+  border-color: var(--fl-danger);
 }
-.ot-defaults__range { display: flex; gap: 8px; align-items: center; }
-/* 데스크톱: 시간칸을 일정한 폭으로 고정해 두 칸이 항상 정렬되도록 */
-.ot-defaults__range .input { width: 130px; padding: 9px 10px; font-size: 14px; }
-.ot-defaults__range > span { color: var(--muted); flex: 0 0 auto; }
-.ot-defaults__actions { display: flex; gap: 10px; align-items: center; }
 
-/* ── 작은 화면 대응 ─────────────────────────── */
-@media (max-width: 640px) {
-  .ot-record { align-items: flex-start; }
-  .ot-actions { width: 100%; }
-  .ot-actions .btn { flex: 1; }
+/* ── 관리자: 기본 근무시간 / 월별 집계 ──────────────────────── */
 
-  /* 달력: 데스크톱 여백/셀높이가 좁은 화면에서 과해 비율이 깨지는 문제 완화 */
-  .ot-cal { padding: 12px 10px; }
-  .ot-cal__head { margin-bottom: 10px; }
-  .ot-cal__nav { flex-wrap: wrap; }
-  .ot-cal__month { font-size: 15px; }
-  .ot-cal__grid { gap: 2px; }
-  .ot-cal__cell {
-    min-height: 44px;
-    border-radius: 8px;
-    padding: 5px 0 4px;
-    font-size: 12px;
+.ot-defaults-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fl-muted);
+}
+
+/* 직원 / 잔업 / 특근 */
+.ot-sum-head,
+.ot-sum-row {
+  grid-template-columns: minmax(0, 1fr) 68px 68px;
+  gap: 10px;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.ot-sum-head {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+
+.ot-sum-row {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+
+.ot-sum-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ot-sum-num {
+  text-align: right;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.ot-sum-days {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--fl-muted-2);
+}
+
+/* ── 반응형 ──────────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+  .ot-admin-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .ot-cal__dow { font-size: 11px; }
-  .ot-cal__dot { width: 5px; height: 5px; }
-  .ot-cal__day-panel-head { padding: 12px 14px 4px; }
+}
 
-  /* 기본 근무시간 설정: 그룹을 전체폭으로, 시간칸은 균등 분할, 저장은 전체폭 CTA */
-  .ot-defaults__group { flex-basis: 100%; }
-  .ot-defaults__range .input { flex: 1 1 0; width: auto; min-width: 0; }
-  .ot-defaults__actions { width: 100%; }
-  .ot-defaults__actions .btn { flex: 1; }
+@media (max-width: 768px) {
+  /*
+   * 좁은 화면에서는 .fl-tr의 세로 스택 대신 영역 배치를 쓴다.
+   * 날짜·구분·상태가 한 줄에 모여야 한 건을 한눈에 읽을 수 있다.
+   * (.fl-tr와 특이도를 벌리려고 두 클래스를 함께 건다)
+   */
+  .fl-tr.ot-row,
+  .fl-tr.ot-day-row,
+  .fl-tr.ot-approve-row {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    gap: 8px 10px;
+    align-items: center;
+  }
+
+  .fl-tr.ot-row {
+    grid-template-areas:
+      'date type status'
+      'time time time'
+      'reason reason reason'
+      'actions actions actions';
+  }
+
+  .fl-tr.ot-day-row {
+    grid-template-areas:
+      'type status status'
+      'time time time'
+      'reason reason reason'
+      'actions actions actions';
+  }
+
+  .fl-tr.ot-approve-row {
+    grid-template-areas:
+      'person date type'
+      'time time time'
+      'reason reason reason'
+      'actions actions actions';
+  }
+
+  .ot-row-date { grid-area: date; }
+  .ot-badge-type { grid-area: type; justify-self: start; }
+  .ot-badge-status { grid-area: status; justify-self: end; }
+  .ot-row-time { grid-area: time; }
+  .ot-row-reason { grid-area: reason; }
+  .ot-row-actions { grid-area: actions; }
+  .ot-person { grid-area: person; }
+
+  .fl-tr.ot-approve-row .ot-badge-status { justify-self: start; }
+
+  /* 모바일에서는 사유가 잘리지 않고 줄바꿈되게 */
+  .ot-row-reason-text {
+    white-space: normal;
+    overflow: visible;
+  }
+
+  .ot-reject-inline {
+    padding-left: 0;
+    flex-wrap: wrap;
+  }
+
+  .ot-cal-body { padding: 12px 12px 16px; }
+  .fl-day.ot-day { min-height: 50px; font-size: 12.5px; }
+  .ot-day-panel-head { padding: 14px 16px 10px; }
+
+  .ot-modal-pair,
+  .ot-choice-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ot-sum-head,
+  .ot-sum-row {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  /* 집계 표는 열이 3개뿐이라 좁은 화면에서도 표 형태를 유지한다 */
+  .ot-sum-head { display: grid; }
+
+  .fl-tr.ot-sum-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 68px 68px;
+    align-items: center;
+  }
 }

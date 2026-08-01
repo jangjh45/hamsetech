@@ -44,7 +44,7 @@ export default function OvertimeSummary({ records, authenticated }: OvertimeSumm
     <>
       <div className="fl-card-head fl-plain">
         <span className="fl-card-title">이번 달 잔업/특근</span>
-        <span className={`fl-badge ${pendingCount > 0 ? 'fl-tone-danger' : ''}`}>
+        <span className={`fl-badge ${pendingCount > 0 ? 'fl-tone-warn' : ''}`}>
           승인 대기 {pendingCount}건
         </span>
       </div>
@@ -52,6 +52,8 @@ export default function OvertimeSummary({ records, authenticated }: OvertimeSumm
       <div className="fl-card-body" style={{ justifyContent: 'center' }}>
         <Row label="잔업" value={formatMinutes(overtimeMinutes)} />
         <Row label="특근" value={formatMinutes(specialMinutes)} />
+        <div style={{ height: 1, background: 'var(--fl-divider)' }} />
+        <Row label="합계" value={formatMinutes(overtimeMinutes + specialMinutes)} strong />
       </div>
 
       <div className="fl-card-foot">
@@ -63,10 +65,12 @@ export default function OvertimeSummary({ records, authenticated }: OvertimeSumm
   )
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-      <span style={{ fontSize: 14, color: 'var(--fl-muted)' }}>{label}</span>
+      <span style={{ fontSize: 14, fontWeight: strong ? 600 : 400, color: strong ? 'var(--fl-text)' : 'var(--fl-muted)' }}>
+        {label}
+      </span>
       <span style={{ fontSize: 17, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
         {value}
       </span>

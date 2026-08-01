@@ -3,18 +3,10 @@ import { Link } from 'react-router-dom'
 import { listNotices, type Notice } from '../api/notices'
 import { isAdmin } from '../auth/token'
 import { formatDate } from '../utils/formatDate'
+import Pager from '../components/Pager'
 import '../styles/notices.css'
 
 const PAGE_SIZE = 10
-const PAGER_WINDOW = 5
-
-// 현재 페이지를 가운데 두되 양 끝에서는 밀어서 항상 최대 5개를 보여준다.
-function pageWindow(page: number, totalPages: number): number[] {
-  const size = Math.min(PAGER_WINDOW, totalPages)
-  let start = page - Math.floor(size / 2)
-  start = Math.max(0, Math.min(start, totalPages - size))
-  return Array.from({ length: size }, (_, i) => start + i)
-}
 
 export default function NoticesPage() {
   const [items, setItems] = useState<Notice[]>([])
@@ -118,36 +110,7 @@ export default function NoticesPage() {
             })}
         </div>
 
-        {totalPages > 1 && (
-          <div className="nt-pager">
-            <button
-              className="nt-page-btn nt-page-arrow"
-              onClick={() => go(page - 1)}
-              disabled={page <= 0}
-              aria-label="이전 페이지"
-            >
-              ◀
-            </button>
-            {pageWindow(page, totalPages).map((p) => (
-              <button
-                key={p}
-                className={p === page ? 'nt-page-btn is-active' : 'nt-page-btn'}
-                onClick={() => go(p)}
-                aria-current={p === page ? 'page' : undefined}
-              >
-                {p + 1}
-              </button>
-            ))}
-            <button
-              className="nt-page-btn nt-page-arrow"
-              onClick={() => go(page + 1)}
-              disabled={page >= totalPages - 1}
-              aria-label="다음 페이지"
-            >
-              ▶
-            </button>
-          </div>
-        )}
+        <Pager page={page} totalPages={totalPages} onChange={go} disabled={loading} />
       </section>
     </div>
   )

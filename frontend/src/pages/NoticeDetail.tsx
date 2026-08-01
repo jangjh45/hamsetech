@@ -201,7 +201,7 @@ export default function NoticeDetailPage() {
             </Link>
             {canEdit && (
               <div className="nt-actions-right">
-                <button className="fl-btn nt-btn-danger" onClick={onDelete}>
+                <button className="fl-btn fl-btn-danger" onClick={onDelete}>
                   삭제
                 </button>
                 <Link className="fl-btn fl-btn-primary" to={`/notice/${noticeId}/edit`}>

@@ -7,48 +7,67 @@ import {
   updateOvertimeRecord,
   type OvertimeDefaults,
   type OvertimeRecord,
+  type OvertimeStatus,
   type OvertimeType,
 } from '../api/overtimeRecords'
-import { formatDate } from '../utils/formatDate'
+import { formatTime, toYmd } from '../utils/formatDate'
+import Pager from '../components/Pager'
 import '../styles/overtime.css'
 
-const STATUS_LABEL: Record<string, string> = {
-  PENDING: '대기',
-  APPROVED: '승인',
-  REJECTED: '반려',
-}
-
-const STATUS_PILL: Record<string, string> = {
-  PENDING: 'ot-pill ot-pill--pending',
-  APPROVED: 'ot-pill ot-pill--approved',
-  REJECTED: 'ot-pill ot-pill--rejected',
-}
-
-const TYPE_LABEL: Record<string, string> = {
-  OVERTIME: '잔업',
-  SPECIAL: '특근',
-}
-
 const PAGE_SIZE = 10
-
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
 
-function toYmd(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
+const TYPE_LABEL: Record<OvertimeType, string> = { OVERTIME: '잔업', SPECIAL: '특근' }
+const STATUS_LABEL: Record<OvertimeStatus, string> = { PENDING: '대기', APPROVED: '승인', REJECTED: '반려' }
+const STATUS_TONE: Record<OvertimeStatus, string> = {
+  PENDING: 'fl-tone-warn',
+  APPROVED: 'fl-tone-success',
+  REJECTED: 'fl-tone-danger',
 }
 
-interface CalCell { date: string; day: number; inMonth: boolean; dow: number }
+/** 특근 시 점심 휴게시간(분). 서버 OvertimeRecordService와 같은 규칙이어야 미리보기가 맞는다. */
+const LUNCH_BREAK_MINUTES = 60
+const LUNCH_DEDUCTION_THRESHOLD_MINUTES = 6 * 60
 
-function monthMatrix(viewDate: Date): CalCell[] {
-  const year = viewDate.getFullYear()
-  const month = viewDate.getMonth()
+type StatusFilter = 'ALL' | OvertimeStatus
+type TypeFilter = 'ALL' | OvertimeType
+
+function monthKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+/** 'YYYY-MM' → 그 달 1일의 Date */
+function monthStart(month: string): Date {
+  const [y, m] = month.split('-').map(Number)
+  return new Date(y, (m || 1) - 1, 1)
+}
+
+function shiftMonth(month: string, delta: number): string {
+  const d = monthStart(month)
+  d.setMonth(d.getMonth() + delta)
+  return monthKey(d)
+}
+
+/** 'YYYY-MM' → '2026년 8월' (앞자리 0 없이) */
+function formatMonthLabel(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  return `${y}년 ${m}월`
+}
+
+interface CalCell {
+  date: string
+  day: number
+  inMonth: boolean
+  dow: number
+}
+
+function monthMatrix(first: Date): CalCell[] {
+  const year = first.getFullYear()
+  const month = first.getMonth()
   const startDay = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const cells: CalCell[] = []
   const prevMonthDays = new Date(year, month, 0).getDate()
+  const cells: CalCell[] = []
   for (let i = startDay - 1; i >= 0; i--) {
     const dt = new Date(year, month - 1, prevMonthDays - i)
     cells.push({ date: toYmd(dt), day: dt.getDate(), inMonth: false, dow: dt.getDay() })
@@ -64,6 +83,50 @@ function monthMatrix(viewDate: Date): CalCell[] {
   return cells
 }
 
+function formatMinutes(min: number): string {
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  if (h === 0) return `${m}분`
+  if (m === 0) return `${h}시간`
+  return `${h}시간 ${m}분`
+}
+
+/** '2026-08-14' → '08.14 (금)' */
+function formatWorkDate(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number)
+  if (!y || !m || !d) return ymd
+  return `${String(m).padStart(2, '0')}.${String(d).padStart(2, '0')} (${WEEKDAYS[new Date(y, m - 1, d).getDay()]})`
+}
+
+/** '2026-08-14' → '2026년 8월 14일 (금)' */
+function formatLongDate(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number)
+  if (!y || !m || !d) return ymd
+  return `${y}년 ${m}월 ${d}일 (${WEEKDAYS[new Date(y, m - 1, d).getDay()]})`
+}
+
+/** 서버 resolveTotalMinutes와 같은 계산. 저장 전 미리보기용. */
+function durationOf(type: OvertimeType, start: string, end: string): number | null {
+  if (!start || !end) return null
+  const [sh, sm] = start.split(':').map(Number)
+  const [eh, em] = end.split(':').map(Number)
+  if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return null
+  let minutes = eh * 60 + em - (sh * 60 + sm)
+  if (minutes < 0) minutes += 24 * 60
+  if (type === 'SPECIAL' && minutes >= LUNCH_DEDUCTION_THRESHOLD_MINUTES) {
+    minutes -= LUNCH_BREAK_MINUTES
+  }
+  return minutes
+}
+
+/** 목록·달력에 공통으로 쓰는 근무시간 표기 */
+function workTimeText(r: OvertimeRecord): string {
+  if (r.startTime && r.endTime) {
+    return `${formatTime(r.startTime)} – ${formatTime(r.endTime)} · ${formatMinutes(r.totalMinutes)}`
+  }
+  return `총 ${r.totalMinutes}분`
+}
+
 interface FormState {
   workDate: string
   type: OvertimeType
@@ -73,41 +136,36 @@ interface FormState {
   reason: string
 }
 
-function emptyForm(): FormState {
-  return { workDate: '', type: 'OVERTIME', startTime: '', endTime: '', totalMinutes: '', reason: '' }
-}
-
 function defaultTimesFor(type: OvertimeType, defaults: OvertimeDefaults | null): [string, string] {
   if (!defaults) return ['', '']
   return type === 'SPECIAL'
-    ? [defaults.specialStart, defaults.specialEnd]
-    : [defaults.overtimeStart, defaults.overtimeEnd]
+    ? [formatTime(defaults.specialStart), formatTime(defaults.specialEnd)]
+    : [formatTime(defaults.overtimeStart), formatTime(defaults.overtimeEnd)]
 }
 
 export default function OvertimeRecordsPage() {
   const [records, setRecords] = useState<OvertimeRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [form, setForm] = useState<FormState>(emptyForm())
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [submitting, setSubmitting] = useState(false)
   const [defaults, setDefaults] = useState<OvertimeDefaults | null>(null)
-  const [page, setPage] = useState(0)
+
+  const [month, setMonth] = useState<string>(() => monthKey(new Date()))
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('ALL')
   const [view, setView] = useState<'list' | 'calendar'>('list')
-  const [calMonth, setCalMonth] = useState<Date>(() => new Date())
+  const [page, setPage] = useState(0)
   const [selectedDate, setSelectedDate] = useState<string>(() => toYmd(new Date()))
 
-  const recordsByDate = useMemo(() => {
-    const map: Record<string, OvertimeRecord[]> = {}
-    for (const r of records) (map[r.workDate] ||= []).push(r)
-    return map
-  }, [records])
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<OvertimeRecord | null>(null)
+  const [form, setForm] = useState<FormState | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const list = await listMyOvertimeRecords()
-      setRecords(list)
+      setRecords(await listMyOvertimeRecords())
     } catch (e: any) {
       setError(e.message || '목록을 불러오지 못했습니다')
     } finally {
@@ -115,65 +173,147 @@ export default function OvertimeRecordsPage() {
     }
   }, [])
 
-  useEffect(() => { load() }, [load])
-
-  // 구분별 기본 근무시간을 불러와, 새 기록 작성 중이고 시간 칸이 비어 있으면 현재 구분값으로 채운다.
   useEffect(() => {
-    getOvertimeDefaults()
-      .then((d) => {
-        setDefaults(d)
-        setForm((prev) => {
-          if (editingId != null) return prev
-          if (prev.startTime || prev.endTime || prev.totalMinutes) return prev
-          const [start, end] = defaultTimesFor(prev.type, d)
-          return { ...prev, startTime: start, endTime: end }
-        })
-      })
-      .catch(() => { /* 기본시간은 편의 기능이라 실패해도 폼은 정상 동작 */ })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    load()
+  }, [load])
+
+  // 기본 근무시간은 등록 폼의 편의 기능이라 실패해도 화면은 정상 동작한다.
+  useEffect(() => {
+    getOvertimeDefaults().then(setDefaults).catch(() => {})
   }, [])
 
-  // 목록이 줄어 현재 페이지가 범위를 벗어나면 마지막 페이지로 보정
-  useEffect(() => {
-    const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE))
-    if (page > totalPages - 1) setPage(totalPages - 1)
-  }, [records, page])
+  // 달력은 한 달치만 보여주므로 날짜별 묶음은 전체 기록으로 만든다 (앞뒤 달 칸도 점이 찍히도록)
+  const recordsByDate = useMemo(() => {
+    const map: Record<string, OvertimeRecord[]> = {}
+    for (const r of records) (map[r.workDate] ||= []).push(r)
+    return map
+  }, [records])
 
-  function startEdit(r: OvertimeRecord) {
-    setEditingId(r.id)
+  const monthRecords = useMemo(
+    () => records.filter((r) => r.workDate.startsWith(month)),
+    [records, month],
+  )
+
+  const filtered = useMemo(
+    () =>
+      monthRecords.filter(
+        (r) =>
+          (statusFilter === 'ALL' || r.status === statusFilter) &&
+          (typeFilter === 'ALL' || r.type === typeFilter),
+      ),
+    [monthRecords, statusFilter, typeFilter],
+  )
+
+  const stats = useMemo(() => {
+    const sumBy = (rs: OvertimeRecord[]) => rs.reduce((sum, r) => sum + r.totalMinutes, 0)
+    const daysOf = (rs: OvertimeRecord[]) => new Set(rs.map((r) => r.workDate)).size
+    const overtime = monthRecords.filter((r) => r.type === 'OVERTIME')
+    const special = monthRecords.filter((r) => r.type === 'SPECIAL')
+    const pending = monthRecords.filter((r) => r.status === 'PENDING')
+    const approved = monthRecords.filter((r) => r.status === 'APPROVED')
+    return {
+      overtimeMinutes: sumBy(overtime),
+      overtimeDays: daysOf(overtime),
+      specialMinutes: sumBy(special),
+      specialDays: daysOf(special),
+      pendingCount: pending.length,
+      // 가장 오래된 대기 건이 언제 것인지가 "언제쯤 처리되나"의 실마리가 된다
+      oldestPending: pending.reduce<string | null>(
+        (oldest, r) => (oldest === null || r.workDate < oldest ? r.workDate : oldest),
+        null,
+      ),
+      approvedMinutes: sumBy(approved),
+    }
+  }, [monthRecords])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages - 1)
+  const pageRecords = filtered.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE)
+
+  // 필터가 바뀌면 항상 첫 페이지부터 본다
+  useEffect(() => {
+    setPage(0)
+  }, [month, statusFilter, typeFilter])
+
+  const calCells = monthMatrix(monthStart(month))
+  const todayYmd = toYmd(new Date())
+  const selectedRecords = recordsByDate[selectedDate] || []
+  const selectedMinutes = selectedRecords.reduce((sum, r) => sum + r.totalMinutes, 0)
+
+  // ── 모달 ───────────────────────────────────────────────────
+
+  function openCreate() {
+    const [startTime, endTime] = defaultTimesFor('OVERTIME', defaults)
+    // 보고 있는 달 안의 날짜를 기본값으로 (이번 달이면 오늘)
+    const workDate = todayYmd.startsWith(month) ? todayYmd : `${month}-01`
+    setEditing(null)
+    setForm({ workDate, type: 'OVERTIME', startTime, endTime, totalMinutes: '', reason: '' })
+    setFormError('')
+    setModalOpen(true)
+  }
+
+  function openEdit(r: OvertimeRecord) {
+    if (r.status !== 'PENDING') {
+      const ok = window.confirm('수정하면 다시 "승인 대기" 상태가 되어 관리자 재승인이 필요합니다. 계속할까요?')
+      if (!ok) return
+    }
+    setEditing(r)
     setForm({
       workDate: r.workDate,
       type: r.type,
-      startTime: r.startTime || '',
-      endTime: r.endTime || '',
+      startTime: formatTime(r.startTime),
+      endTime: formatTime(r.endTime),
       totalMinutes: r.startTime && r.endTime ? '' : String(r.totalMinutes ?? ''),
       reason: r.reason || '',
     })
+    setFormError('')
+    setModalOpen(true)
   }
 
-  function cancelEdit() {
-    setEditingId(null)
-    setForm(emptyForm())
+  function closeModal() {
+    setModalOpen(false)
+    setEditing(null)
+    setForm(null)
+    setFormError('')
   }
+
+  // 모달이 열려 있는 동안 Esc로 닫고, 뒤 배경이 스크롤되지 않게 한다
+  useEffect(() => {
+    if (!modalOpen) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') closeModal()
+    }
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = prevOverflow
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [modalOpen])
 
   function onTypeChange(newType: OvertimeType) {
-    // 수정 모드에서는 저장된 시간을 덮어쓰지 않고 구분만 바꾼다.
-    if (editingId != null) {
+    if (!form) return
+    // 수정 중에는 저장된 시간을 덮어쓰지 않고 구분만 바꾼다.
+    if (editing) {
       setForm({ ...form, type: newType })
       return
     }
-    // 새 기록 등록 시에는 선택한 구분의 기본 시간을 채운다.
-    const [start, end] = defaultTimesFor(newType, defaults)
-    setForm({ ...form, type: newType, startTime: start, endTime: end, totalMinutes: '' })
+    const [startTime, endTime] = defaultTimesFor(newType, defaults)
+    setForm({ ...form, type: newType, startTime, endTime, totalMinutes: '' })
   }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
-    setError('')
+    if (!form) return
+    setFormError('')
 
-    if (!form.workDate) { setError('날짜를 입력해주세요'); return }
+    if (!form.workDate) {
+      setFormError('근무일을 입력해주세요')
+      return
+    }
     if (!form.startTime && !form.endTime && !form.totalMinutes) {
-      setError('시작-종료 시간 또는 총 시간을 입력해주세요')
+      setFormError('시작–종료 시간 또는 총 시간을 입력해주세요')
       return
     }
 
@@ -188,31 +328,27 @@ export default function OvertimeRecordsPage() {
 
     setSubmitting(true)
     try {
-      if (editingId != null) {
-        await updateOvertimeRecord(editingId, payload)
+      if (editing) {
+        await updateOvertimeRecord(editing.id, payload)
       } else {
         await createOvertimeRecord(payload)
       }
-      cancelEdit()
+      // 다른 달에 등록했으면 그 달로 따라가야 방금 넣은 기록이 보인다
+      setMonth(form.workDate.slice(0, 7))
+      setSelectedDate(form.workDate)
+      closeModal()
+      setError('')
       await load()
     } catch (e: any) {
-      setError(e.message || '저장에 실패했습니다')
+      setFormError(e.message || '저장에 실패했습니다')
     } finally {
       setSubmitting(false)
     }
   }
 
-  function onEditClick(r: OvertimeRecord) {
-    if (r.status !== 'PENDING') {
-      const ok = window.confirm('수정하면 다시 "승인 대기" 상태가 되어 관리자 재승인이 필요합니다. 계속할까요?')
-      if (!ok) return
-    }
-    startEdit(r)
-  }
-
   async function onDelete(id: number) {
-    setError('')
     if (!window.confirm('이 기록을 삭제할까요?')) return
+    setError('')
     try {
       await deleteOvertimeRecord(id)
       await load()
@@ -221,225 +357,470 @@ export default function OvertimeRecordsPage() {
     }
   }
 
-  const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE))
-  const currentPage = Math.min(page, totalPages - 1)
-  const pageRecords = records.slice(currentPage * PAGE_SIZE, currentPage * PAGE_SIZE + PAGE_SIZE)
+  // ── 조각 ───────────────────────────────────────────────────
 
-  const calCells = monthMatrix(calMonth)
-  const todayYmd = toYmd(new Date())
-  const selectedRecords = recordsByDate[selectedDate] || []
-
-  function recordRow(r: OvertimeRecord) {
+  function typeBadge(type: OvertimeType) {
     return (
-      <div key={r.id} className="ot-record">
-        <div className="ot-record__main">
-          <div className="ot-record__head">
-            <span className="ot-record__date">{formatDate(r.workDate)}</span>
-            <span className={`ot-tag${r.type === 'SPECIAL' ? ' ot-tag--special' : ''}`}>
-              {TYPE_LABEL[r.type]}
-            </span>
-            <span className={STATUS_PILL[r.status]}>{STATUS_LABEL[r.status]}</span>
-          </div>
-          <div className="ot-record__meta">
-            🕒 {r.startTime && r.endTime ? `${r.startTime} ~ ${r.endTime}` : `${r.totalMinutes}분`}
-            {r.reason ? ` · ${r.reason}` : ''}
-          </div>
-          {r.status === 'REJECTED' && r.rejectReason && (
-            <div className="ot-record__reject">반려 사유: {r.rejectReason}</div>
-          )}
-        </div>
-        <div className="ot-actions">
-          <button className="btn ghost" onClick={() => onEditClick(r)}>수정</button>
-          {r.status !== 'APPROVED' && (
-            <button className="btn ghost ot-danger" onClick={() => onDelete(r.id)}>삭제</button>
-          )}
-        </div>
-      </div>
+      <span
+        className={`fl-badge fl-badge-square ot-badge-type ${
+          type === 'SPECIAL' ? 'fl-tone-special' : 'fl-tone-primary'
+        }`}
+      >
+        {TYPE_LABEL[type]}
+      </span>
     )
   }
 
-  return (
-    <div className="container">
-      <h1 className="title">잔업/특근 기록</h1>
-      <p className="subtitle">잔업(평일 연장근무)과 특근(휴일/주말 근무)을 등록하면 관리자 승인 후 반영됩니다.</p>
+  function statusBadge(status: OvertimeStatus) {
+    return <span className={`fl-badge ot-badge-status ${STATUS_TONE[status]}`}>{STATUS_LABEL[status]}</span>
+  }
 
-      {error && <div className="ot-alert">⚠️ {error}</div>}
-
-      <form
-        onSubmit={onSubmit}
-        className={`card ot-form${editingId != null ? ' ot-form--editing' : ''}`}
-        style={{ marginBottom: 24 }}
-      >
-        <h3 className="ot-form__title">
-          {editingId != null ? '✏️ 기록 수정' : '➕ 새 기록 등록'}
-        </h3>
-        <div className="ot-form__grid">
-          <label className="ot-form__label">
-            날짜
-            <input
-              type="date"
-              className="input"
-              value={form.workDate}
-              onChange={(e) => setForm({ ...form, workDate: e.target.value })}
-              required
-              style={{ width: '100%' }}
-            />
-          </label>
-          <label className="ot-form__label">
-            구분
-            <select
-              className="input"
-              value={form.type}
-              onChange={(e) => onTypeChange(e.target.value as OvertimeType)}
-              style={{ width: '100%' }}
-            >
-              <option value="OVERTIME">잔업 (평일 연장근무)</option>
-              <option value="SPECIAL">특근 (휴일/주말 근무)</option>
-            </select>
-          </label>
-          <label className="ot-form__label">
-            시작 시간
-            <input
-              type="time"
-              className="input"
-              value={form.startTime}
-              onChange={(e) => setForm({ ...form, startTime: e.target.value, totalMinutes: '' })}
-              style={{ width: '100%' }}
-            />
-          </label>
-          <label className="ot-form__label">
-            종료 시간
-            <input
-              type="time"
-              className="input"
-              value={form.endTime}
-              onChange={(e) => setForm({ ...form, endTime: e.target.value, totalMinutes: '' })}
-              style={{ width: '100%' }}
-            />
-          </label>
-          <label className="ot-form__label">
-            또는 총 시간(분)
-            <input
-              type="number"
-              min={0}
-              className="input"
-              placeholder="예: 120"
-              value={form.totalMinutes}
-              onChange={(e) => setForm({ ...form, totalMinutes: e.target.value, startTime: '', endTime: '' })}
-              style={{ width: '100%' }}
-            />
-          </label>
-        </div>
-        {form.type === 'SPECIAL' && (
-          <div className="ot-hint">
-            <span>💡</span>
-            <span>특근은 6시간 이상 근무 시 점심 휴게시간 1시간이 총 근무시간에서 자동 차감됩니다.</span>
-          </div>
+  function reasonCell(r: OvertimeRecord) {
+    return (
+      <span className="ot-row-reason">
+        <span className={`ot-row-reason-text${r.reason ? '' : ' is-empty'}`}>{r.reason || '—'}</span>
+        {r.status === 'REJECTED' && r.rejectReason && (
+          <span className="ot-reject-note">반려 사유 — {r.rejectReason}</span>
         )}
-        <label className="ot-form__label">
-          사유
-          <textarea
-            className="input"
-            value={form.reason}
-            onChange={(e) => setForm({ ...form, reason: e.target.value })}
-            placeholder="사유를 입력하세요 (선택)"
-            style={{ width: '100%', minHeight: 60 }}
-          />
-        </label>
-        <div className="ot-form__footer">
-          {editingId != null && (
-            <button className="btn ghost" type="button" onClick={cancelEdit}>취소</button>
-          )}
-          <button className="btn" type="submit" disabled={submitting}>
-            {submitting ? '저장 중...' : editingId != null ? '수정 저장' : '등록'}
+      </span>
+    )
+  }
+
+  function actionsCell(r: OvertimeRecord) {
+    return (
+      <span className="fl-cell-actions ot-row-actions">
+        <button className="fl-btn-e" onClick={() => openEdit(r)} title="수정" aria-label="수정">
+          ✎
+        </button>
+        {r.status !== 'APPROVED' && (
+          <button className="fl-btn-x" onClick={() => onDelete(r.id)} title="삭제" aria-label="삭제">
+            ×
           </button>
-        </div>
-      </form>
+        )}
+      </span>
+    )
+  }
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="ot-list-head">
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-            <h3>등록 내역</h3>
-            {!loading && records.length > 0 && <span className="ot-count">총 {records.length}건</span>}
+  const viewToggle = (
+    <div className="fl-seg">
+      <button
+        className={`fl-seg-btn${view === 'list' ? ' is-active' : ''}`}
+        onClick={() => setView('list')}
+      >
+        목록
+      </button>
+      <button
+        className={`fl-seg-btn${view === 'calendar' ? ' is-active' : ''}`}
+        onClick={() => setView('calendar')}
+      >
+        달력
+      </button>
+    </div>
+  )
+
+  const duration = form ? durationOf(form.type, form.startTime, form.endTime) : null
+
+  return (
+    <div className="fl-page">
+      <div className="fl-titleband">
+        <div>
+          <h1>잔업 / 특근</h1>
+          <p>평일 연장근무와 휴일·주말 근무를 등록하면 관리자 승인 후 반영됩니다.</p>
+        </div>
+        <button className="fl-btn fl-btn-primary" onClick={openCreate}>
+          기록 등록
+        </button>
+      </div>
+
+      {error && (
+        <div className="fl-error" style={{ marginBottom: 16 }}>
+          {error}
+        </div>
+      )}
+
+      <div className="fl-stat-grid">
+        <div className="fl-stat">
+          <div className="fl-stat-label">이번 달 잔업</div>
+          <div className="fl-stat-value">
+            <span className="fl-stat-num">{Math.floor(stats.overtimeMinutes / 60)}</span>
+            <span className="fl-stat-unit">시간</span>
+            {stats.overtimeMinutes % 60 > 0 && (
+              <>
+                <span className="fl-stat-num-sm">{stats.overtimeMinutes % 60}</span>
+                <span className="fl-stat-unit">분</span>
+              </>
+            )}
           </div>
-          <div className="ot-toggle">
-            <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>목록</button>
-            <button className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>달력</button>
+          <div className="fl-stat-sub">{stats.overtimeDays}일</div>
+        </div>
+
+        <div className="fl-stat">
+          <div className="fl-stat-label">이번 달 특근</div>
+          <div className="fl-stat-value">
+            <span className="fl-stat-num">{Math.floor(stats.specialMinutes / 60)}</span>
+            <span className="fl-stat-unit">시간</span>
+            {stats.specialMinutes % 60 > 0 && (
+              <>
+                <span className="fl-stat-num-sm">{stats.specialMinutes % 60}</span>
+                <span className="fl-stat-unit">분</span>
+              </>
+            )}
+          </div>
+          <div className="fl-stat-sub">
+            {stats.specialDays}일 · 6시간 이상 휴게 1시간 차감
           </div>
         </div>
 
-        {loading ? (
-          <div className="ot-empty">불러오는 중...</div>
-        ) : view === 'list' ? (
-          records.length === 0 ? (
-            <div className="ot-empty">아직 등록된 기록이 없습니다.</div>
-          ) : (
-            <>
-              {pageRecords.map(recordRow)}
-              {totalPages > 1 && (
-                <div className="ot-pagination">
-                  <button className="btn ghost" onClick={() => setPage(0)} disabled={currentPage === 0}>처음</button>
-                  <button className="btn ghost" onClick={() => setPage(currentPage - 1)} disabled={currentPage === 0}>이전</button>
-                  <span className="ot-pagination__info">{currentPage + 1} / {totalPages} 페이지</span>
-                  <button className="btn ghost" onClick={() => setPage(currentPage + 1)} disabled={currentPage >= totalPages - 1}>다음</button>
-                  <button className="btn ghost" onClick={() => setPage(totalPages - 1)} disabled={currentPage >= totalPages - 1}>마지막</button>
-                </div>
-              )}
-            </>
-          )
-        ) : (
-          <>
-            <div className="ot-cal">
-              <div className="ot-cal__head">
-                <div className="ot-cal__nav">
-                  <button className="btn ghost" onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1))}>◀</button>
-                  <button className="btn ghost" onClick={() => { const t = new Date(); setCalMonth(new Date(t.getFullYear(), t.getMonth(), 1)); setSelectedDate(toYmd(t)) }}>오늘</button>
-                  <button className="btn ghost" onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1))}>▶</button>
-                  <span className="ot-cal__month">{calMonth.getFullYear()}년 {calMonth.getMonth() + 1}월</span>
-                </div>
-                <div className="ot-cal__legend">
-                  <span><i className="ot-cal__dot ot-cal__dot--overtime" />잔업</span>
-                  <span><i className="ot-cal__dot ot-cal__dot--special" />특근</span>
-                </div>
+        <div className="fl-stat">
+          <div className="fl-stat-label">승인 대기</div>
+          <div className="fl-stat-value">
+            <span className={`fl-stat-num${stats.pendingCount > 0 ? ' fl-tone-warn' : ''}`}>
+              {stats.pendingCount}
+            </span>
+            <span className="fl-stat-unit">건</span>
+          </div>
+          <div className="fl-stat-sub">
+            {stats.oldestPending ? `가장 오래된 요청 ${formatWorkDate(stats.oldestPending)}` : '대기 중인 요청 없음'}
+          </div>
+        </div>
+
+        <div className="fl-stat">
+          <div className="fl-stat-label">승인 합계</div>
+          <div className="fl-stat-value">
+            <span className="fl-stat-num">{Math.floor(stats.approvedMinutes / 60)}</span>
+            <span className="fl-stat-unit">시간</span>
+            {stats.approvedMinutes % 60 > 0 && (
+              <>
+                <span className="fl-stat-num-sm">{stats.approvedMinutes % 60}</span>
+                <span className="fl-stat-unit">분</span>
+              </>
+            )}
+          </div>
+          <div className="fl-stat-sub">{formatMonthLabel(month)} 기준</div>
+        </div>
+      </div>
+
+      {view === 'list' ? (
+        <section className="fl-card">
+          <div className="fl-card-head">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span className="fl-card-title">등록 내역</span>
+              <span className="fl-card-count">총 {filtered.length}건</span>
+            </div>
+            <div className="ot-filters">
+              <div className="fl-seg">
+                {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as StatusFilter[]).map((s) => (
+                  <button
+                    key={s}
+                    className={`fl-seg-btn${statusFilter === s ? ' is-active' : ''}`}
+                    onClick={() => setStatusFilter(s)}
+                  >
+                    {s === 'ALL' ? '전체' : STATUS_LABEL[s]}
+                  </button>
+                ))}
               </div>
-              <div className="ot-cal__grid">
-                {WEEKDAYS.map((w) => <div key={w} className="ot-cal__dow">{w}</div>)}
-                {calCells.map((cell) => {
-                  const dayRecords = recordsByDate[cell.date] || []
-                  const cls = [
-                    'ot-cal__cell',
-                    cell.inMonth ? '' : 'ot-cal__cell--out',
-                    cell.date === todayYmd ? 'ot-cal__cell--today' : '',
-                    cell.date === selectedDate ? 'ot-cal__cell--selected' : '',
-                    cell.dow === 0 ? 'ot-cal__cell--sun' : '',
-                    cell.dow === 6 ? 'ot-cal__cell--sat' : '',
-                  ].filter(Boolean).join(' ')
-                  return (
-                    <button key={cell.date} className={cls} onClick={() => setSelectedDate(cell.date)}>
-                      <span>{cell.day}</span>
-                      <span className="ot-cal__dots">
+              <select
+                className="fl-input"
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
+                aria-label="구분 필터"
+              >
+                <option value="ALL">구분 전체</option>
+                <option value="OVERTIME">잔업</option>
+                <option value="SPECIAL">특근</option>
+              </select>
+              <input
+                type="month"
+                className="fl-input"
+                value={month}
+                onChange={(e) => e.target.value && setMonth(e.target.value)}
+                aria-label="조회 월"
+              />
+              {viewToggle}
+            </div>
+          </div>
+
+          <div className="fl-card-body fl-flush">
+            <div className="fl-th ot-table-head">
+              <div>근무일</div>
+              <div>구분</div>
+              <div>시간</div>
+              <div>사유</div>
+              <div>상태</div>
+              <div style={{ textAlign: 'right' }}>관리</div>
+            </div>
+
+            {loading ? (
+              <div className="fl-empty">불러오는 중...</div>
+            ) : filtered.length === 0 ? (
+              <div className="fl-empty">조건에 맞는 기록이 없습니다.</div>
+            ) : (
+              pageRecords.map((r) => (
+                <div key={r.id} className="fl-tr ot-row">
+                  <span className="ot-row-date">{formatWorkDate(r.workDate)}</span>
+                  {typeBadge(r.type)}
+                  <span className="ot-row-time">{workTimeText(r)}</span>
+                  {reasonCell(r)}
+                  {statusBadge(r.status)}
+                  {actionsCell(r)}
+                </div>
+              ))
+            )}
+          </div>
+
+          <Pager page={currentPage} totalPages={totalPages} onChange={setPage} disabled={loading} />
+        </section>
+      ) : (
+        <section className="fl-card">
+          <div className="fl-card-head">
+            <div className="ot-cal-nav">
+              <button
+                className="fl-btn-icon fl-btn-sm"
+                onClick={() => setMonth(shiftMonth(month, -1))}
+                aria-label="이전 달"
+              >
+                ◀
+              </button>
+              <span className="ot-cal-month">{formatMonthLabel(month)}</span>
+              <button
+                className="fl-btn-icon fl-btn-sm"
+                onClick={() => setMonth(shiftMonth(month, 1))}
+                aria-label="다음 달"
+              >
+                ▶
+              </button>
+              <button
+                className="fl-btn fl-btn-sm"
+                onClick={() => {
+                  setMonth(monthKey(new Date()))
+                  setSelectedDate(todayYmd)
+                }}
+              >
+                오늘
+              </button>
+            </div>
+            <div className="ot-legend">
+              <span className="ot-legend-item">
+                <i className="ot-legend-dot" />
+                잔업
+              </span>
+              <span className="ot-legend-item">
+                <i className="ot-legend-dot fl-dot-special" />
+                특근
+              </span>
+              {viewToggle}
+            </div>
+          </div>
+
+          <div className="ot-cal-body">
+            <div className="fl-cal-grid" style={{ marginBottom: 4 }}>
+              {WEEKDAYS.map((w, i) => (
+                <div
+                  key={w}
+                  className={`fl-cal-wd${i === 0 ? ' fl-sun' : i === 6 ? ' fl-sat' : ''}`}
+                >
+                  {w}
+                </div>
+              ))}
+            </div>
+            <div className="fl-cal-grid">
+              {calCells.map((cell) => {
+                const dayRecords = recordsByDate[cell.date] || []
+                const cls = [
+                  'fl-day',
+                  'ot-day',
+                  cell.dow === 0 ? 'fl-sun' : '',
+                  cell.dow === 6 ? 'fl-sat' : '',
+                  cell.inMonth ? '' : 'is-outside',
+                  cell.date === todayYmd ? 'is-today' : '',
+                  cell.date === selectedDate ? 'is-selected' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+                return (
+                  <button
+                    key={cell.date}
+                    className={cls}
+                    onClick={() => {
+                      setSelectedDate(cell.date)
+                      // 앞뒤 달 칸을 누르면 그 달로 넘어가야 선택한 날이 계속 보인다
+                      if (!cell.inMonth) setMonth(cell.date.slice(0, 7))
+                    }}
+                  >
+                    {cell.day}
+                    {dayRecords.length > 0 && (
+                      <span className="fl-day-dots">
                         {dayRecords.slice(0, 4).map((r) => (
-                          <i key={r.id} className={`ot-cal__dot ot-cal__dot--${r.type === 'SPECIAL' ? 'special' : 'overtime'}`} />
+                          <i
+                            key={r.id}
+                            className={`fl-day-dot${r.type === 'SPECIAL' ? ' fl-dot-special' : ''}`}
+                          />
                         ))}
                       </span>
-                    </button>
-                  )
-                })}
-              </div>
+                    )}
+                  </button>
+                )
+              })}
             </div>
-            <div className="ot-cal__day-panel">
-              <div className="ot-cal__day-panel-head">
-                {formatDate(selectedDate)} · {selectedRecords.length}건
+          </div>
+
+          <div className="ot-day-panel-head">
+            <span className="ot-day-panel-date">{formatLongDate(selectedDate)}</span>
+            <span className="ot-day-panel-count">
+              {selectedRecords.length}건{selectedRecords.length > 0 && ` · ${formatMinutes(selectedMinutes)}`}
+            </span>
+          </div>
+
+          <div className="fl-card-body fl-flush" style={{ paddingBottom: 8 }}>
+            {selectedRecords.length === 0 ? (
+              <div className="fl-empty">이 날짜에 등록된 기록이 없습니다.</div>
+            ) : (
+              selectedRecords.map((r) => (
+                <div key={r.id} className="fl-tr ot-day-row">
+                  {typeBadge(r.type)}
+                  <span className="ot-row-time">{workTimeText(r)}</span>
+                  {reasonCell(r)}
+                  {statusBadge(r.status)}
+                  {actionsCell(r)}
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      )}
+
+      {modalOpen && form && (
+        <div
+          className="fl-modal-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeModal()
+          }}
+        >
+          <form className="fl-modal" onSubmit={onSubmit} role="dialog" aria-modal="true">
+            <div className="fl-modal-head">
+              <div className="fl-modal-heading">
+                <span className="fl-modal-title">{editing ? '기록 수정' : '새 기록 등록'}</span>
+                <span className="fl-modal-sub">등록하면 승인 대기 상태로 관리자에게 전달됩니다.</span>
               </div>
-              {selectedRecords.length === 0 ? (
-                <div className="ot-empty">이 날짜에 등록된 기록이 없습니다.</div>
-              ) : (
-                selectedRecords.map(recordRow)
+              <button type="button" className="fl-modal-close" onClick={closeModal} aria-label="닫기">
+                ✕
+              </button>
+            </div>
+
+            <div className="fl-modal-body">
+              <div className="fl-field">
+                <span className="fl-field-label">구분</span>
+                <div className="ot-choice-grid">
+                  <button
+                    type="button"
+                    className={`ot-choice${form.type === 'OVERTIME' ? ' is-active' : ''}`}
+                    onClick={() => onTypeChange('OVERTIME')}
+                  >
+                    <span className="ot-choice-name">잔업</span>
+                    <span className="ot-choice-sub">
+                      평일 연장근무
+                      {defaults && ` · 기본 ${formatTime(defaults.overtimeStart)}–${formatTime(defaults.overtimeEnd)}`}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`ot-choice ot-choice-special${form.type === 'SPECIAL' ? ' is-active' : ''}`}
+                    onClick={() => onTypeChange('SPECIAL')}
+                  >
+                    <span className="ot-choice-name">특근</span>
+                    <span className="ot-choice-sub">
+                      휴일·주말 근무
+                      {defaults && ` · 기본 ${formatTime(defaults.specialStart)}–${formatTime(defaults.specialEnd)}`}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="ot-modal-pair">
+                <label className="fl-field">
+                  <span className="fl-field-label">근무일</span>
+                  <input
+                    type="date"
+                    className="fl-input"
+                    value={form.workDate}
+                    onChange={(e) => setForm({ ...form, workDate: e.target.value })}
+                    required
+                  />
+                </label>
+                <label className="fl-field">
+                  <span className="fl-field-label">
+                    총 시간 <span className="fl-optional">(시간 미입력 시)</span>
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    className="fl-input"
+                    placeholder="예: 120분"
+                    value={form.totalMinutes}
+                    onChange={(e) =>
+                      setForm({ ...form, totalMinutes: e.target.value, startTime: '', endTime: '' })
+                    }
+                  />
+                </label>
+              </div>
+
+              <div className="fl-field">
+                <span className="fl-field-label">
+                  근무 시간
+                  {duration !== null && <span className="ot-duration">{formatMinutes(duration)}</span>}
+                </span>
+                <div className="fl-range">
+                  <input
+                    type="time"
+                    className="fl-input"
+                    value={form.startTime}
+                    onChange={(e) => setForm({ ...form, startTime: e.target.value, totalMinutes: '' })}
+                  />
+                  <span className="fl-range-sep">–</span>
+                  <input
+                    type="time"
+                    className="fl-input"
+                    value={form.endTime}
+                    onChange={(e) => setForm({ ...form, endTime: e.target.value, totalMinutes: '' })}
+                  />
+                </div>
+              </div>
+
+              <label className="fl-field">
+                <span className="fl-field-label">
+                  사유 <span className="fl-optional">(선택)</span>
+                </span>
+                <textarea
+                  className="fl-input fl-textarea"
+                  placeholder="어떤 업무였는지 간단히 적어주세요"
+                  value={form.reason}
+                  onChange={(e) => setForm({ ...form, reason: e.target.value })}
+                />
+              </label>
+
+              {form.type === 'SPECIAL' && (
+                <div className="fl-hint">
+                  특근은 6시간 이상 근무 시 점심 휴게시간 1시간이 총 근무시간에서 자동 차감됩니다.
+                </div>
               )}
+
+              {formError && <div className="fl-error">{formError}</div>}
             </div>
-          </>
-        )}
-      </div>
+
+            <div className="fl-modal-foot">
+              <span className="fl-modal-foot-note">승인 후 수정하면 다시 대기 상태가 됩니다.</span>
+              <div className="fl-modal-foot-actions">
+                <button type="button" className="fl-btn" onClick={closeModal}>
+                  취소
+                </button>
+                <button type="submit" className="fl-btn fl-btn-primary" disabled={submitting}>
+                  {submitting ? '저장 중...' : editing ? '수정 저장' : '등록'}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }
