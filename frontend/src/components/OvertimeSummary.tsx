@@ -5,26 +5,9 @@ import { formatMinutes } from '../utils/formatDate'
 interface OvertimeSummaryProps {
   /** 이번 달 내 잔업/특근 기록 (Home의 useDashboardData에서 내려받는다) */
   records: OvertimeRecord[]
-  authenticated: boolean
 }
 
-export default function OvertimeSummary({ records, authenticated }: OvertimeSummaryProps) {
-  if (!authenticated) {
-    return (
-      <>
-        <div className="fl-card-head fl-plain">
-          <span className="fl-card-title">이번 달 잔업/특근</span>
-        </div>
-        <div className="fl-card-body" style={{ alignItems: 'center', justifyContent: 'center' }}>
-          <div className="fl-empty">로그인하면 이번 달 잔업/특근 현황을 확인할 수 있습니다.</div>
-          <Link to="/login" className="fl-btn fl-btn-primary" style={{ textDecoration: 'none' }}>
-            로그인하기
-          </Link>
-        </div>
-      </>
-    )
-  }
-
+export default function OvertimeSummary({ records }: OvertimeSummaryProps) {
   const overtimeMinutes = records
     .filter((r) => r.type === 'OVERTIME')
     .reduce((sum, r) => sum + r.totalMinutes, 0)

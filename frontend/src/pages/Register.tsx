@@ -1,13 +1,12 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { apiFetch } from '../api/client'
-import { saveAuth, saveDisplayName } from '../auth/token'
 import AuthShell from '../components/AuthShell'
 import PasswordStrength from '../components/PasswordStrength'
 
 export default function RegisterPage() {
-  const navigate = useNavigate()
   const [step, setStep] = useState<1 | 2>(1)
+  const [submitted, setSubmitted] = useState('')
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -35,14 +34,14 @@ export default function RegisterPage() {
     setError('')
     setBusy(true)
     try {
+      // 가입은 신청까지다. 관리자가 승인해야 로그인할 수 있으므로 토큰이 오지 않는다.
       const data = await apiFetch('/api/auth/register', {
         method: 'POST',
         body: JSON.stringify({ username, email, password, displayName }),
       })
-      const { token, roles, username: uname, displayName: dname } = data as any
-      saveAuth(token, roles ?? [], uname)
-      if (dname) saveDisplayName(dname)
-      navigate('/')
+      const { message } = (data ?? {}) as any
+      setSubmitted(message || '가입 신청이 접수되었습니다. 관리자 승인 후 로그인할 수 있습니다.')
+      setBusy(false)
     } catch (err: any) {
       setError(err.message || '회원가입에 실패했습니다.')
       setBusy(false)
@@ -55,6 +54,52 @@ export default function RegisterPage() {
       {error}
     </div>
   )
+
+  if (submitted) {
+    return (
+      <AuthShell
+        brandTitle={
+          <>
+            신청이
+            <br />
+            접수되었습니다.
+          </>
+        }
+        brandBody={
+          <div className="au-steps">
+            <div className="au-step">
+              <span className="au-step-num">✓</span>
+              <div>
+                <div className="au-step-name">가입 신청</div>
+                <div className="au-step-sub">완료</div>
+              </div>
+            </div>
+            <div className="au-step is-active">
+              <span className="au-step-num">2</span>
+              <div>
+                <div className="au-step-name">관리자 승인</div>
+                <div className="au-step-sub">대기 중</div>
+              </div>
+            </div>
+          </div>
+        }
+      >
+        <div className="au-heading">
+          <h2>승인을 기다리는 중이에요</h2>
+          <p>{submitted}</p>
+        </div>
+
+        <div className="fl-hint">
+          승인이 늦어지면 관리자에게 문의해 주세요. 승인 후에는 <b>{username}</b> 아이디로 바로
+          로그인할 수 있습니다.
+        </div>
+
+        <Link className="fl-btn fl-btn-primary au-submit" to="/login">
+          로그인 화면으로
+        </Link>
+      </AuthShell>
+    )
+  }
 
   return (
     <AuthShell
@@ -175,7 +220,7 @@ export default function RegisterPage() {
           </div>
 
           <div className="fl-hint">
-            가입 후 관리자 승인이 필요합니다. 승인 전에도 공지사항은 볼 수 있어요.
+            가입 후 관리자 승인이 필요합니다. 승인 전에는 로그인할 수 없어요.
           </div>
 
           {alert}
@@ -193,7 +238,7 @@ export default function RegisterPage() {
             </button>
             <button className="fl-btn fl-btn-primary au-submit" type="submit" disabled={busy}>
               {busy && <span className="au-spinner" />}
-              <span>{busy ? '계정 만드는 중…' : '가입 완료하기'}</span>
+              <span>{busy ? '신청하는 중…' : '가입 신청하기'}</span>
             </button>
           </div>
         </form>

@@ -46,6 +46,12 @@
   grid-template-columns: 64px minmax(0, 1fr) 150px 250px 128px;
 }
 
+/* 승인 탭은 마지막 칸에 승인·거절 두 개가 들어가서 더 넓어야 한다 */
+.ad-pending-head,
+.ad-pending-row {
+  grid-template-columns: 64px minmax(0, 1fr) 150px 250px 180px;
+}
+
 .ad-user-name {
   font-weight: 500;
   min-width: 0;

@@ -30,6 +30,12 @@ public class UserAccount {
     @Column(name = "role")
     private Set<UserRole> roles = new HashSet<>();
 
+    // nullable=false를 걸지 않는다. ddl-auto=update는 기존 테이블에 NOT NULL 컬럼을
+    // 추가하지 못해 기동이 깨진다. 컬럼 추가와 기존 행 백필은 UserStatusMigration이 맡는다.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 20)
+    private UserStatus status = UserStatus.PENDING;
+
     public Long getId() { return id; }
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
@@ -41,6 +47,11 @@ public class UserAccount {
     public void setDisplayName(String displayName) { this.displayName = displayName; }
     public Set<UserRole> getRoles() { return roles; }
     public void setRoles(Set<UserRole> roles) { this.roles = roles; }
+    public UserStatus getStatus() { return status; }
+    public void setStatus(UserStatus status) { this.status = status; }
+
+    /** 백필 전 행은 status가 null로 읽힌다. 승인되지 않은 것으로 본다. */
+    public boolean isApproved() { return status == UserStatus.APPROVED; }
 }
 
 

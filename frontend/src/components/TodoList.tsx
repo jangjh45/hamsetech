@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
 import { listTodos, createTodo, updateTodo, deleteTodo, type Todo } from '../api/todos'
-import { isAuthenticated } from '../auth/token'
 
 interface TodoListProps {
   selectedDate: string
@@ -27,26 +25,17 @@ export default function TodoList({
   const [newTitle, setNewTitle] = useState('')
   const [newPriority, setNewPriority] = useState(1)
   const [filter, setFilter] = useState<Filter>('all')
-  const [authenticated, setAuthenticated] = useState<boolean>(isAuthenticated())
   const [editingId, setEditingId] = useState<number | string | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editPriority, setEditPriority] = useState(1)
   const [error, setError] = useState('')
 
-  // 인증 상태 변경 감시
+  // 월별 todo 로드
   useEffect(() => {
-    const handleAuthChange = () => setAuthenticated(isAuthenticated())
-    window.addEventListener('auth-changed', handleAuthChange)
-    return () => window.removeEventListener('auth-changed', handleAuthChange)
-  }, [])
-
-  // 월별 todo 로드 (인증된 경우만)
-  useEffect(() => {
-    if (!authenticated) return
     listTodos(monthStart, monthEnd)
       .then((data) => setTodos(data))
       .catch((e) => setError(e instanceof Error ? e.message : '할 일을 불러오지 못했습니다.'))
-  }, [monthStart, monthEnd, authenticated])
+  }, [monthStart, monthEnd])
 
   // 다른 날짜를 고르면 편집 중이던 행이 화면에서 사라지므로 편집 상태를 정리한다
   useEffect(() => {
@@ -125,23 +114,6 @@ export default function TodoList({
     } catch (e) {
       setError(e instanceof Error ? e.message : '할 일을 삭제하지 못했습니다.')
     }
-  }
-
-  if (!authenticated) {
-    return (
-      <>
-        <div className="fl-card-head">
-          <span className="fl-card-title">할 일</span>
-          <span className="fl-card-count">로그인 필요</span>
-        </div>
-        <div className="fl-card-body" style={{ alignItems: 'center', justifyContent: 'center' }}>
-          <div className="fl-empty">로그인하면 개인 할 일을 저장하고 관리할 수 있습니다.</div>
-          <Link to="/login" className="fl-btn fl-btn-primary" style={{ textDecoration: 'none' }}>
-            로그인하기
-          </Link>
-        </div>
-      </>
-    )
   }
 
   return (

@@ -75,16 +75,6 @@ export default function Header() {
             <div className="fl-spacer" />
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {themeButton}
-              {!authed && (
-                <NavLink to="/register" className={navClass}>
-                  회원가입
-                </NavLink>
-              )}
-              {!authed && (
-                <NavLink to="/login" className={navClass}>
-                  로그인
-                </NavLink>
-              )}
               {authed && userChip}
               {authed && (
                 <button className="fl-btn" onClick={handleLogout}>
@@ -131,16 +121,6 @@ export default function Header() {
                 {link.label}
               </NavLink>
             ))}
-            {!authed && (
-              <NavLink to="/register" className={navClass} onClick={() => setShowMobileMenu(false)}>
-                회원가입
-              </NavLink>
-            )}
-            {!authed && (
-              <NavLink to="/login" className={navClass} onClick={() => setShowMobileMenu(false)}>
-                로그인
-              </NavLink>
-            )}
             <div
               style={{
                 display: 'flex',

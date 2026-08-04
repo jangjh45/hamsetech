@@ -3,6 +3,7 @@ package com.hamsetech.hamsetech.admin;
 import com.hamsetech.hamsetech.user.UserAccount;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
 import com.hamsetech.hamsetech.user.UserRole;
+import com.hamsetech.hamsetech.user.UserStatus;
 import com.hamsetech.hamsetech.notice.Notice;
 import com.hamsetech.hamsetech.notice.NoticeRepository;
 import com.hamsetech.hamsetech.scenario.PackingScenario;
@@ -39,6 +40,7 @@ public class AdminInitializer {
                 admin.setPasswordHash(passwordEncoder.encode(adminPassword));
                 admin.setDisplayName(adminDisplayName != null && !adminDisplayName.isBlank() ? adminDisplayName : adminUsername);
                 admin.setRoles(Set.of(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.USER));
+                admin.setStatus(UserStatus.APPROVED);
                 userRepository.save(admin);
                 System.out.println("[ADMIN INIT] default admin created: " + adminUsername);
             } else {
@@ -67,6 +69,12 @@ public class AdminInitializer {
                 if (existing.getDisplayName() == null || existing.getDisplayName().isBlank()) {
                     existing.setDisplayName(adminDisplayName != null && !adminDisplayName.isBlank() ? adminDisplayName : adminUsername);
                     System.out.println("[ADMIN INIT] set display name for admin: " + existing.getDisplayName());
+                }
+                // 승인 상태 보정. 백필이 실패하더라도 관리자만은 로그인할 수 있어야
+                // 관리자 화면에서 나머지 계정을 수동으로 승인할 수 있다.
+                if (!existing.isApproved()) {
+                    existing.setStatus(UserStatus.APPROVED);
+                    System.out.println("[ADMIN INIT] approved admin account: " + adminUsername);
                 }
                 userRepository.save(existing);
             }

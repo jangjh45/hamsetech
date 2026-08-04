@@ -10,7 +10,6 @@ import {
   type PackingScenario, 
   type CreateScenarioRequest 
 } from '../api/scenarios'
-import { isAuthenticated, onAuthChange } from '../auth/token'
 
 type ItemRow = { id: number; name: string; w: string; h: string; qty: string }
 
@@ -42,9 +41,6 @@ export default function DeliveryPage() {
   const [marginStr, setMarginStr] = useState<string>('0')
   const [items, setItems] = useState<ItemRow[]>([])
 
-  // 로그인 상태
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(isAuthenticated())
-  
   // 모바일 반응형 상태
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768)
 
@@ -170,14 +166,6 @@ export default function DeliveryPage() {
     setDragOverIndex(null)
   }
 
-  // 로그인 상태 변경 감지
-  useEffect(() => {
-    const off = onAuthChange(() => {
-      setIsLoggedIn(isAuthenticated())
-    })
-    return () => off()
-  }, [])
-
   // 화면 크기 변경 감지
   useEffect(() => {
     const handleResize = () => {
@@ -188,12 +176,9 @@ export default function DeliveryPage() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // 시나리오 로드 (로그인된 경우에만)
   useEffect(() => {
-    if (isLoggedIn) {
-      loadScenarios()
-    }
-  }, [isLoggedIn])
+    loadScenarios()
+  }, [])
 
   async function loadScenarios() {
     try {
@@ -386,20 +371,18 @@ export default function DeliveryPage() {
             marginBottom: 16 
           }}>
             <h3 style={{ margin: 0 }}>트럭 적재함 (단위: mm)</h3>
-            {isLoggedIn && (
-              <div style={{ 
-                display: 'flex', 
-                gap: 8,
-                flexDirection: isMobile ? 'column' : 'row'
-              }}>
-                <button className="btn ghost" onClick={() => setShowLoadModal(true)}>
-                  📁 불러오기
-                </button>
-                <button className="btn" onClick={openSaveModal}>
-                  💾 저장하기
-                </button>
-              </div>
-            )}
+            <div style={{
+              display: 'flex',
+              gap: 8,
+              flexDirection: isMobile ? 'column' : 'row'
+            }}>
+              <button className="btn ghost" onClick={() => setShowLoadModal(true)}>
+                📁 불러오기
+              </button>
+              <button className="btn" onClick={openSaveModal}>
+                💾 저장하기
+              </button>
+            </div>
           </div>
           <div style={{ 
             display: 'flex', 

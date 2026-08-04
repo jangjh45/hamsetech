@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import {
   listEvents,
   createEvent,
@@ -9,7 +8,6 @@ import {
   type CalendarEvent,
   type CalendarScope,
 } from '../api/calendar'
-import { isAuthenticated } from '../auth/token'
 import { toYmd, formatTime } from '../utils/formatDate'
 
 interface CalendarWidgetProps {
@@ -88,26 +86,17 @@ export default function CalendarWidget({
   const [editTime, setEditTime] = useState('')
   const [editScope, setEditScope] = useState<CalendarScope>('PRIVATE')
   const [error, setError] = useState('')
-  const [authenticated, setAuthenticated] = useState<boolean>(isAuthenticated())
 
   const year = viewDate.getFullYear()
   const month = viewDate.getMonth()
 
-  // 인증 상태 변경 감시
-  useEffect(() => {
-    const handleAuthChange = () => setAuthenticated(isAuthenticated())
-    window.addEventListener('auth-changed', handleAuthChange)
-    return () => window.removeEventListener('auth-changed', handleAuthChange)
-  }, [])
-
-  // 로그인 여부에 따라 보이는 일정이 달라지므로(개인 일정) authenticated에도 반응해야 한다
   useEffect(() => {
     const start = toYmd(new Date(year, month, 1))
     const end = toYmd(new Date(year, month + 1, 0))
     listEvents(start, end)
       .then(setEvents)
       .catch((e) => setError(e instanceof Error ? e.message : '일정을 불러오지 못했습니다.'))
-  }, [year, month, authenticated])
+  }, [year, month])
 
   // 다른 날짜/달로 이동하면 편집 중이던 행은 화면에서 사라지므로 편집 상태를 정리한다
   useEffect(() => {
@@ -281,46 +270,37 @@ export default function CalendarWidget({
             <span className="fl-card-count">{selectedEvents.length}건</span>
           </div>
 
-          {authenticated ? (
-            <div className="fl-form-row">
-              <input
-                className="fl-input"
-                placeholder="일정 추가"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && addEvent()}
-              />
-              <input
-                className="fl-input"
-                type="time"
-                value={newTime}
-                onChange={(e) => setNewTime(e.target.value)}
-                aria-label="일정 시간"
-              />
-              <div className="fl-seg" role="group" aria-label="공개 범위">
-                {SCOPES.map((s) => (
-                  <button
-                    key={s.value}
-                    className={`fl-seg-btn${newScope === s.value ? ' is-active' : ''}`}
-                    style={{ height: 32 }}
-                    onClick={() => setNewScope(s.value)}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-              <button className="fl-btn fl-btn-primary" onClick={addEvent} disabled={!newTitle.trim()}>
-                추가
-              </button>
+          <div className="fl-form-row">
+            <input
+              className="fl-input"
+              placeholder="일정 추가"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addEvent()}
+            />
+            <input
+              className="fl-input"
+              type="time"
+              value={newTime}
+              onChange={(e) => setNewTime(e.target.value)}
+              aria-label="일정 시간"
+            />
+            <div className="fl-seg" role="group" aria-label="공개 범위">
+              {SCOPES.map((s) => (
+                <button
+                  key={s.value}
+                  className={`fl-seg-btn${newScope === s.value ? ' is-active' : ''}`}
+                  style={{ height: 32 }}
+                  onClick={() => setNewScope(s.value)}
+                >
+                  {s.label}
+                </button>
+              ))}
             </div>
-          ) : (
-            <div className="fl-empty" style={{ padding: '12px 0' }}>
-              로그인하면 개인 일정을 등록하고 사내 일정을 공유할 수 있습니다.{' '}
-              <Link to="/login" className="fl-link">
-                로그인하기
-              </Link>
-            </div>
-          )}
+            <button className="fl-btn fl-btn-primary" onClick={addEvent} disabled={!newTitle.trim()}>
+              추가
+            </button>
+          </div>
 
           {error && <div className="fl-error">{error}</div>}
 

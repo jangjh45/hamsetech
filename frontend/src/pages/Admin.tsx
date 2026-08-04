@@ -80,7 +80,8 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([])
   const [q, setQ] = useState('')
   const [tokenExpired, setTokenExpired] = useState(false)
-  const [activeTab, setActiveTab] = useState<'users' | 'logs' | 'readLogs' | 'overtime'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'pending' | 'logs' | 'readLogs' | 'overtime'>('users')
+  const [pendingUsers, setPendingUsers] = useState<any[]>([])
   const [overtimeRecords, setOvertimeRecords] = useState<OvertimeRecord[]>([])
   const [overtimeLoading, setOvertimeLoading] = useState(false)
   const [overtimeSummary, setOvertimeSummary] = useState<OvertimeSummary[]>([])
@@ -151,6 +152,16 @@ export default function AdminPage() {
       const search = query ? `?q=${encodeURIComponent(query)}` : ''
       const list = await apiFetch(`/api/admin/users${search}`)
       setUsers(list as any[])
+    } catch (e: any) {
+      setError(e.message || 'load failed')
+    }
+  }
+
+  // 승인 대기 목록. 사용자 탭과 별도로 유지해 검색어에 영향을 받지 않게 한다.
+  async function loadPendingUsers() {
+    try {
+      const list = await apiFetch('/api/admin/users?status=PENDING')
+      setPendingUsers(list as any[])
     } catch (e: any) {
       setError(e.message || 'load failed')
     }
@@ -321,9 +332,16 @@ export default function AdminPage() {
     }
   }
 
-  useEffect(() => { loadUsers('') }, [])
+  // 대기 건수는 탭 배지에 항상 떠 있어야 하므로 진입 시 함께 읽는다
+  useEffect(() => {
+    loadUsers('')
+    loadPendingUsers()
+  }, [])
 
   useEffect(() => {
+    if (activeTab === 'pending') {
+      loadPendingUsers()
+    }
     if (activeTab === 'logs') {
       loadLogs(0) // 탭 변경 시 첫 페이지로 이동
       loadLogStats()
@@ -363,6 +381,14 @@ export default function AdminPage() {
     }
   }, [overtimeMonth])
 
+  // 승인·거절은 두 목록의 상태를 동시에 바꾸므로 양쪽을 다시 읽는다
+  async function decideUser(id: number, decision: 'approve' | 'reject') {
+    try {
+      await apiFetch(`/api/admin/users/${id}/${decision}`, { method: 'POST' })
+      await Promise.all([loadPendingUsers(), loadUsers()])
+    } catch (e: any) { setError(e.message) }
+  }
+
   async function grant(id: number) {
     try {
       await apiFetch(`/api/admin/users/${id}/grant-admin`, { method: 'POST' })
@@ -401,6 +427,12 @@ export default function AdminPage() {
             onClick={() => setActiveTab('users')}
           >
             사용자
+          </button>
+          <button
+            className={`fl-seg-btn${activeTab === 'pending' ? ' is-active' : ''}${pendingUsers.length > 0 ? ' fl-tone-warn' : ''}`}
+            onClick={() => setActiveTab('pending')}
+          >
+            가입 승인{pendingUsers.length > 0 ? ` (${pendingUsers.length})` : ''}
           </button>
           <button
             className={`fl-seg-btn${activeTab === 'logs' ? ' is-active' : ''}`}
@@ -492,6 +524,14 @@ export default function AdminPage() {
                     <span className="ad-user-roles">
                       <span className="ad-label">역할</span>
                       {roles.join(', ')}
+                      {u.status !== 'APPROVED' && (
+                        <span
+                          className={`fl-badge ${u.status === 'REJECTED' ? 'fl-tone-danger' : 'fl-tone-warn'}`}
+                          style={{ marginLeft: 6 }}
+                        >
+                          {u.status === 'REJECTED' ? '거절됨' : '승인 대기'}
+                        </span>
+                      )}
                     </span>
 
                     <span>
@@ -528,6 +568,76 @@ export default function AdminPage() {
                   </div>
                 )
               })
+            )}
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'pending' && (
+        <section className="fl-card">
+          <div className="fl-card-head">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span className="fl-card-title">가입 승인 대기</span>
+              <span className="fl-card-count">총 {pendingUsers.length}명</span>
+            </div>
+            <button className="fl-btn" onClick={() => loadPendingUsers()}>
+              새로고침
+            </button>
+          </div>
+
+          <div className="fl-card-body fl-flush">
+            <div className="fl-th ad-user-head ad-pending-head">
+              <div>ID</div>
+              <div>사용자</div>
+              <div>역할</div>
+              <div>이름/닉네임</div>
+              <div style={{ textAlign: 'right' }}>승인</div>
+            </div>
+
+            {pendingUsers.length === 0 ? (
+              <div className="fl-empty">승인을 기다리는 신청이 없습니다.</div>
+            ) : (
+              pendingUsers.map((u: any) => (
+                <div key={u.id} className="fl-tr ad-user-row ad-pending-row">
+                  <span className="fl-cell-num">
+                    <span className="ad-label">ID</span>
+                    {u.id}
+                  </span>
+
+                  <span className="ad-user-name">
+                    <span className="ad-label">사용자</span>
+                    <span className="fl-avatar fl-avatar-sm" style={{ marginRight: 8 }}>
+                      {(u.displayName || u.username || '?').charAt(0)}
+                    </span>
+                    {u.username}
+                  </span>
+
+                  <span className="ad-user-roles">
+                    <span className="ad-label">역할</span>
+                    {(u.roles || []).join(', ')}
+                  </span>
+
+                  <span>
+                    <span className="ad-label">이름/닉네임</span>
+                    {u.displayName || '-'}
+                  </span>
+
+                  <span className="fl-cell-actions">
+                    <button
+                      className="fl-btn fl-btn-sm fl-btn-primary"
+                      onClick={() => decideUser(u.id, 'approve')}
+                    >
+                      승인
+                    </button>
+                    <button
+                      className="fl-btn fl-btn-sm"
+                      onClick={() => decideUser(u.id, 'reject')}
+                    >
+                      거절
+                    </button>
+                  </span>
+                </div>
+              ))
             )}
           </div>
         </section>

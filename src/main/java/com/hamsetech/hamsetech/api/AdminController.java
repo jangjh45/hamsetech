@@ -10,6 +10,7 @@ import com.hamsetech.hamsetech.admin.AdminReadLogSpecification;
 import com.hamsetech.hamsetech.user.UserAccount;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
 import com.hamsetech.hamsetech.user.UserRole;
+import com.hamsetech.hamsetech.user.UserStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -53,21 +54,68 @@ public class AdminController {
 		return "admin pong";
 	}
 
-	public record UserDto(Long id, String username, String displayName, Set<UserRole> roles) {}
+	public record UserDto(Long id, String username, String displayName, Set<UserRole> roles, UserStatus status) {}
 
 	public record UpdateDisplayNameReq(String displayName) {}
 
+	private static UserDto toDto(UserAccount u) {
+		return new UserDto(u.getId(), u.getUsername(), u.getDisplayName(), u.getRoles(), u.getStatus());
+	}
+
 	@AdminLoggable(action = AdminLog.Action.READ, entityType = AdminLog.EntityType.USER, details = "사용자 목록 조회")
 	@GetMapping("/users")
-	public List<UserDto> listUsers(@RequestParam(name = "q", defaultValue = "") String q) {
+	public List<UserDto> listUsers(@RequestParam(name = "q", defaultValue = "") String q,
+			@RequestParam(name = "status", required = false) String status) {
 		List<UserAccount> all = userRepo.findAll(Sort.by(Sort.Direction.DESC, "id"));
 		String qq = q == null ? "" : q.toLowerCase();
+		// 알 수 없는 status 값이면 필터를 적용하지 않는다(=전체 조회)
+		UserStatus wanted = parseStatus(status);
 		return all.stream()
 				.filter(u -> qq.isBlank()
 					|| (u.getUsername() != null && u.getUsername().toLowerCase().contains(qq))
 					|| (u.getDisplayName() != null && u.getDisplayName().toLowerCase().contains(qq)))
-				.map(u -> new UserDto(u.getId(), u.getUsername(), u.getDisplayName(), u.getRoles()))
+				.filter(u -> wanted == null || u.getStatus() == wanted)
+				.map(AdminController::toDto)
 				.collect(Collectors.toList());
+	}
+
+	private UserStatus parseStatus(String raw) {
+		if (raw == null || raw.isBlank()) return null;
+		try {
+			return UserStatus.valueOf(raw.trim().toUpperCase());
+		} catch (IllegalArgumentException ex) {
+			return null;
+		}
+	}
+
+	@AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.USER, details = "가입 승인")
+	@PostMapping("/users/{id}/approve")
+	public ResponseEntity<?> approveUser(@PathVariable(name = "id") @NonNull Long id) {
+		return userRepo.findById(id)
+				.map(u -> {
+					u.setStatus(UserStatus.APPROVED);
+					userRepo.save(u);
+					logger.info("Approved user account: {}", u.getUsername());
+					return ResponseEntity.ok(toDto(u));
+				})
+				.orElseGet(() -> ResponseEntity.notFound().build());
+	}
+
+	@AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.USER, details = "가입 거절")
+	@PostMapping("/users/{id}/reject")
+	public ResponseEntity<?> rejectUser(@PathVariable(name = "id") @NonNull Long id) {
+		return userRepo.findById(id)
+				.<ResponseEntity<?>>map(u -> {
+					// 최고 관리자를 잠그면 아무도 승인할 수 없게 된다
+					if (u.getRoles().contains(UserRole.SUPER_ADMIN)) {
+						return ResponseEntity.badRequest().body(Map.of("error", "SUPER_ADMIN 계정은 거절할 수 없습니다."));
+					}
+					u.setStatus(UserStatus.REJECTED);
+					userRepo.save(u);
+					logger.info("Rejected user account: {}", u.getUsername());
+					return ResponseEntity.ok(toDto(u));
+				})
+				.orElseGet(() -> ResponseEntity.notFound().build());
 	}
 
 	@AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.USER, details = "관리자 권한 부여")
@@ -108,7 +156,7 @@ public class AdminController {
 				.map(u -> {
 					u.setDisplayName(req.displayName().trim());
 					userRepo.save(u);
-					return ResponseEntity.ok(new UserDto(u.getId(), u.getUsername(), u.getDisplayName(), u.getRoles()));
+					return ResponseEntity.ok(toDto(u));
 				})
 				.orElseGet(() -> ResponseEntity.notFound().build());
 	}
