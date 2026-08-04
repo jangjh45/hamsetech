@@ -19,6 +19,14 @@ import Pager from '../components/Pager'
 import '../styles/admin.css'
 import '../styles/overtime.css'
 
+// APPROVED는 정상 상태라 배지를 달지 않는다(undefined면 렌더하지 않음)
+const USER_STATUS_BADGE: Record<string, { label: string; tone: string }> = {
+  PENDING: { label: '승인 대기', tone: 'fl-tone-warn' },
+  REJECTED: { label: '거절됨', tone: 'fl-tone-danger' },
+  WITHDRAW_REQUESTED: { label: '탈퇴 신청', tone: 'fl-tone-warn' },
+  WITHDRAWN: { label: '탈퇴', tone: 'fl-tone-danger' },
+}
+
 const OVERTIME_STATUS_LABEL: Record<string, string> = { PENDING: '대기', APPROVED: '승인', REJECTED: '반려' }
 const OVERTIME_STATUS_TONE: Record<string, string> = {
   PENDING: 'fl-tone-warn',
@@ -80,8 +88,9 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([])
   const [q, setQ] = useState('')
   const [tokenExpired, setTokenExpired] = useState(false)
-  const [activeTab, setActiveTab] = useState<'users' | 'pending' | 'logs' | 'readLogs' | 'overtime'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'pending' | 'withdraw' | 'logs' | 'readLogs' | 'overtime'>('users')
   const [pendingUsers, setPendingUsers] = useState<any[]>([])
+  const [withdrawUsers, setWithdrawUsers] = useState<any[]>([])
   const [overtimeRecords, setOvertimeRecords] = useState<OvertimeRecord[]>([])
   const [overtimeLoading, setOvertimeLoading] = useState(false)
   const [overtimeSummary, setOvertimeSummary] = useState<OvertimeSummary[]>([])
@@ -162,6 +171,16 @@ export default function AdminPage() {
     try {
       const list = await apiFetch('/api/admin/users?status=PENDING')
       setPendingUsers(list as any[])
+    } catch (e: any) {
+      setError(e.message || 'load failed')
+    }
+  }
+
+  // 탈퇴 신청 목록. 가입 승인 대기와 같은 이유로 별도 관리한다.
+  async function loadWithdrawUsers() {
+    try {
+      const list = await apiFetch('/api/admin/users?status=WITHDRAW_REQUESTED')
+      setWithdrawUsers(list as any[])
     } catch (e: any) {
       setError(e.message || 'load failed')
     }
@@ -336,11 +355,15 @@ export default function AdminPage() {
   useEffect(() => {
     loadUsers('')
     loadPendingUsers()
+    loadWithdrawUsers()
   }, [])
 
   useEffect(() => {
     if (activeTab === 'pending') {
       loadPendingUsers()
+    }
+    if (activeTab === 'withdraw') {
+      loadWithdrawUsers()
     }
     if (activeTab === 'logs') {
       loadLogs(0) // 탭 변경 시 첫 페이지로 이동
@@ -389,6 +412,31 @@ export default function AdminPage() {
     } catch (e: any) { setError(e.message) }
   }
 
+  // 탈퇴 확정은 되돌릴 수 없으므로 항상 사유를 묻고 한 번 더 확인한다
+  async function withdrawUser(u: any) {
+    const reason = window.prompt(
+      `${u.username}${u.displayName ? ` (${u.displayName})` : ''} 계정을 탈퇴 처리합니다.\n` +
+        '이메일·표시 이름이 삭제되고 다시 로그인할 수 없게 됩니다. 잔업·특근 기록은 보존됩니다.\n\n' +
+        '처리 사유를 입력하세요.',
+      u.withdrawReason || '',
+    )
+    if (reason === null) return
+    try {
+      await apiFetch(`/api/admin/users/${u.id}/withdraw`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      })
+      await Promise.all([loadUsers(), loadWithdrawUsers()])
+    } catch (e: any) { setError(e.message) }
+  }
+
+  async function rejectWithdraw(id: number) {
+    try {
+      await apiFetch(`/api/admin/users/${id}/withdraw/reject`, { method: 'POST' })
+      await Promise.all([loadUsers(), loadWithdrawUsers()])
+    } catch (e: any) { setError(e.message) }
+  }
+
   async function grant(id: number) {
     try {
       await apiFetch(`/api/admin/users/${id}/grant-admin`, { method: 'POST' })
@@ -433,6 +481,12 @@ export default function AdminPage() {
             onClick={() => setActiveTab('pending')}
           >
             가입 승인{pendingUsers.length > 0 ? ` (${pendingUsers.length})` : ''}
+          </button>
+          <button
+            className={`fl-seg-btn${activeTab === 'withdraw' ? ' is-active' : ''}${withdrawUsers.length > 0 ? ' fl-tone-warn' : ''}`}
+            onClick={() => setActiveTab('withdraw')}
+          >
+            탈퇴 신청{withdrawUsers.length > 0 ? ` (${withdrawUsers.length})` : ''}
           </button>
           <button
             className={`fl-seg-btn${activeTab === 'logs' ? ' is-active' : ''}`}
@@ -504,6 +558,10 @@ export default function AdminPage() {
                 const roles: string[] = u.roles || []
                 const isAdmin = roles.includes('ADMIN')
                 const isSuperAdmin = roles.includes('SUPER_ADMIN')
+                const statusBadge = USER_STATUS_BADGE[u.status as string]
+                // 본인 계정을 잠그면 관리자 자신이 락아웃된다(서버에서도 막지만 버튼부터 감춘다)
+                const canWithdraw =
+                  !isSuperAdmin && u.status !== 'WITHDRAWN' && u.username !== getMe()
 
                 return (
                   <div key={u.id} className="fl-tr ad-user-row">
@@ -524,12 +582,12 @@ export default function AdminPage() {
                     <span className="ad-user-roles">
                       <span className="ad-label">역할</span>
                       {roles.join(', ')}
-                      {u.status !== 'APPROVED' && (
+                      {statusBadge && (
                         <span
-                          className={`fl-badge ${u.status === 'REJECTED' ? 'fl-tone-danger' : 'fl-tone-warn'}`}
+                          className={`fl-badge ${statusBadge.tone}`}
                           style={{ marginLeft: 6 }}
                         >
-                          {u.status === 'REJECTED' ? '거절됨' : '승인 대기'}
+                          {statusBadge.label}
                         </span>
                       )}
                     </span>
@@ -562,6 +620,14 @@ export default function AdminPage() {
                       ) : (
                         <button className="fl-btn fl-btn-sm" onClick={() => grant(u.id)}>
                           ADMIN 부여
+                        </button>
+                      )}
+                      {canWithdraw && (
+                        <button
+                          className="fl-btn fl-btn-sm fl-btn-danger"
+                          onClick={() => withdrawUser(u)}
+                        >
+                          탈퇴 처리
                         </button>
                       )}
                     </span>
@@ -634,6 +700,84 @@ export default function AdminPage() {
                       onClick={() => decideUser(u.id, 'reject')}
                     >
                       거절
+                    </button>
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'withdraw' && (
+        <section className="fl-card">
+          <div className="fl-card-head">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span className="fl-card-title">탈퇴 신청</span>
+              <span className="fl-card-count">총 {withdrawUsers.length}명</span>
+            </div>
+            <button className="fl-btn" onClick={() => loadWithdrawUsers()}>
+              새로고침
+            </button>
+          </div>
+
+          <div className="fl-card-body fl-flush">
+            <p className="ad-withdraw-guide">
+              탈퇴를 확정하면 이메일·표시 이름이 삭제되고 해당 계정으로 다시 로그인할 수 없습니다.
+              아이디는 재사용할 수 없으며, 제출된 잔업·특근 기록은 그대로 보존됩니다.
+            </p>
+
+            <div className="fl-th ad-user-head ad-withdraw-head">
+              <div>ID</div>
+              <div>사용자</div>
+              <div>신청 일시</div>
+              <div>사유</div>
+              <div style={{ textAlign: 'right' }}>처리</div>
+            </div>
+
+            {withdrawUsers.length === 0 ? (
+              <div className="fl-empty">처리를 기다리는 탈퇴 신청이 없습니다.</div>
+            ) : (
+              withdrawUsers.map((u: any) => (
+                <div key={u.id} className="fl-tr ad-user-row ad-withdraw-row">
+                  <span className="fl-cell-num">
+                    <span className="ad-label">ID</span>
+                    {u.id}
+                  </span>
+
+                  <span className="ad-user-name">
+                    <span className="ad-label">사용자</span>
+                    <span className="fl-avatar fl-avatar-sm" style={{ marginRight: 8 }}>
+                      {(u.displayName || u.username || '?').charAt(0)}
+                    </span>
+                    {u.username}
+                    {u.displayName ? ` (${u.displayName})` : ''}
+                  </span>
+
+                  <span>
+                    <span className="ad-label">신청 일시</span>
+                    {u.withdrawRequestedAt
+                      ? new Date(u.withdrawRequestedAt).toLocaleString('ko-KR')
+                      : '-'}
+                  </span>
+
+                  <span className="ad-withdraw-reason">
+                    <span className="ad-label">사유</span>
+                    {u.withdrawReason || '-'}
+                  </span>
+
+                  <span className="fl-cell-actions">
+                    <button
+                      className="fl-btn fl-btn-sm fl-btn-danger"
+                      onClick={() => withdrawUser(u)}
+                    >
+                      탈퇴 확정
+                    </button>
+                    <button
+                      className="fl-btn fl-btn-sm"
+                      onClick={() => rejectWithdraw(u.id)}
+                    >
+                      반려
                     </button>
                   </span>
                 </div>

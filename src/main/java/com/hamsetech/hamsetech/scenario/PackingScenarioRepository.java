@@ -28,4 +28,7 @@ public interface PackingScenarioRepository extends JpaRepository<PackingScenario
     
     @Query("SELECT s FROM PackingScenario s WHERE s.user = :user AND s.name = :name AND s.id != :excludeId")
     List<PackingScenario> findByUserAndNameExcludingId(@Param("user") UserAccount user, @Param("name") String name, @Param("excludeId") Long excludeId);
+
+    /** 회원 탈퇴 시 개인 데이터를 정리한다. 하위 packing_items는 orphanRemoval로 함께 지워진다. */
+    void deleteByUser(UserAccount user);
 }

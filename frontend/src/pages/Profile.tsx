@@ -12,6 +12,10 @@ interface UserProfile {
   email: string
   displayName: string
   roles: string[]
+  status?: string
+  /** 탈퇴를 신청한 시각. 신청 상태가 아니면 null */
+  withdrawRequestedAt?: string | null
+  withdrawReason?: string | null
 }
 
 export default function ProfilePage() {
@@ -35,6 +39,13 @@ export default function ProfilePage() {
   const [pwSuccess, setPwSuccess] = useState('')
   // 목업처럼 토글 하나로 세 칸을 함께 보인다/숨긴다
   const [showPasswords, setShowPasswords] = useState(false)
+
+  // 회원 탈퇴 state
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
+  const [withdrawPassword, setWithdrawPassword] = useState('')
+  const [withdrawReason, setWithdrawReason] = useState('')
+  const [withdrawError, setWithdrawError] = useState('')
+  const [withdrawBusy, setWithdrawBusy] = useState(false)
 
   useEffect(() => {
     loadProfile()
@@ -119,6 +130,39 @@ export default function ProfilePage() {
     navigate('/')
   }
 
+  // 신청만 남기고 로그아웃하지 않는다. 관리자가 확정하기 전까지 본인이 취소할 수 있어야 한다.
+  async function handleRequestWithdraw() {
+    try {
+      setWithdrawError('')
+      setWithdrawBusy(true)
+      await apiFetch('/api/users/me/withdraw', {
+        method: 'POST',
+        body: JSON.stringify({ password: withdrawPassword, reason: withdrawReason }),
+      })
+      setWithdrawOpen(false)
+      setWithdrawPassword('')
+      setWithdrawReason('')
+      await loadProfile()
+    } catch (e: any) {
+      setWithdrawError(e.message || '탈퇴 신청에 실패했습니다.')
+    } finally {
+      setWithdrawBusy(false)
+    }
+  }
+
+  async function handleCancelWithdraw() {
+    try {
+      setWithdrawError('')
+      setWithdrawBusy(true)
+      await apiFetch('/api/users/me/withdraw', { method: 'DELETE' })
+      await loadProfile()
+    } catch (e: any) {
+      setWithdrawError(e.message || '탈퇴 신청 취소에 실패했습니다.')
+    } finally {
+      setWithdrawBusy(false)
+    }
+  }
+
   if (loading) return <div className="fl-page">로딩 중...</div>
 
   const role = profile?.roles?.[0] ?? 'USER'
@@ -127,6 +171,12 @@ export default function ProfilePage() {
   const pwToggleLabel = showPasswords ? '숨기기' : '보기'
   const match = confirmPassword.length > 0 && confirmPassword === newPassword
   const mismatch = confirmPassword.length > 0 && confirmPassword !== newPassword
+  // SUPER_ADMIN이 스스로 나가면 아무도 가입·탈퇴를 승인할 수 없게 된다
+  const isSuperAdmin = profile?.roles?.includes('SUPER_ADMIN') ?? false
+  const withdrawRequested = profile?.status === 'WITHDRAW_REQUESTED'
+  const requestedAtText = profile?.withdrawRequestedAt
+    ? new Date(profile.withdrawRequestedAt).toLocaleString('ko-KR')
+    : ''
 
   const toggleButton = (
     <button
@@ -355,6 +405,122 @@ export default function ProfilePage() {
           로그아웃
         </button>
       </section>
+
+      {/* 회원 탈퇴 */}
+      {!isSuperAdmin && (
+        <section className="fl-card pf-danger">
+          <div className="fl-card-head">
+            <span className="fl-card-title">회원 탈퇴</span>
+          </div>
+
+          {withdrawRequested ? (
+            <div className="fl-card-body pf-danger-body">
+              <div className="pf-note is-warn">
+                <span className="pf-glyph">!</span>
+                탈퇴를 신청했습니다. 관리자가 확정하면 계정을 사용할 수 없게 됩니다.
+              </div>
+              <div className="pf-rows">
+                <div className="pf-row">
+                  <span className="pf-row-label">신청 일시</span>
+                  <span className="pf-row-value">{requestedAtText || '—'}</span>
+                </div>
+                {profile?.withdrawReason && (
+                  <div className="pf-row">
+                    <span className="pf-row-label">사유</span>
+                    <span className="pf-row-value">{profile.withdrawReason}</span>
+                  </div>
+                )}
+              </div>
+              <p className="pf-danger-desc">
+                확정 전까지는 계속 로그인할 수 있고, 아래 버튼으로 신청을 되돌릴 수 있습니다.
+              </p>
+              <button className="fl-btn" onClick={handleCancelWithdraw} disabled={withdrawBusy}>
+                탈퇴 신청 취소
+              </button>
+              {withdrawError && (
+                <div className="pf-note">
+                  <span className="pf-glyph">!</span>
+                  {withdrawError}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="fl-card-body pf-danger-body">
+              <p className="pf-danger-desc">
+                탈퇴를 신청하면 관리자가 확인 후 확정합니다. 확정되면 로그인할 수 없고 이메일·표시
+                이름 등 개인정보가 삭제되며, <strong>같은 아이디로는 다시 가입할 수 없습니다.</strong>
+                <br />
+                제출한 잔업·특근 기록은 근로 기록이므로 그대로 보존됩니다.
+              </p>
+
+              {!withdrawOpen ? (
+                <button className="fl-btn fl-btn-danger" onClick={() => setWithdrawOpen(true)}>
+                  회원 탈퇴 신청
+                </button>
+              ) : (
+                <>
+                  <div className="fl-field">
+                    <label className="fl-field-label" htmlFor="pf-wd-pw">
+                      본인 확인을 위해 비밀번호를 입력하세요
+                    </label>
+                    <input
+                      id="pf-wd-pw"
+                      type="password"
+                      className="fl-input"
+                      autoComplete="current-password"
+                      value={withdrawPassword}
+                      onChange={(e) => setWithdrawPassword(e.target.value)}
+                      placeholder="현재 비밀번호"
+                    />
+                  </div>
+
+                  <div className="fl-field">
+                    <label className="fl-field-label" htmlFor="pf-wd-reason">
+                      탈퇴 사유 (선택)
+                    </label>
+                    <textarea
+                      id="pf-wd-reason"
+                      className="fl-input pf-danger-reason"
+                      rows={3}
+                      value={withdrawReason}
+                      onChange={(e) => setWithdrawReason(e.target.value)}
+                      placeholder="관리자에게 전달할 내용이 있다면 적어 주세요"
+                    />
+                  </div>
+
+                  <div className="pf-danger-actions">
+                    <button
+                      className="fl-btn fl-btn-danger"
+                      onClick={handleRequestWithdraw}
+                      disabled={!withdrawPassword || withdrawBusy}
+                    >
+                      탈퇴 신청하기
+                    </button>
+                    <button
+                      className="fl-btn"
+                      onClick={() => {
+                        setWithdrawOpen(false)
+                        setWithdrawPassword('')
+                        setWithdrawReason('')
+                        setWithdrawError('')
+                      }}
+                    >
+                      취소
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {withdrawError && (
+                <div className="pf-note">
+                  <span className="pf-glyph">!</span>
+                  {withdrawError}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
     </div>
   )
 }

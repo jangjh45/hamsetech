@@ -41,15 +41,41 @@
 /* ── 사용자 탭 ───────────────────────────────────────────────── */
 
 /* ID / 사용자 / 역할 / 이름·닉네임 / 권한 */
+/* 마지막 칸에 ADMIN 부여·해제와 탈퇴 처리가 나란히 들어간다 */
 .ad-user-head,
 .ad-user-row {
-  grid-template-columns: 64px minmax(0, 1fr) 150px 250px 128px;
+  grid-template-columns: 64px minmax(0, 1fr) 150px 220px 210px;
 }
 
 /* 승인 탭은 마지막 칸에 승인·거절 두 개가 들어가서 더 넓어야 한다 */
 .ad-pending-head,
 .ad-pending-row {
   grid-template-columns: 64px minmax(0, 1fr) 150px 250px 180px;
+}
+
+/* 탈퇴 탭: ID / 사용자 / 신청 일시 / 사유 / 처리 */
+.ad-withdraw-head,
+.ad-withdraw-row {
+  grid-template-columns: 64px minmax(0, 1fr) 170px minmax(0, 1.2fr) 180px;
+}
+
+.ad-withdraw-reason {
+  font-size: 13px;
+  color: var(--fl-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 되돌릴 수 없는 처리라 목록 위에 결과를 미리 알린다 */
+.ad-withdraw-guide {
+  margin: 0;
+  padding: 14px 18px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fl-muted);
+  background: var(--fl-warn-soft);
+  border-bottom: 1px solid var(--fl-border);
 }
 
 .ad-user-name {
@@ -165,5 +191,15 @@
 
   .fl-tr.ad-user-row .fl-btn {
     flex: 1;
+  }
+
+  /* 세로로 쌓이면 폭 제약이 사라지므로 사유를 전부 보여 준다 */
+  .ad-withdraw-reason {
+    white-space: normal;
+    overflow: visible;
+  }
+
+  .ad-withdraw-guide {
+    padding: 12px 16px;
   }
 }

@@ -25,11 +25,11 @@ public class DatabaseUserDetailsService implements UserDetailsService {
                 .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name()))
                 .toList();
 
-        // 미승인 계정은 disabled로 내려 이 경로를 타는 인증도 함께 막는다
+        // 미승인·탈퇴 계정은 disabled로 내려 이 경로를 타는 인증도 함께 막는다
         return User.withUsername(user.getUsername())
                 .password(user.getPasswordHash())
                 .authorities(authorities)
-                .disabled(!user.isApproved())
+                .disabled(!user.canAccess())
                 .build();
     }
 }

@@ -118,12 +118,14 @@ public class AuthController {
         // 비밀번호 확인 뒤에 승인 여부를 본다. 승인 전에 걸러 버리면 아이디 존재 여부가
         // 비밀번호 없이도 드러난다.
         // code: FORBIDDEN은 클라이언트가 이 403을 "토큰 만료"로 오인하지 않게 하는 규약이다.
-        if (!user.isApproved()) {
-            String reason = user.getStatus() == UserStatus.REJECTED
-                    ? "가입이 거절된 계정입니다. 관리자에게 문의해 주세요."
-                    : "관리자 승인 대기 중입니다. 승인 후 로그인할 수 있습니다.";
+        if (!user.canAccess()) {
+            String reason = switch (user.getStatus() == null ? UserStatus.PENDING : user.getStatus()) {
+                case REJECTED -> "가입이 거절된 계정입니다. 관리자에게 문의해 주세요.";
+                case WITHDRAWN -> "탈퇴 처리된 계정입니다. 관리자에게 문의해 주세요.";
+                default -> "관리자 승인 대기 중입니다. 승인 후 로그인할 수 있습니다.";
+            };
             logAuthEvent(user.getUsername(), AdminLog.Action.CREATE, AdminLog.EntityType.AUTH, user.getId(),
-                    "로그인 실패 | 미승인 계정 status=" + user.getStatus());
+                    "로그인 실패 | 접근 불가 계정 status=" + user.getStatus());
             return ResponseEntity.status(403).body(Map.of("code", "FORBIDDEN", "error", reason));
         }
         logAuthEvent(user.getUsername(), AdminLog.Action.CREATE, AdminLog.EntityType.AUTH, user.getId(), "로그인 성공");
@@ -157,6 +159,14 @@ public class AuthController {
         if (user == null || user.getEmail() == null || !user.getEmail().equalsIgnoreCase(req.email())) {
             logAuthEvent(req.username(), AdminLog.Action.UPDATE, AdminLog.EntityType.AUTH,
                     user == null ? null : user.getId(), "비밀번호 재설정 실패 | 아이디·이메일 불일치");
+            return ResponseEntity.status(400).body(Map.of("error", "아이디와 이메일이 일치하지 않습니다."));
+        }
+        // 거절·탈퇴 계정은 재설정도 막는다. 어차피 로그인할 수 없는 계정이고, 익명화된
+        // 이메일이 우연히 맞아떨어지는 경우까지 차단한다.
+        // 계정 상태가 새지 않도록 위와 같은 응답을 준다.
+        if (!user.canAccess()) {
+            logAuthEvent(user.getUsername(), AdminLog.Action.UPDATE, AdminLog.EntityType.AUTH, user.getId(),
+                    "비밀번호 재설정 실패 | 접근 불가 계정 status=" + user.getStatus());
             return ResponseEntity.status(400).body(Map.of("error", "아이디와 이메일이 일치하지 않습니다."));
         }
         if (req.newPassword().length() < 8) {
