@@ -65,13 +65,11 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
     if (token) {
       console.warn('토큰이 만료되었습니다. 자동 로그아웃 처리합니다.', { url, status: res.status, message })
       clearToken()
+      // 로그인 화면으로 보내는 건 이 이벤트를 받는 App의 setupAutoLogout이 맡는다.
+      // 여기서 window.location.href로 직접 보내면 페이지가 통째로 다시 떠서
+      // 원래 보던 화면을 로그인 후 복귀 목적지로 넘길 수 없다.
       dispatchTokenExpired()
-      
-      // 로그인 페이지로 리다이렉트 (현재 페이지가 로그인 페이지가 아닌 경우에만)
-      if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
-        window.location.href = '/login'
-      }
-      
+
       throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.')
     }
     
