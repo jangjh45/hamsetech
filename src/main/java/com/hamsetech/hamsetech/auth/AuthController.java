@@ -6,6 +6,7 @@ import com.hamsetech.hamsetech.security.JwtService;
 import com.hamsetech.hamsetech.user.UserAccount;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
 import com.hamsetech.hamsetech.user.UserRole;
+import com.hamsetech.hamsetech.user.UserStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -89,12 +90,15 @@ public class AuthController {
         user.setPasswordHash(passwordEncoder.encode(req.password()));
         user.setDisplayName(req.displayName());
         user.setRoles(Set.of(UserRole.USER));
+        // 가입 신청일 뿐이다. 관리자가 승인해야 로그인할 수 있으므로 토큰을 주지 않는다.
+        user.setStatus(UserStatus.PENDING);
         userRepository.save(user);
         logAuthEvent(user.getUsername(), AdminLog.Action.CREATE, AdminLog.EntityType.USER, user.getId(),
-                "회원가입 | displayName=" + user.getDisplayName());
+                "회원가입 신청 | displayName=" + user.getDisplayName() + " | status=PENDING");
 
-        String token = jwtService.generateToken(user);
-        return ResponseEntity.ok(Map.of("token", token, "username", user.getUsername(), "displayName", user.getDisplayName(), "roles", user.getRoles()));
+        return ResponseEntity.accepted().body(Map.of(
+                "pending", true,
+                "message", "가입 신청이 접수되었습니다. 관리자 승인 후 로그인할 수 있습니다."));
     }
 
     @PostMapping("/login")
@@ -110,6 +114,17 @@ public class AuthController {
             logAuthEvent(user.getUsername(), AdminLog.Action.CREATE, AdminLog.EntityType.AUTH, user.getId(),
                     "로그인 실패 | 비밀번호 불일치");
             return ResponseEntity.status(401).body(Map.of("error", "아이디 또는 비밀번호가 올바르지 않습니다."));
+        }
+        // 비밀번호 확인 뒤에 승인 여부를 본다. 승인 전에 걸러 버리면 아이디 존재 여부가
+        // 비밀번호 없이도 드러난다.
+        // code: FORBIDDEN은 클라이언트가 이 403을 "토큰 만료"로 오인하지 않게 하는 규약이다.
+        if (!user.isApproved()) {
+            String reason = user.getStatus() == UserStatus.REJECTED
+                    ? "가입이 거절된 계정입니다. 관리자에게 문의해 주세요."
+                    : "관리자 승인 대기 중입니다. 승인 후 로그인할 수 있습니다.";
+            logAuthEvent(user.getUsername(), AdminLog.Action.CREATE, AdminLog.EntityType.AUTH, user.getId(),
+                    "로그인 실패 | 미승인 계정 status=" + user.getStatus());
+            return ResponseEntity.status(403).body(Map.of("code", "FORBIDDEN", "error", reason));
         }
         logAuthEvent(user.getUsername(), AdminLog.Action.CREATE, AdminLog.EntityType.AUTH, user.getId(), "로그인 성공");
         String token = jwtService.generateToken(user);

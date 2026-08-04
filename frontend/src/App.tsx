@@ -1,5 +1,5 @@
 import './App.css'
-import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import RegisterPage from './pages/Register'
 import LoginPage from './pages/Login'
@@ -39,18 +39,23 @@ export default function App() {
     <div>
       {!hideHeader && <Header />}
       <Routes>
-        <Route path="/" element={<HomePage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/notices" element={<NoticesPage />} />
-        <Route path="/notice/:id" element={<NoticeDetailPage />} />
-        <Route path="/notice/new" element={<NoticeEditorPage />} />
-        <Route path="/notice/:id/edit" element={<NoticeEditorPage />} />
-        <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
-        <Route path="/delivery" element={<DeliveryPage />} />
-        <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-        <Route path="/overtime" element={<ProtectedRoute><OvertimeRecordsPage /></ProtectedRoute>} />
+        {/* 인증 화면 셋을 뺀 나머지는 전부 로그인이 필요하다 */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/notices" element={<NoticesPage />} />
+          <Route path="/notice/:id" element={<NoticeDetailPage />} />
+          <Route path="/notice/new" element={<NoticeEditorPage />} />
+          <Route path="/notice/:id/edit" element={<NoticeEditorPage />} />
+          <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
+          <Route path="/delivery" element={<DeliveryPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/overtime" element={<OvertimeRecordsPage />} />
+        </Route>
+        {/* 없는 경로는 홈으로. 비로그인이면 홈이 다시 로그인으로 보낸다 */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
   )

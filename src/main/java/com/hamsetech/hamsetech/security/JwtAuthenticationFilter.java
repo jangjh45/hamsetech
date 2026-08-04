@@ -37,7 +37,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (jwtService.isValid(token)) {
                 String username = jwtService.extractUsername(token);
                 var user = userRepository.findByUsername(username).orElse(null);
-                if (user != null) {
+                // 승인이 취소된 계정은 이미 발급된 토큰이 남아 있어도 통과시키지 않는다
+                if (user != null && user.isApproved()) {
                     var authorities = user.getRoles().stream()
                             .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name()))
                             .collect(Collectors.toList());

@@ -24,7 +24,7 @@ export default function HomePage() {
   const [layout, setLayout] = useState<HomeLayout>(() => loadLayout())
   const [editing, setEditing] = useState<boolean>(false)
 
-  const { authenticated, todayEvents, todayTodos, monthOvertime, refresh } = useDashboardData()
+  const { todayEvents, todayTodos, monthOvertime, refresh } = useDashboardData()
 
   // 레이아웃 변경 시 localStorage에 저장
   useEffect(() => {
@@ -54,7 +54,7 @@ export default function HomePage() {
     today: () => (
       <TodayScheduleWidget events={todayEvents} onShowAll={showCalendar ? goToCalendar : undefined} />
     ),
-    overtime: () => <OvertimeSummary records={monthOvertime} authenticated={authenticated} />,
+    overtime: () => <OvertimeSummary records={monthOvertime} />,
     calendar: () => (
       <CalendarWidget
         viewDate={viewDate}
@@ -76,12 +76,10 @@ export default function HomePage() {
     shortcuts: () => <ShortcutsWidget pendingCount={pendingCount} />,
   }
 
-  // 비로그인 상태에서는 토큰이 필요한 항목을 요약에서 뺀다
   const summaryParts = [
     `오늘 일정 ${todayEvents.length}건`,
-    ...(authenticated
-      ? [`남은 할 일 ${remainingTodoCount}건`, `승인 대기 ${pendingCount}건`]
-      : []),
+    `남은 할 일 ${remainingTodoCount}건`,
+    `승인 대기 ${pendingCount}건`,
   ]
 
   return (
