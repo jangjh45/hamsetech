@@ -11,7 +11,9 @@ import com.hamsetech.hamsetech.user.UserAccount;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
 import com.hamsetech.hamsetech.user.UserRole;
 import com.hamsetech.hamsetech.user.UserStatus;
+import com.hamsetech.hamsetech.user.UserWithdrawalService;
 import org.springframework.data.domain.Page;
+import org.springframework.security.core.Authentication;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -41,12 +43,14 @@ public class AdminController {
 	private final UserAccountRepository userRepo;
 	private final AdminLogRepository adminLogRepo;
 	private final AdminReadLogRepository adminReadLogRepo;
+	private final UserWithdrawalService withdrawalService;
 
 	public AdminController(UserAccountRepository userRepo, AdminLogRepository adminLogRepo,
-			AdminReadLogRepository adminReadLogRepo) {
+			AdminReadLogRepository adminReadLogRepo, UserWithdrawalService withdrawalService) {
 		this.userRepo = userRepo;
 		this.adminLogRepo = adminLogRepo;
 		this.adminReadLogRepo = adminReadLogRepo;
+		this.withdrawalService = withdrawalService;
 	}
 
 	@GetMapping("/ping")
@@ -54,12 +58,18 @@ public class AdminController {
 		return "admin pong";
 	}
 
-	public record UserDto(Long id, String username, String displayName, Set<UserRole> roles, UserStatus status) {}
+	public record UserDto(Long id, String username, String displayName, Set<UserRole> roles, UserStatus status,
+			String withdrawRequestedAt, String withdrawnAt, String withdrawReason, String withdrawnBy) {}
 
 	public record UpdateDisplayNameReq(String displayName) {}
 
+	public record WithdrawUserReq(String reason) {}
+
 	private static UserDto toDto(UserAccount u) {
-		return new UserDto(u.getId(), u.getUsername(), u.getDisplayName(), u.getRoles(), u.getStatus());
+		return new UserDto(u.getId(), u.getUsername(), u.getDisplayName(), u.getRoles(), u.getStatus(),
+				u.getWithdrawRequestedAt() == null ? null : u.getWithdrawRequestedAt().toString(),
+				u.getWithdrawnAt() == null ? null : u.getWithdrawnAt().toString(),
+				u.getWithdrawReason(), u.getWithdrawnBy());
 	}
 
 	@AdminLoggable(action = AdminLog.Action.READ, entityType = AdminLog.EntityType.USER, details = "사용자 목록 조회")
@@ -110,6 +120,10 @@ public class AdminController {
 					if (u.getRoles().contains(UserRole.SUPER_ADMIN)) {
 						return ResponseEntity.badRequest().body(Map.of("error", "SUPER_ADMIN 계정은 거절할 수 없습니다."));
 					}
+					// 탈퇴 확정된 계정을 거절 상태로 되돌리면 탈퇴 이력이 가려진다
+					if (u.isWithdrawn()) {
+						return ResponseEntity.badRequest().body(Map.of("error", "이미 탈퇴 처리된 계정입니다."));
+					}
 					u.setStatus(UserStatus.REJECTED);
 					userRepo.save(u);
 					logger.info("Rejected user account: {}", u.getUsername());
@@ -142,6 +156,49 @@ public class AdminController {
 					u.getRoles().remove(UserRole.ADMIN);
 					userRepo.save(u);
 					return ResponseEntity.ok(Map.of("revoked", true));
+				})
+				.orElseGet(() -> ResponseEntity.notFound().build());
+	}
+
+	/**
+	 * 회원 탈퇴 확정. 사용자가 신청한 건을 처리할 때도, 퇴사자를 관리자가 직접 정리할 때도 이 경로를 쓴다.
+	 * 행을 지우지 않는 소프트 탈퇴이며 실제 익명화는 UserWithdrawalService가 맡는다.
+	 */
+	@AdminLoggable(action = AdminLog.Action.DELETE, entityType = AdminLog.EntityType.USER, details = "회원 탈퇴 처리")
+	@PostMapping("/users/{id}/withdraw")
+	public ResponseEntity<?> withdrawUser(@PathVariable(name = "id") @NonNull Long id,
+			@RequestBody(required = false) WithdrawUserReq req, Authentication authentication) {
+		return userRepo.findById(id)
+				.<ResponseEntity<?>>map(u -> {
+					// 자기 계정을 잠그면 관리자 자신이 락아웃된다
+					if (authentication != null && u.getUsername() != null
+							&& u.getUsername().equals(authentication.getName())) {
+						return ResponseEntity.badRequest().body(Map.of("error", "본인 계정은 관리자 화면에서 탈퇴할 수 없습니다."));
+					}
+					try {
+						withdrawalService.confirmWithdraw(u, authentication == null ? "system" : authentication.getName(),
+								req == null ? null : req.reason());
+					} catch (UserWithdrawalService.WithdrawalNotAllowedException e) {
+						return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+					}
+					return ResponseEntity.ok(toDto(u));
+				})
+				.orElseGet(() -> ResponseEntity.notFound().build());
+	}
+
+	/** 탈퇴 신청 반려. 계정을 원래 승인 상태로 되돌린다. */
+	@AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.USER, details = "탈퇴 신청 반려")
+	@PostMapping("/users/{id}/withdraw/reject")
+	public ResponseEntity<?> rejectWithdraw(@PathVariable(name = "id") @NonNull Long id) {
+		return userRepo.findById(id)
+				.<ResponseEntity<?>>map(u -> {
+					try {
+						withdrawalService.cancelWithdrawRequest(u);
+					} catch (UserWithdrawalService.WithdrawalNotAllowedException e) {
+						return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+					}
+					logger.info("Rejected withdrawal request: {}", u.getUsername());
+					return ResponseEntity.ok(toDto(u));
 				})
 				.orElseGet(() -> ResponseEntity.notFound().build());
 	}

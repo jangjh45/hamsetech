@@ -287,6 +287,15 @@
   background: var(--fl-success);
 }
 
+.pf-note.is-warn {
+  background: var(--fl-warn-soft);
+  color: var(--fl-warn);
+}
+
+.pf-note.is-warn .pf-glyph {
+  background: var(--fl-warn);
+}
+
 /* ── 로그아웃 카드 ───────────────────────────────────────────── */
 
 .pf-logout {
@@ -310,6 +319,56 @@
   font-size: 13px;
   color: var(--fl-muted);
   margin-top: 3px;
+}
+
+/* ── 회원 탈퇴(위험 구역) ────────────────────────────────────── */
+
+/* 로그아웃 카드와 시각적으로 확실히 구분해야 실수로 누르지 않는다 */
+.pf-danger {
+  border-color: var(--fl-danger-soft);
+  animation: pf-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both;
+}
+
+.pf-danger .fl-card-title {
+  color: var(--fl-danger);
+}
+
+.pf-danger-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pf-danger-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--fl-muted);
+}
+
+.pf-danger-desc strong {
+  color: var(--fl-danger);
+  font-weight: 600;
+}
+
+.pf-danger-reason {
+  height: auto;
+  padding: 10px 12px;
+  line-height: 1.5;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.pf-danger-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* 위험 구역 안의 버튼은 폭을 내용에 맞춘다 */
+.pf-danger-body > .fl-btn,
+.pf-danger-actions > .fl-btn {
+  align-self: flex-start;
 }
 
 /* ── 모바일 ──────────────────────────────────────────────────── */
@@ -359,6 +418,7 @@
   .pf-summary,
   .pf-cols,
   .pf-logout,
+  .pf-danger,
   .pf-nameedit,
   .pf-note {
     animation: none;

@@ -1,6 +1,7 @@
 package com.hamsetech.hamsetech.user;
 
 import jakarta.persistence.*;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -36,6 +37,21 @@ public class UserAccount {
     @Column(name = "status", length = 20)
     private UserStatus status = UserStatus.PENDING;
 
+    // 탈퇴 관련 컬럼은 전부 nullable이다. 기존 행은 NULL이 정답이므로 백필이 필요 없고
+    // ddl-auto=update가 알아서 추가한다.
+    @Column(name = "withdraw_requested_at")
+    private Instant withdrawRequestedAt;
+
+    @Column(name = "withdrawn_at")
+    private Instant withdrawnAt;
+
+    @Column(name = "withdraw_reason", columnDefinition = "TEXT")
+    private String withdrawReason;
+
+    /** 탈퇴를 확정한 주체. "SELF"이거나 처리한 관리자의 username. */
+    @Column(name = "withdrawn_by", length = 100)
+    private String withdrawnBy;
+
     public Long getId() { return id; }
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
@@ -49,9 +65,32 @@ public class UserAccount {
     public void setRoles(Set<UserRole> roles) { this.roles = roles; }
     public UserStatus getStatus() { return status; }
     public void setStatus(UserStatus status) { this.status = status; }
+    public Instant getWithdrawRequestedAt() { return withdrawRequestedAt; }
+    public void setWithdrawRequestedAt(Instant withdrawRequestedAt) { this.withdrawRequestedAt = withdrawRequestedAt; }
+    public Instant getWithdrawnAt() { return withdrawnAt; }
+    public void setWithdrawnAt(Instant withdrawnAt) { this.withdrawnAt = withdrawnAt; }
+    public String getWithdrawReason() { return withdrawReason; }
+    public void setWithdrawReason(String withdrawReason) { this.withdrawReason = withdrawReason; }
+    public String getWithdrawnBy() { return withdrawnBy; }
+    public void setWithdrawnBy(String withdrawnBy) { this.withdrawnBy = withdrawnBy; }
 
     /** 백필 전 행은 status가 null로 읽힌다. 승인되지 않은 것으로 본다. */
     public boolean isApproved() { return status == UserStatus.APPROVED; }
+
+    /**
+     * 로그인·API 접근 가능 여부.
+     * 탈퇴 신청 중에는 본인이 신청을 취소할 수 있어야 하므로 계속 허용한다.
+     * 승인 여부 판정(isApproved)과 접근 판정은 이 지점부터 갈라진다.
+     */
+    public boolean canAccess() {
+        return status == UserStatus.APPROVED || status == UserStatus.WITHDRAW_REQUESTED;
+    }
+
+    public boolean isWithdrawn() { return status == UserStatus.WITHDRAWN; }
+
+    public boolean isWithdrawRequested() { return status == UserStatus.WITHDRAW_REQUESTED; }
+
+    public boolean isSuperAdmin() { return roles != null && roles.contains(UserRole.SUPER_ADMIN); }
 }
 
 

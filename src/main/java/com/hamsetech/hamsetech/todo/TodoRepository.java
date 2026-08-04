@@ -20,4 +20,7 @@ public interface TodoRepository extends JpaRepository<Todo, Long> {
     
     @Query("SELECT COUNT(t) FROM Todo t WHERE t.user = :user AND t.id = :id")
     int countByUserAndId(@Param("user") UserAccount user, @Param("id") Long id);
+
+    /** 회원 탈퇴 시 개인 데이터를 정리한다. todos.user_id는 NOT NULL이라 남겨 둘 수 없다. */
+    void deleteByUser(UserAccount user);
 } 
