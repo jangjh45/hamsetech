@@ -32,6 +32,15 @@ export function formatTime(time?: string | null): string {
   return `${h.padStart(2, '0')}:${m}`
 }
 
+// 분을 "N시간 M분"으로. 홈 위젯과 프로필 요약이 같은 표기를 쓴다.
+export function formatMinutes(min: number): string {
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  if (h === 0) return `${m}분`
+  if (m === 0) return `${h}시간`
+  return `${h}시간 ${m}분`
+}
+
 // ISO 8601 주차(월요일 시작, 1월 4일이 포함된 주가 1주차).
 export function getWeekNumber(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))

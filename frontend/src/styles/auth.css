@@ -1,0 +1,509 @@
+/*
+ * 인증 화면(로그인/회원가입/비밀번호 찾기) 전용 스타일.
+ *
+ * 토큰과 공용 프리미티브(.fl-field/.fl-input/.fl-btn/.fl-hint/.fl-strength ...)는
+ * dashboard.css에 있고 main.tsx에서 전역 로드된다. 여기에는 인증 화면에만 필요한
+ * .au-* 클래스만 둔다.
+ *
+ * 값은 Claude Design 목업(개선안 - 로그인 회원가입 프로필.dc.html, 안 1b)에서 가져왔다.
+ *
+ * 색상 리터럴을 쓰지 않는다는 원칙에 예외가 하나 있다: 왼쪽 브랜드 면은
+ * 라이트 테마에서도 의도적으로 어둡다(목업 그대로). --fl-surface/--fl-bg로는
+ * 표현할 수 없어서 --au-brand-* 세 개만 여기서 따로 정의한다. 그 밖의 모든
+ * 색은 --fl-* 토큰을 쓴다.
+ */
+
+:root[data-theme='light'] {
+  --au-brand-bg: #0b1c33;
+  --au-brand-glow-a: rgba(77, 159, 255, 0.55);
+  --au-brand-glow-b: rgba(0, 102, 204, 0.45);
+}
+
+:root[data-theme='dark'] {
+  --au-brand-bg: #0a0f1a;
+  --au-brand-glow-a: rgba(77, 159, 255, 0.4);
+  --au-brand-glow-b: rgba(183, 148, 246, 0.28);
+}
+
+/* .fl-page와 같은 방식으로 ui.css의 그라데이션 배경을 덮는다 */
+body:has(.au-shell) {
+  background: var(--fl-bg);
+}
+
+/* ── 셸 ──────────────────────────────────────────────────────── */
+
+.au-shell {
+  display: flex;
+  min-height: 100vh;
+  color: var(--fl-text);
+}
+
+/* ── 왼쪽 브랜드 면 ──────────────────────────────────────────── */
+
+.au-brand {
+  width: 46%;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 44px 48px;
+  background: var(--au-brand-bg);
+  /* 면 자체가 어두우므로 이 안의 글자는 테마와 무관하게 흰색 계열 */
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 32px;
+}
+
+.au-brand-layers span {
+  position: absolute;
+  display: block;
+}
+
+.au-glow-a {
+  inset: -25%;
+  background: radial-gradient(closest-side, var(--au-brand-glow-a), transparent 70%);
+  animation: au-drift 16s ease-in-out infinite;
+}
+
+.au-glow-b {
+  inset: -30%;
+  background: radial-gradient(closest-side, var(--au-brand-glow-b), transparent 72%);
+  animation: au-drift-b 21s ease-in-out infinite;
+}
+
+.au-grid {
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.au-sweep {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 34%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0.06),
+    rgba(255, 255, 255, 0)
+  );
+  animation: au-sweep 9s linear infinite;
+}
+
+/* 브랜드 면의 실제 내용은 배경 레이어 위로 */
+.au-brand-mark,
+.au-brand-main,
+.au-brand-foot {
+  position: relative;
+}
+
+.au-brand-mark {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: #fff;
+  text-decoration: none;
+  align-self: flex-start;
+}
+
+.au-brand-mark:hover {
+  color: #fff;
+}
+
+.au-brand-main {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.au-brand-title {
+  margin: 0;
+  font-size: 38px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.04em;
+  animation: au-rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.au-brand-foot {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* 로그인 화면의 불릿 3개 */
+.au-points {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 14.5px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.au-point {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  animation: au-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.au-point:nth-child(1) { animation-delay: 0.12s; }
+.au-point:nth-child(2) { animation-delay: 0.2s; }
+.au-point:nth-child(3) { animation-delay: 0.28s; }
+
+.au-point::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--fl-primary);
+  flex-shrink: 0;
+}
+
+/* 회원가입 화면의 단계 목록 */
+.au-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.au-step {
+  display: flex;
+  gap: 13px;
+  align-items: flex-start;
+}
+
+.au-step-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.au-step.is-active .au-step-num {
+  background: var(--fl-primary-soft);
+  color: var(--fl-primary);
+}
+
+.au-step-name {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.au-step.is-active .au-step-name {
+  color: #fff;
+}
+
+.au-step-sub {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 2px;
+}
+
+/* ── 오른쪽 폼 면 ────────────────────────────────────────────── */
+
+.au-form {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  box-sizing: border-box;
+  padding: 48px 56px;
+  background: var(--fl-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.au-theme {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+}
+
+.au-form-inner {
+  width: 100%;
+  max-width: 400px;
+}
+
+.au-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 26px;
+  animation: au-slide 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.au-heading h2 {
+  margin: 0;
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+.au-heading p {
+  margin: 0;
+  font-size: 15px;
+  color: var(--fl-muted);
+}
+
+.au-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* 목업의 인증 폼 치수 — 공용 .fl-input(38px)보다 크다 */
+.au-form .fl-input {
+  height: 44px;
+  padding: 0 13px;
+  font-size: 15px;
+}
+
+.au-form .fl-input:focus {
+  box-shadow: 0 0 0 3px var(--fl-primary-soft);
+}
+
+.au-form .fl-btn {
+  height: 46px;
+  font-size: 15px;
+}
+
+.au-submit {
+  margin-top: 5px;
+  width: 100%;
+}
+
+/*
+ * 폼 요소가 위에서부터 차례로 들어온다. 지연은 .fl-field에만 nth-child로 주고
+ * 버튼·안내문은 고정값을 쓴다 — 오류 배너가 중간에 끼면 뒤 요소의 nth-child가
+ * 밀려서 이미 끝난 애니메이션이 다시 실행되기 때문이다.
+ */
+.au-fields > .fl-field,
+.au-fields > .fl-hint,
+.au-submit,
+.au-actions,
+.au-alt {
+  animation: au-slide 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.au-fields > .fl-field:nth-child(1) { animation-delay: 0.08s; }
+.au-fields > .fl-field:nth-child(2) { animation-delay: 0.15s; }
+.au-fields > .fl-field:nth-child(3) { animation-delay: 0.22s; }
+.au-fields > .fl-field:nth-child(4) { animation-delay: 0.29s; }
+
+.au-fields > .fl-hint { animation-delay: 0.2s; }
+.au-submit,
+.au-actions { animation-delay: 0.24s; }
+.au-alt { animation-delay: 0.32s; }
+
+/* 아이디/비밀번호가 틀렸을 때 */
+.au-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: var(--fl-danger-soft);
+  color: var(--fl-danger);
+  font-size: 13px;
+  font-weight: 500;
+  animation: au-shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.au-alert.is-ok {
+  background: var(--fl-success-soft);
+  color: var(--fl-success);
+  animation: au-rise 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 오류/성공 앞에 붙는 작은 원형 글리프 (이모지 대신) */
+.au-glyph {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--fl-danger);
+  color: var(--fl-surface);
+  font-size: 11px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.au-alert.is-ok .au-glyph {
+  background: var(--fl-success);
+}
+
+.au-alt {
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--fl-muted);
+  margin-top: 6px;
+}
+
+.au-forgot {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--fl-primary);
+  text-decoration: none;
+}
+
+/* 제출 버튼 안의 스피너. 다크에서는 버튼 글자색이 어두우므로 바탕 테두리는
+   흰색이 아니라 중립 회색이어야 양쪽에서 다 보인다. */
+.au-spinner {
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  border: 2px solid rgba(128, 138, 160, 0.4);
+  border-top-color: currentColor;
+  animation: au-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+/* ── 회원가입 진행 표시 ──────────────────────────────────────── */
+
+.au-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.au-progress-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--fl-border);
+  transition: background-color 0.3s ease;
+}
+
+.au-progress-bar.is-on {
+  background: var(--fl-primary);
+}
+
+.au-progress-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fl-muted);
+  min-width: 34px;
+  text-align: right;
+}
+
+/* 이전 / 가입 완료하기 */
+.au-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.au-actions .au-submit {
+  flex: 1;
+  margin-top: 0;
+}
+
+/* ── 모바일 ──────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .au-brand {
+    display: none;
+  }
+
+  .au-form {
+    padding: 64px 16px 48px;
+    align-items: flex-start;
+    background: var(--fl-bg);
+  }
+
+  .au-form-inner {
+    max-width: none;
+  }
+
+  .au-heading h2 {
+    font-size: 23px;
+  }
+
+  .au-form .fl-input {
+    height: 48px;
+  }
+
+  .au-form .fl-btn {
+    height: 50px;
+    font-size: 16px;
+  }
+}
+
+/* ── 애니메이션 ──────────────────────────────────────────────── */
+
+@keyframes au-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes au-slide {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes au-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes au-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+@keyframes au-drift {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(3%, -4%, 0) scale(1.06); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes au-drift-b {
+  0% { transform: translate3d(0, 0, 0) scale(1.04); }
+  50% { transform: translate3d(-4%, 3%, 0) scale(1); }
+  100% { transform: translate3d(0, 0, 0) scale(1.04); }
+}
+
+@keyframes au-sweep {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(220%); }
+}
+
+/* 브랜드 면의 배경이 계속 움직이므로 반드시 끌 수 있어야 한다 */
+@media (prefers-reduced-motion: reduce) {
+  .au-glow-a,
+  .au-glow-b,
+  .au-sweep,
+  .au-brand-title,
+  .au-point,
+  .au-heading,
+  .au-fields > .fl-field,
+  .au-fields > .fl-hint,
+  .au-submit,
+  .au-actions,
+  .au-alt,
+  .au-alert {
+    animation: none;
+  }
+
+  .au-sweep {
+    display: none;
+  }
+}

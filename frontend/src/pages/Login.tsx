@@ -1,27 +1,28 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import type { Path } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 import { saveAuth, saveDisplayName } from '../auth/token'
+import AuthShell from '../components/AuthShell'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  // 원래 목적지. 라우트 가드(ProtectedRoute/AdminRoute)는 location 객체를,
+  // 토큰 만료 처리(App의 setupAutoLogout)는 pathname/search/hash만 넘기므로
+  // 둘 다 받는 Partial<Path>로 읽는다. 역할과 무관하게 여기로 돌아가고,
+  // 없으면 모두 메인 페이지로 들어온다.
+  const from = (location.state as { from?: Partial<Path> } | null)?.from
+  const redirectTo = from?.pathname && from.pathname !== '/login' ? from : '/'
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 768)
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-    
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
+  const [busy, setBusy] = useState(false)
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    setBusy(true)
     try {
       const data = await apiFetch('/api/auth/login', {
         method: 'POST',
@@ -31,11 +32,8 @@ export default function LoginPage() {
       const roleList: string[] = roles ?? []
       saveAuth(token, roleList, uname)
       if (displayName) saveDisplayName(displayName)
-      if (roleList.includes('ADMIN')) {
-        navigate('/admin')
-      } else {
-        navigate('/')
-      }
+      // replace로 이동해야 로그인 성공 후 뒤로 가기가 로그인 폼으로 돌아가지 않는다
+      navigate(redirectTo, { replace: true })
     } catch (err: any) {
       // 로그인 실패 시 더 친화적인 오류 메시지 표시
       const errorMessage = err.message || '로그인에 실패했습니다.'
@@ -48,56 +46,84 @@ export default function LoginPage() {
       } else {
         setError(errorMessage)
       }
+      setBusy(false)
     }
   }
 
   return (
-    <div className="container" style={{ 
-      display: 'flex', 
-      justifyContent: 'center',
-      padding: isMobile ? '16px' : '24px'
-    }}>
-      <div className="panel" style={{ 
-        maxWidth: 520, 
-        width: '100%', 
-        margin: '16px auto 32px',
-        textAlign: isMobile ? 'center' : 'left'
-      }}>
-        <h1 className="title" style={{ textAlign: isMobile ? 'center' : 'left' }}>로그인</h1>
-        <p className="subtitle" style={{ textAlign: isMobile ? 'center' : 'left' }}>계정으로 로그인하세요</p>
-        <form className="form" onSubmit={onSubmit}>
-          <div className="field">
-            <input 
-              className="input" 
-              placeholder="아이디" 
-              value={username} 
-              onChange={(e) => setUsername(e.target.value)} 
-            />
-          </div>
-          <div className="field">
-            <input 
-              className="input" 
-              type="password" 
-              placeholder="비밀번호" 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-            />
-          </div>
-          <button 
-            className="btn" 
-            type="submit"
-            style={{ width: isMobile ? '100%' : 'auto' }}
-          >
-            로그인
-          </button>
-          <div>
-            <a className="link-plain" href="/forgot-password">비밀번호를 잊으셨나요?</a>
-          </div>
-          {error && <p className="error">{error}</p>}
-        </form>
+    <AuthShell
+      brandTitle={
+        <>
+          현장과 사무실이
+          <br />
+          같은 화면을 봅니다.
+        </>
+      }
+      brandBody={
+        <div className="au-points">
+          <div className="au-point">적재 시뮬레이터로 차량 배치 미리 확인</div>
+          <div className="au-point">잔업·특근 신청과 집계를 한 곳에서</div>
+          <div className="au-point">공지사항·오늘 일정을 홈에서 바로</div>
+        </div>
+      }
+    >
+      <div className="au-heading">
+        <h2>다시 오셨네요</h2>
+        <p>사내 계정으로 로그인하세요.</p>
       </div>
-    </div>
+
+      <form className="au-fields" onSubmit={onSubmit}>
+        <div className="fl-field">
+          <label className="fl-field-label" htmlFor="login-username">
+            아이디
+          </label>
+          <input
+            id="login-username"
+            className="fl-input"
+            placeholder="사번 또는 아이디"
+            autoComplete="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+        </div>
+
+        <div className="fl-field">
+          <div className="fl-field-label">
+            <label htmlFor="login-password">비밀번호</label>
+            <Link className="au-forgot" to="/forgot-password">
+              잊으셨나요?
+            </Link>
+          </div>
+          <input
+            id="login-password"
+            className="fl-input"
+            type="password"
+            placeholder="비밀번호"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
+
+        {error && (
+          <div className="au-alert" role="alert">
+            <span className="au-glyph">!</span>
+            {error}
+          </div>
+        )}
+
+        <button className="fl-btn fl-btn-primary au-submit" type="submit" disabled={busy}>
+          {busy && <span className="au-spinner" />}
+          <span>{busy ? '확인 중…' : '로그인'}</span>
+        </button>
+
+        <div className="au-alt">
+          계정이 없나요?{' '}
+          <Link className="fl-link" to="/register">
+            회원가입
+          </Link>
+        </div>
+      </form>
+    </AuthShell>
   )
 }
-
-

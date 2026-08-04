@@ -524,6 +524,50 @@ select.fl-input {
   padding: 4px 8px;
 }
 
+/* ── 비밀번호 강도 막대 ──────────────────────────────────────── */
+
+/* components/PasswordStrength.tsx 전용. 회원가입과 프로필이 같이 쓰므로
+   페이지 CSS가 아니라 여기 공용 프리미티브로 둔다. */
+.fl-strength {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fl-strength-bars {
+  flex: 1;
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+}
+
+.fl-strength-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--fl-border);
+  transition: background-color 0.25s ease;
+}
+
+.fl-strength-bar.fl-tone-danger { background: var(--fl-danger); }
+.fl-strength-bar.fl-tone-warn { background: var(--fl-warn); }
+.fl-strength-bar.fl-tone-primary { background: var(--fl-primary); }
+.fl-strength-bar.fl-tone-success { background: var(--fl-success); }
+
+.fl-strength-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fl-muted-2);
+  min-width: 52px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.fl-strength-label.fl-tone-danger { color: var(--fl-danger); }
+.fl-strength-label.fl-tone-warn { color: var(--fl-warn); }
+.fl-strength-label.fl-tone-primary { color: var(--fl-primary); }
+.fl-strength-label.fl-tone-success { color: var(--fl-success); }
+
 .fl-link {
   color: var(--fl-primary);
   font-size: 14px;

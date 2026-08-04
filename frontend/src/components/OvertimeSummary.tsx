@@ -1,18 +1,11 @@
 import { Link } from 'react-router-dom'
 import type { OvertimeRecord } from '../api/overtimeRecords'
+import { formatMinutes } from '../utils/formatDate'
 
 interface OvertimeSummaryProps {
   /** 이번 달 내 잔업/특근 기록 (Home의 useDashboardData에서 내려받는다) */
   records: OvertimeRecord[]
   authenticated: boolean
-}
-
-function formatMinutes(min: number): string {
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  if (h === 0) return `${m}분`
-  if (m === 0) return `${h}시간`
-  return `${h}시간 ${m}분`
 }
 
 export default function OvertimeSummary({ records, authenticated }: OvertimeSummaryProps) {

@@ -2,13 +2,14 @@ import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { clearToken, getToken, onAuthChange, isAdmin, getDisplayName } from '../auth/token'
 import { useEffect, useState } from 'react'
 import useIsMobile from '../hooks/useIsMobile'
+import useTheme from '../hooks/useTheme'
 
 export default function Header() {
   const navigate = useNavigate()
   const [authed, setAuthed] = useState(!!getToken())
   const [admin, setAdmin] = useState(isAdmin())
   const [displayName, setDisplayName] = useState<string | null>(getDisplayName())
-  const [theme, setTheme] = useState<string>(() => (localStorage.getItem('theme') || 'light'))
+  const { theme, toggle: toggleTheme } = useTheme()
   const isMobile = useIsMobile()
   const [showMobileMenu, setShowMobileMenu] = useState<boolean>(false)
 
@@ -21,10 +22,6 @@ export default function Header() {
     return () => off()
   }, [])
 
-  useEffect(() => {
-    applyTheme(theme)
-  }, [theme])
-
   // 데스크톱으로 넓어지면 열려 있던 모바일 메뉴를 닫는다
   useEffect(() => {
     if (!isMobile) setShowMobileMenu(false)
@@ -33,12 +30,6 @@ export default function Header() {
   function handleLogout() {
     clearToken()
     navigate('/')
-  }
-
-  function toggleTheme() {
-    const next = theme === 'dark' ? 'light' : 'dark'
-    setTheme(next)
-    localStorage.setItem('theme', next)
   }
 
   const navLinks = [
@@ -176,10 +167,4 @@ export default function Header() {
       </div>
     </header>
   )
-}
-
-function applyTheme(mode: string) {
-  const root = document.documentElement
-  const theme = mode || 'light'
-  root.setAttribute('data-theme', theme)
 }

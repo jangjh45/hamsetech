@@ -1,220 +1,366 @@
-/* Profile Page Styles */
+/*
+ * 내 프로필 화면 전용 스타일.
+ *
+ * 토큰과 공용 프리미티브(.fl-page/.fl-card/.fl-btn/.fl-input/.fl-badge/.fl-strength ...)는
+ * dashboard.css에 있고 main.tsx에서 전역 로드된다. 여기에는 프로필에만 필요한
+ * .pf-* 클래스만 둔다. 색상 리터럴은 쓰지 않는다 — 전부 --fl-* 토큰이라
+ * 라이트/다크가 자동으로 따라온다.
+ *
+ * 값은 Claude Design 목업(개선안 - 로그인 회원가입 프로필.dc.html, 안 1c)에서 가져왔다.
+ */
 
-.profile-container {
-  max-width: 680px;
-  margin: 0 auto;
-  padding: 40px 20px;
-  animation: fadeIn 0.4s ease-out;
+.pf-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.profile-header {
-  text-align: center;
-  margin-bottom: 40px;
+/*
+ * .fl-card는 대시보드 그리드에서 칸 높이를 채우도록 height:100%를 갖는다.
+ * 프로필은 세로로 쌓이는 배치라 그 값이 살아 있으면 카드들이 페이지 높이를
+ * 나눠 가지며 늘어난다. 여기서는 전부 내용 높이만큼만 쓴다.
+ */
+.pf-page .fl-card {
+  height: auto;
+  flex: 0 0 auto;
 }
 
-.profile-title {
-  font-size: 32px;
+/* ── 요약 헤더 ───────────────────────────────────────────────── */
+
+.pf-summary {
+  display: flex;
+  /* .fl-card가 column이므로 가로 배치는 여기서 다시 지정해야 한다 */
+  flex-direction: row;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 24px 26px;
+  animation: pf-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.pf-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  background: var(--fl-primary-soft);
+  color: var(--fl-primary);
+  font-size: 24px;
   font-weight: 700;
-  margin: 0;
-  background: linear-gradient(135deg, var(--text) 0%, var(--muted) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.profile-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 24px;
-  padding: 32px;
-  margin-bottom: 24px;
-  backdrop-filter: blur(14px) saturate(180%);
-  -webkit-backdrop-filter: blur(14px) saturate(180%);
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.22), inset 0 1px 0 var(--glass-specular);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.profile-card:hover {
-  border-color: var(--primary);
-  box-shadow: 0 16px 48px 0 rgba(0, 0, 0, 0.3), 0 0 15px var(--glow);
-  transform: translateY(-2px);
-}
-
-
-
-.profile-section-header {
   display: flex;
   align-items: center;
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border);
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.profile-section-title {
-  font-size: 20px;
+.pf-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.pf-name-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pf-name {
+  font-size: 22px;
   font-weight: 600;
-  margin: 0;
-  color: var(--text);
+  letter-spacing: -0.035em;
 }
 
-.profile-form-group {
-  margin-bottom: 24px;
-}
-
-.profile-form-group:last-child {
-  margin-bottom: 0;
-}
-
-.profile-label {
-  display: block;
+.pf-handle {
   font-size: 14px;
+  color: var(--fl-muted);
+  overflow-wrap: anywhere;
+}
+
+/* 요약 헤더 오른쪽의 이번 달 잔업 지표 */
+.pf-metrics {
+  display: flex;
+  gap: 26px;
+}
+
+.pf-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pf-metric-label {
+  font-size: 12.5px;
+  color: var(--fl-muted);
+}
+
+.pf-metric-value {
+  font-size: 19px;
+  font-weight: 600;
+}
+
+/* ── 2단 배치 ────────────────────────────────────────────────── */
+
+.pf-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+  animation: pf-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.07s both;
+}
+
+/* ── 계정 정보 (읽기 위주) ───────────────────────────────────── */
+
+.pf-rows {
+  padding: 6px 22px 20px;
+}
+
+.pf-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--fl-divider-soft);
+}
+
+.pf-row-label {
+  font-size: 13.5px;
+  color: var(--fl-muted);
+  flex-shrink: 0;
+}
+
+.pf-row-value {
+  font-size: 14.5px;
   font-weight: 500;
-  color: var(--muted);
-  margin-bottom: 8px;
+  text-align: right;
+  overflow-wrap: anywhere;
 }
 
-.profile-value {
-  background: var(--input-bg);
-  color: var(--text);
-  padding: 14px 16px;
-  border-radius: 12px;
+/* 표시 이름 블록은 값 아래로 편집 입력이 펼쳐지므로 세로 스택 */
+.pf-namefield {
+  padding: 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.pf-namefield-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.pf-namefield-value {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.pf-nameedit {
+  display: flex;
+  gap: 9px;
+  animation: pf-rise 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.pf-nameedit .fl-input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
   font-size: 15px;
-  border: 1px solid var(--border);
-  backdrop-filter: blur(8px);
+  border-color: var(--fl-primary);
+  background: var(--fl-surface);
+  box-shadow: 0 0 0 3px var(--fl-primary-soft);
 }
 
-.profile-input-wrapper {
+.pf-nameedit .fl-btn {
+  height: 40px;
+  flex-shrink: 0;
+}
+
+/* ── 비밀번호 변경 ───────────────────────────────────────────── */
+
+.pf-pwbody {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.pf-pw-wrap {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-.profile-input {
+.pf-pw-wrap .fl-input {
   width: 100%;
-  background: var(--input-bg);
-  border: 1px solid var(--border);
-  color: var(--text);
-  border-radius: 12px;
-  padding: 14px 16px;
-  font-size: 15px;
-  transition: all 0.2s ease;
+  height: 42px;
+  padding-right: 62px;
+  font-size: 14.5px;
 }
 
-.profile-input:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 12px var(--glow);
-  background: var(--panel);
-}
-
-.profile-input:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.profile-input-with-button {
-  display: flex;
-  gap: 12px;
-}
-
-.profile-input-with-button .profile-input {
-  flex: 1;
-}
-
-.profile-password-toggle {
+.pf-pw-toggle {
   position: absolute;
-  right: 12px;
-  background: none;
-  border: none;
-  color: var(--muted);
+  right: 7px;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 1px solid var(--fl-border);
+  background: var(--fl-surface);
+  color: var(--fl-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: inherit;
   cursor: pointer;
-  padding: 8px;
-  border-radius: 8px;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.pf-pw-toggle:hover {
+  border-color: var(--fl-primary);
+  color: var(--fl-primary);
+}
+
+/* 8자 이상 / 숫자 포함 / 기호 포함 */
+.pf-rules {
   display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 4px;
+}
+
+.pf-rule {
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: var(--fl-neutral-soft);
+  color: var(--fl-muted-2);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.pf-rule.is-met {
+  background: var(--fl-success-soft);
+  color: var(--fl-success);
+}
+
+/* 확인란의 일치/불일치 테두리 */
+.pf-confirm.is-match { border-color: var(--fl-success); }
+.pf-confirm.is-mismatch { border-color: var(--fl-danger); }
+
+/* 일치 여부·저장 결과 안내 */
+.pf-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 500;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--fl-danger-soft);
+  color: var(--fl-danger);
+  animation: pf-rise 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.pf-note.is-ok {
+  background: var(--fl-success-soft);
+  color: var(--fl-success);
+}
+
+/* 이모지 대신 쓰는 작은 원형 글리프 */
+.pf-glyph {
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  background: var(--fl-danger);
+  color: var(--fl-surface);
+  font-size: 10px;
+  line-height: 1;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  flex-shrink: 0;
 }
 
-.profile-password-toggle:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text);
+.pf-note.is-ok .pf-glyph {
+  background: var(--fl-success);
 }
 
-/* Password Strength Meter */
-.password-strength-container {
-  margin-top: 12px;
-  background: var(--bg);
-  padding: 12px;
-  border-radius: 12px;
-}
+/* ── 로그아웃 카드 ───────────────────────────────────────────── */
 
-.strength-bars {
+.pf-logout {
   display: flex;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.strength-bar {
-  flex: 1;
-  height: 4px;
-  border-radius: 2px;
-  background-color: var(--border);
-  transition: background-color 0.3s ease;
-}
-
-.strength-text {
-  font-size: 13px;
-  font-weight: 500;
-  text-align: right;
-  margin: 0;
-}
-
-.strength-weak { color: var(--danger); }
-.strength-fair { color: #f59e0b; }
-.strength-good { color: var(--primary); }
-.strength-strong { color: #10b981; }
-
-/* Validation Messages */
-.validation-message {
-  display: flex;
+  /* .fl-card가 column이므로 가로 배치는 여기서 다시 지정해야 한다 */
+  flex-direction: row;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  margin-top: 8px;
-  padding: 8px 12px;
-  border-radius: 8px;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px 22px;
+  animation: pf-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.14s both;
 }
 
-.validation-message.error {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--danger);
-}
-
-.validation-message.success {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
-}
-
-/* Buttons */
-.profile-btn-primary {
-  width: 100%;
-  padding: 14px;
-  font-size: 16px;
+.pf-logout-title {
+  font-size: 14.5px;
   font-weight: 600;
-  margin-top: 12px;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+.pf-logout-sub {
+  font-size: 13px;
+  color: var(--fl-muted);
+  margin-top: 3px;
+}
+
+/* ── 모바일 ──────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .pf-cols {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 768px) {
-  .profile-container {
-    padding: 20px 16px;
+  .pf-summary {
+    gap: 15px;
+    padding: 20px;
   }
-  
-  .profile-card {
-    padding: 24px 20px;
+
+  .pf-avatar {
+    width: 52px;
+    height: 52px;
+    font-size: 20px;
+  }
+
+  .pf-name {
+    font-size: 19px;
+  }
+
+  /* 좁은 화면에서는 지표가 아바타 줄 아래로 떨어진다 */
+  .pf-metrics {
+    width: 100%;
+  }
+
+  .pf-rows {
+    padding: 4px 18px 16px;
+  }
+
+  .pf-pw-wrap .fl-input {
+    height: 48px;
+  }
+}
+
+@keyframes pf-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-summary,
+  .pf-cols,
+  .pf-logout,
+  .pf-nameedit,
+  .pf-note {
+    animation: none;
   }
 }
