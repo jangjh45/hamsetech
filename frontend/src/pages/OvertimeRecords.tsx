@@ -29,6 +29,11 @@ const STATUS_TONE: Record<OvertimeStatus, string> = {
 const LUNCH_BREAK_MINUTES = 60
 const LUNCH_DEDUCTION_THRESHOLD_MINUTES = 6 * 60
 
+/** 저녁 휴게 구간(자정 기준 분). 구분과 무관하게 겹친 만큼 차감된다. */
+const DINNER_BREAK_START_MIN = 17 * 60
+const DINNER_BREAK_END_MIN = 17 * 60 + 30
+const MINUTES_PER_DAY = 24 * 60
+
 type StatusFilter = 'ALL' | OvertimeStatus
 type TypeFilter = 'ALL' | OvertimeType
 
@@ -105,18 +110,36 @@ function formatLongDate(ymd: string): string {
   return `${y}년 ${m}월 ${d}일 (${WEEKDAYS[new Date(y, m - 1, d).getDay()]})`
 }
 
+function overlapMinutes(aStart: number, aEnd: number, bStart: number, bEnd: number): number {
+  return Math.max(0, Math.min(aEnd, bEnd) - Math.max(aStart, bStart))
+}
+
 /** 서버 resolveTotalMinutes와 같은 계산. 저장 전 미리보기용. */
 function durationOf(type: OvertimeType, start: string, end: string): number | null {
   if (!start || !end) return null
   const [sh, sm] = start.split(':').map(Number)
   const [eh, em] = end.split(':').map(Number)
   if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return null
-  let minutes = eh * 60 + em - (sh * 60 + sm)
-  if (minutes < 0) minutes += 24 * 60
-  if (type === 'SPECIAL' && minutes >= LUNCH_DEDUCTION_THRESHOLD_MINUTES) {
-    minutes -= LUNCH_BREAK_MINUTES
+
+  // 휴게 차감은 차감 전 경과 시간(gross) 기준의 시간대로 계산한다.
+  const workStart = sh * 60 + sm
+  let gross = eh * 60 + em - workStart
+  if (gross < 0) gross += MINUTES_PER_DAY
+  const workEnd = workStart + gross
+
+  let net = gross
+  if (type === 'SPECIAL' && gross >= LUNCH_DEDUCTION_THRESHOLD_MINUTES) {
+    net -= LUNCH_BREAK_MINUTES
   }
-  return minutes
+  // 자정을 넘긴 근무는 다음 날 저녁 구간과도 겹칠 수 있어 이틀치를 모두 확인한다.
+  net -= overlapMinutes(workStart, workEnd, DINNER_BREAK_START_MIN, DINNER_BREAK_END_MIN)
+  net -= overlapMinutes(
+    workStart,
+    workEnd,
+    DINNER_BREAK_START_MIN + MINUTES_PER_DAY,
+    DINNER_BREAK_END_MIN + MINUTES_PER_DAY,
+  )
+  return Math.max(0, net)
 }
 
 /** 목록·달력에 공통으로 쓰는 근무시간 표기 */
@@ -451,7 +474,7 @@ export default function OvertimeRecordsPage() {
               </>
             )}
           </div>
-          <div className="fl-stat-sub">{stats.overtimeDays}일</div>
+          <div className="fl-stat-sub">{stats.overtimeDays}일 · 저녁 휴게 30분 차감</div>
         </div>
 
         <div className="fl-stat">
@@ -798,11 +821,11 @@ export default function OvertimeRecordsPage() {
                 />
               </label>
 
-              {form.type === 'SPECIAL' && (
-                <div className="fl-hint">
-                  특근은 6시간 이상 근무 시 점심 휴게시간 1시간이 총 근무시간에서 자동 차감됩니다.
-                </div>
-              )}
+              <div className="fl-hint">
+                저녁 휴게시간 17:00~17:30에 걸친 시간은 총 근무시간에서 자동 차감됩니다.
+                {form.type === 'SPECIAL' &&
+                  ' 특근은 6시간 이상 근무 시 점심 휴게시간 1시간도 함께 차감됩니다.'}
+              </div>
 
               {formError && <div className="fl-error">{formError}</div>}
             </div>

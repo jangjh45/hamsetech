@@ -29,6 +29,10 @@ public class OvertimeRecordService {
     /** 이 시간 이상 근무한 특근에만 점심 차감 적용 (짧은 특근은 점심을 안 먹으므로 제외) */
     private static final int LUNCH_DEDUCTION_THRESHOLD_MINUTES = 6 * 60;
 
+    /** 저녁 휴게 구간 — 근무 시간이 이 구간에 걸치면 겹친 만큼 총 근무시간에서 차감 (구분 무관) */
+    private static final LocalTime DINNER_BREAK_START = LocalTime.of(17, 0);
+    private static final LocalTime DINNER_BREAK_END = LocalTime.of(17, 30);
+
     /** 최초 조회 시 시드되는 구분별 초기 기본 근무시간 */
     private static final LocalTime DEFAULT_SPECIAL_START = LocalTime.of(7, 0);
     private static final LocalTime DEFAULT_SPECIAL_END = LocalTime.of(16, 0);
@@ -240,18 +244,37 @@ public class OvertimeRecordService {
                 .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다"));
     }
 
-    private Integer resolveTotalMinutes(OvertimeType type, LocalTime startTime, LocalTime endTime, Integer totalMinutes) {
+    Integer resolveTotalMinutes(OvertimeType type, LocalTime startTime, LocalTime endTime, Integer totalMinutes) {
         if (startTime != null && endTime != null) {
-            long minutes = Duration.between(startTime, endTime).toMinutes();
-            if (minutes < 0) minutes += 24 * 60;
-            if (type == OvertimeType.SPECIAL && minutes >= LUNCH_DEDUCTION_THRESHOLD_MINUTES) {
-                minutes -= LUNCH_BREAK_MINUTES;
+            // 휴게 차감은 실제 근무한 시간대를 봐야 하므로 차감 전 경과 시간(gross)을 기준으로 계산한다.
+            long gross = Duration.between(startTime, endTime).toMinutes();
+            if (gross < 0) gross += 24 * 60;
+
+            long net = gross;
+            if (type == OvertimeType.SPECIAL && gross >= LUNCH_DEDUCTION_THRESHOLD_MINUTES) {
+                net -= LUNCH_BREAK_MINUTES;
             }
-            return (int) minutes;
+            net -= dinnerOverlapMinutes(startTime, gross);
+            return (int) Math.max(0, net);
         }
         if (totalMinutes == null) {
             throw new IllegalArgumentException("시작/종료 시간 또는 총 시간을 입력해주세요");
         }
         return totalMinutes;
+    }
+
+    /** 근무 구간과 저녁 휴게 구간이 겹치는 분 */
+    private long dinnerOverlapMinutes(LocalTime start, long grossMinutes) {
+        long workStart = start.toSecondOfDay() / 60;
+        long workEnd = workStart + grossMinutes; // 자정을 넘긴 근무는 1440 이상이 된다
+        long dinnerStart = DINNER_BREAK_START.toSecondOfDay() / 60;
+        long dinnerEnd = DINNER_BREAK_END.toSecondOfDay() / 60;
+        // 자정을 넘긴 근무는 다음 날 저녁 구간과도 겹칠 수 있어 이틀치를 모두 확인한다.
+        return overlapMinutes(workStart, workEnd, dinnerStart, dinnerEnd)
+                + overlapMinutes(workStart, workEnd, dinnerStart + 24 * 60, dinnerEnd + 24 * 60);
+    }
+
+    private long overlapMinutes(long aStart, long aEnd, long bStart, long bEnd) {
+        return Math.max(0, Math.min(aEnd, bEnd) - Math.max(aStart, bStart));
     }
 }
