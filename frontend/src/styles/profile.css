@@ -35,7 +35,6 @@
   gap: 20px;
   flex-wrap: wrap;
   padding: 24px 26px;
-  animation: pf-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .pf-avatar {
@@ -107,7 +106,6 @@
   grid-template-columns: 1fr 1fr;
   gap: 16px;
   align-items: start;
-  animation: pf-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.07s both;
 }
 
 /* ── 계정 정보 (읽기 위주) ───────────────────────────────────── */
@@ -161,7 +159,7 @@
 .pf-nameedit {
   display: flex;
   gap: 9px;
-  animation: pf-rise 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: fl-rise 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .pf-nameedit .fl-input {
@@ -260,7 +258,7 @@
   padding: 8px 10px;
   background: var(--fl-danger-soft);
   color: var(--fl-danger);
-  animation: pf-rise 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: fl-rise 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .pf-note.is-ok {
@@ -307,7 +305,6 @@
   gap: 16px;
   flex-wrap: wrap;
   padding: 18px 22px;
-  animation: pf-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.14s both;
 }
 
 .pf-logout-title {
@@ -326,7 +323,6 @@
 /* 로그아웃 카드와 시각적으로 확실히 구분해야 실수로 누르지 않는다 */
 .pf-danger {
   border-color: var(--fl-danger-soft);
-  animation: pf-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both;
 }
 
 .pf-danger .fl-card-title {
@@ -409,16 +405,10 @@
   }
 }
 
-@keyframes pf-rise {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
+/* 진입 연출(.pf-summary/.pf-cols/.pf-logout/.pf-danger)은 dashboard.css의
+   .fl-page > * 전역 규칙이 담당한다. 여기 남은 둘은 상호작용 연출이라
+   직계 자식이 아니고 전역 규칙이 닿지 않으므로 따로 꺼줘야 한다. */
 @media (prefers-reduced-motion: reduce) {
-  .pf-summary,
-  .pf-cols,
-  .pf-logout,
-  .pf-danger,
   .pf-nameedit,
   .pf-note {
     animation: none;
