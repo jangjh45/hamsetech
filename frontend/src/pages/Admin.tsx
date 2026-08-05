@@ -1259,7 +1259,8 @@ export default function AdminPage() {
                     </div>
 
                     <div className="fl-hint">
-                      특근은 6시간 이상 근무 시 점심 휴게시간 1시간이 총 근무시간에서 자동 차감됩니다.
+                      저녁 휴게시간 17:00~17:30에 걸친 시간은 구분과 무관하게 총 근무시간에서 자동 차감됩니다.
+                      특근은 6시간 이상 근무 시 점심 휴게시간 1시간도 함께 차감됩니다.
                     </div>
 
                     <button className="fl-btn" onClick={saveOvertimeDefaults} disabled={defaultsSaving}>
