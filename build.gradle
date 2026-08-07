@@ -38,6 +38,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.5'
 	implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6'
+	// 관리자 잔업/특근 엑셀 내보내기. Spring Boot BOM이 관리하지 않아 버전을 명시한다.
+	implementation 'org.apache.poi:poi-ooxml:5.4.1'
   	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'

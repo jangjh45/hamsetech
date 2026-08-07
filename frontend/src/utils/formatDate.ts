@@ -41,6 +41,25 @@ export function formatMinutes(min: number): string {
   return `${h}시간 ${m}분`
 }
 
+/**
+ * 오늘이 속한 급여 정산 주기를 YYYY-MM-DD 두 개로 돌려준다.
+ * 정산 기간이 달력 월과 어긋나는 회사를 위해 주기 시작일(1~28)을 받는다.
+ *
+ * 예) startDay=15, 오늘 2026-08-08 → 2026-07-15 ~ 2026-08-14 (아직 이번 주기가 시작 전)
+ *     startDay=15, 오늘 2026-08-20 → 2026-08-15 ~ 2026-09-14
+ *     startDay=1,  오늘 2026-08-08 → 2026-08-01 ~ 2026-08-31 (달력 월과 동일)
+ *     startDay=15, 오늘 2026-01-05 → 2025-12-15 ~ 2026-01-14 (연말을 넘어가도 Date가 알아서 보정)
+ */
+export function payrollCycle(startDay: number, today: Date = new Date()): { from: string; to: string } {
+  const day = Math.min(Math.max(Math.trunc(startDay) || 1, 1), 28)
+  // 오늘이 시작일 전이면 아직 지난달에 시작한 주기 안에 있다.
+  const startMonthOffset = today.getDate() >= day ? 0 : -1
+  const from = new Date(today.getFullYear(), today.getMonth() + startMonthOffset, day)
+  // 다음 주기 시작일의 하루 전. day=1이면 자연히 그 달의 말일이 된다.
+  const to = new Date(from.getFullYear(), from.getMonth() + 1, day - 1)
+  return { from: toYmd(from), to: toYmd(to) }
+}
+
 // ISO 8601 주차(월요일 시작, 1월 4일이 포함된 주가 1주차).
 export function getWeekNumber(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))

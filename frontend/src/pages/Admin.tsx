@@ -10,11 +10,12 @@ import {
   getOvertimeSummary,
   getOvertimeDefaults,
   updateOvertimeDefaults,
+  downloadOvertimeExcel,
   type OvertimeRecord,
   type OvertimeSummary,
   type OvertimeDefaults,
 } from '../api/overtimeRecords'
-import { formatTime } from '../utils/formatDate'
+import { formatTime, payrollCycle } from '../utils/formatDate'
 import Pager from '../components/Pager'
 import '../styles/admin.css'
 import '../styles/overtime.css'
@@ -102,6 +103,9 @@ export default function AdminPage() {
   const [overtimeDefaults, setOvertimeDefaults] = useState<OvertimeDefaults | null>(null)
   const [defaultsSaving, setDefaultsSaving] = useState(false)
   const [defaultsMsg, setDefaultsMsg] = useState('')
+  // 엑셀 내보내기 기간. 급여 주기 설정으로 채워지지만 관리자가 자유롭게 고칠 수 있다.
+  const [exportRange, setExportRange] = useState({ from: '', to: '' })
+  const [overtimeExporting, setOvertimeExporting] = useState(false)
   const [logs, setLogs] = useState<AdminLog[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
   const [logStats, setLogStats] = useState<any>(null)
@@ -298,6 +302,7 @@ export default function AdminPage() {
     try {
       const d = await getOvertimeDefaults()
       setOvertimeDefaults(d)
+      setExportRange(payrollCycle(d.payrollStartDay))
     } catch (e: any) {
       setError(e.message || '기본 근무시간 로드 실패')
     }
@@ -310,11 +315,32 @@ export default function AdminPage() {
     try {
       const saved = await updateOvertimeDefaults(overtimeDefaults)
       setOvertimeDefaults(saved)
+      // 주기가 바뀌면 내보내기 기간도 새 주기로 다시 맞춰준다.
+      setExportRange(payrollCycle(saved.payrollStartDay))
       setDefaultsMsg('저장되었습니다.')
     } catch (e: any) {
       setError(e.message || '기본 근무시간 저장 실패')
     } finally {
       setDefaultsSaving(false)
+    }
+  }
+
+  async function exportOvertimeExcel() {
+    if (!exportRange.from || !exportRange.to) return
+    setOvertimeExporting(true)
+    try {
+      const blob = await downloadOvertimeExcel(exportRange.from, exportRange.to)
+      // 개발 환경은 교차 출처라 서버가 준 Content-Disposition을 읽을 수 없어 파일명을 여기서 만든다.
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `잔업특근_${exportRange.from}_${exportRange.to}.xlsx`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (e: any) {
+      setError(e.message || '엑셀 다운로드 실패')
+    } finally {
+      setOvertimeExporting(false)
     }
   }
 
@@ -1258,9 +1284,33 @@ export default function AdminPage() {
                       </div>
                     </div>
 
+                    <div className="fl-field">
+                      <span className="ot-defaults-label">급여 주기 시작일</span>
+                      <div className="ot-payroll-day">
+                        <input
+                          type="number"
+                          className="fl-input"
+                          min={1}
+                          max={28}
+                          value={overtimeDefaults.payrollStartDay ?? 1}
+                          onChange={(e) =>
+                            setOvertimeDefaults({
+                              ...overtimeDefaults,
+                              payrollStartDay: Number(e.target.value),
+                            })
+                          }
+                          aria-label="급여 주기 시작일"
+                        />
+                        <span className="ot-payroll-day-unit">일</span>
+                      </div>
+                    </div>
+
                     <div className="fl-hint">
                       저녁 휴게시간 17:00~17:30에 걸친 시간은 구분과 무관하게 총 근무시간에서 자동 차감됩니다.
                       특근은 6시간 이상 근무 시 점심 휴게시간 1시간도 함께 차감됩니다.
+                      <br />
+                      급여 주기 시작일을 15로 두면 정산 기간이 &lsquo;전달 15일 ~ 이번달 14일&rsquo;이 됩니다.
+                      1이면 달력 월과 같습니다. (29~31일은 없는 달이 있어 지정할 수 없습니다)
                     </div>
 
                     <button className="fl-btn" onClick={saveOvertimeDefaults} disabled={defaultsSaving}>
@@ -1312,6 +1362,41 @@ export default function AdminPage() {
                     </div>
                   ))
                 )}
+              </div>
+
+              {/* 엑셀 내보내기 — 급여 주기가 달력 월과 어긋날 수 있어 위 월 선택기와 별개로 기간을 받는다 */}
+              <div className="ot-export">
+                <span className="ot-export-title">엑셀 다운로드</span>
+                <div className="fl-range">
+                  <input
+                    type="date"
+                    className="fl-input"
+                    value={exportRange.from}
+                    onChange={(e) => setExportRange((prev) => ({ ...prev, from: e.target.value }))}
+                    aria-label="내보낼 기간 시작일"
+                  />
+                  <span className="fl-range-sep">–</span>
+                  <input
+                    type="date"
+                    className="fl-input"
+                    value={exportRange.to}
+                    onChange={(e) => setExportRange((prev) => ({ ...prev, to: e.target.value }))}
+                    aria-label="내보낼 기간 종료일"
+                  />
+                </div>
+                <button
+                  className="fl-btn fl-btn-primary"
+                  onClick={exportOvertimeExcel}
+                  disabled={overtimeExporting || !exportRange.from || !exportRange.to}
+                >
+                  {overtimeExporting ? '생성 중...' : '엑셀 다운로드'}
+                </button>
+                <div className="fl-hint">
+                  {overtimeDefaults
+                    ? `급여 주기 시작일 ${overtimeDefaults.payrollStartDay ?? 1}일 기준으로 채워졌습니다. `
+                    : ''}
+                  상세 내역(대기·반려 포함)과 기간 집계(승인 건만) 두 시트로 받습니다.
+                </div>
               </div>
             </section>
           </div>

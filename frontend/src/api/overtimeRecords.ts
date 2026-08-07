@@ -1,4 +1,4 @@
-import { apiFetch } from './client'
+import { apiFetch, apiFetchBlob } from './client'
 
 export type OvertimeType = 'OVERTIME' | 'SPECIAL'
 export type OvertimeStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
@@ -103,6 +103,13 @@ export interface OvertimeDefaults {
   overtimeEnd: string
   specialStart: string
   specialEnd: string
+  /** 급여 정산 주기 시작일(1~28). 엑셀 내보내기 기본 기간을 채우는 데 쓴다. */
+  payrollStartDay: number
+}
+
+/** 지정한 기간의 잔업/특근 엑셀(.xlsx). 상세 내역·기간 집계 두 시트가 들어 있다. */
+export async function downloadOvertimeExcel(from: string, to: string): Promise<Blob> {
+  return apiFetchBlob(`/api/overtime-records/export?from=${from}&to=${to}`)
 }
 
 export async function getOvertimeDefaults(): Promise<OvertimeDefaults> {
