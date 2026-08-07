@@ -226,6 +226,8 @@ body:has(.fl-page) {
   align-items: center;
   justify-content: center;
   gap: 7px;
+  /* <Link>로 쓰는 버튼(공지 등록/목록/수정 ...)에 브라우저 기본 밑줄이 붙지 않게 */
+  text-decoration: none;
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
