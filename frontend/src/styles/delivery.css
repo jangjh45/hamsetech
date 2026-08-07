@@ -1,0 +1,675 @@
+/*
+ * 적재 시뮬레이터 전용 스타일.
+ *
+ * 토큰과 공용 프리미티브(.fl-page/.fl-card/.fl-th/.fl-tr/.fl-modal ...)는
+ * dashboard.css에 있고 main.tsx에서 전역 로드된다. 여기에는 시뮬레이터에만
+ * 필요한 .dl-* 클래스 — 입력 줄, 물품 표의 열 정의, 트럭 미리보기 — 만 둔다.
+ *
+ * 색상 리터럴은 쓰지 않는다. 전부 --fl-* 토큰이라 라이트/다크가 자동으로
+ * 따라온다. 예외는 물품 구분색(Delivery.tsx의 colorPalette)과 인쇄용 색뿐이고,
+ * 둘 다 테마와 무관하게 같아야 하는 값이다.
+ */
+
+/* ── 공통 조각 ───────────────────────────────────────────────── */
+
+.dl-titleband-actions,
+.dl-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/*
+ * 카드 사이 간격. .fl-page 아래 카드를 감싸는 래퍼를 두면 진입 애니메이션의
+ * 단계(:nth-child)가 한 덩어리로 묶여버려서, 카드에 직접 여백을 준다.
+ */
+.dl-card-gap {
+  margin-top: 16px;
+}
+
+/* ── 적재함 설정 ─────────────────────────────────────────────── */
+
+.dl-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/*
+ * 이름과 치수가 글자 크기가 달라서 baseline 으로 맞춘다. 다만 baseline 정렬은
+ * 남는 세로 공간을 나눠주지 않아서, height 를 고정하면 글자가 위로 붙는다.
+ * 그래서 높이를 못 박지 않고 line-height + 위아래 padding 으로 만든다.
+ * (20 + 6*2 + 테두리 2 = 34px, 다른 칩들과 같은 키)
+ */
+.dl-preset {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 6px 12px;
+  line-height: 20px;
+  border-radius: 8px;
+  border: 1px solid var(--fl-border);
+  background: var(--fl-surface);
+  color: var(--fl-muted);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.dl-preset:hover {
+  border-color: var(--fl-muted-2);
+  color: var(--fl-text);
+}
+
+.dl-preset.is-on {
+  border-color: var(--fl-primary);
+  background: var(--fl-primary-soft);
+  color: var(--fl-primary);
+}
+
+.dl-preset-dim {
+  font-size: 11.5px;
+  color: var(--fl-muted-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-preset.is-on .dl-preset-dim {
+  color: var(--fl-primary);
+  opacity: 0.75;
+}
+
+.dl-bin-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.dl-bin-field {
+  flex: 0 0 auto;
+  width: 116px;
+}
+
+.dl-bin-field .fl-input {
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 회전 허용 체크박스 — 입력 칸들과 같은 높이의 칩으로 */
+.dl-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 9px;
+  border: 1px solid var(--fl-border);
+  background: var(--fl-surface);
+  color: var(--fl-muted);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.dl-toggle:hover {
+  border-color: var(--fl-muted-2);
+  color: var(--fl-text);
+}
+
+.dl-toggle input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--fl-primary);
+  cursor: pointer;
+}
+
+.dl-toggle.is-on {
+  border-color: var(--fl-primary);
+  background: var(--fl-primary-soft);
+  color: var(--fl-primary);
+}
+
+/* 적재 순서: 자동 최적 / 입력 순서 */
+.dl-sort-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ── 물품 목록 표 ────────────────────────────────────────────── */
+
+/* 순서 / 이름 / 치수 / 수량 / 관리 */
+.dl-item-head,
+.dl-item-row {
+  grid-template-columns: 56px minmax(0, 1fr) 218px 84px 76px;
+}
+
+.dl-item-row {
+  cursor: grab;
+}
+
+.dl-item-row.is-dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+/* 드롭될 자리 표시 */
+.dl-item-row.is-over {
+  outline: 2px dashed var(--fl-primary);
+  outline-offset: -2px;
+}
+
+/* 적재함보다 커서 계산에서 빠진 행 */
+.dl-item-row.is-invalid {
+  background: var(--fl-danger-soft);
+  box-shadow: inset 3px 0 0 var(--fl-danger);
+}
+
+.dl-item-row.is-invalid:hover {
+  background: var(--fl-danger-soft);
+}
+
+.dl-item-note {
+  grid-column: 1 / -1;
+  font-size: 12.5px;
+  color: var(--fl-danger);
+}
+
+.dl-item-order {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  color: var(--fl-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 자동 최적 모드에서는 순서가 결과에 영향이 없다는 걸 눈으로 알린다 */
+.dl-item-order.is-muted .fl-drag-handle {
+  opacity: 0.35;
+}
+
+.dl-item-row .fl-input {
+  width: 100%;
+}
+
+/* 치수 칸: 가로 ✕ 세로 */
+.dl-dims {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dl-dims .fl-input {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-dims-x {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--fl-muted-2);
+}
+
+.dl-item-qty {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 적재 미리보기 ───────────────────────────────────────────── */
+
+.dl-preview-body {
+  padding: 18px 22px 22px;
+}
+
+/* 트럭은 한 대씩 세로로 쌓는다. 배치를 크게 봐야 실제로 쓸모가 있다. */
+.dl-truck-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dl-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.dl-truck {
+  border: 1px solid var(--fl-border);
+  border-radius: 12px;
+  background: var(--fl-sunken);
+  padding: 16px 20px 18px;
+  min-width: 0;
+}
+
+/*
+ * 적재함 그림과 요약 칩을 묶는 칸. 폭은 TruckCard가 인라인으로 준다.
+ * (적재함 비율에 따라 세로가 지나치게 길어지지 않게 계산한 값)
+ */
+.dl-truck-figure {
+  margin: 0 auto;
+  min-width: 0;
+}
+
+.dl-truck.is-collapsed .dl-truck-figure {
+  display: none;
+}
+
+/* 머리 줄: 접기 토글 + 요약 + 이미지 저장 */
+.dl-truck-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+/* 이름까지가 누를 수 있는 영역 (안에 저장 버튼이 있어서 머리 전체를 버튼으로 못 쓴다) */
+.dl-truck-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dl-truck-toggle:hover .dl-truck-name {
+  color: var(--fl-primary);
+}
+
+.dl-truck-caret {
+  flex-shrink: 0;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--fl-muted-2);
+  transition: transform 0.15s ease;
+}
+
+.dl-truck.is-collapsed .dl-truck-caret {
+  transform: rotate(-90deg);
+}
+
+.dl-truck-name {
+  font-size: 15px;
+  font-weight: 600;
+  transition: color 0.15s ease;
+}
+
+/* 접었을 때도 몇 개 실렸는지는 보여야 다시 펼칠지 판단할 수 있다 */
+.dl-truck-count {
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--fl-muted-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-truck-rate {
+  font-size: 13.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-truck-save {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid var(--fl-border);
+  background: var(--fl-surface);
+  color: var(--fl-muted-2);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.dl-truck-save:hover {
+  background: var(--fl-primary-soft);
+  border-color: var(--fl-primary);
+  color: var(--fl-primary);
+}
+
+/* 적재율 구간별 색 — 숫자와 막대가 같은 톤을 쓴다 */
+.dl-tone-good { color: var(--fl-success); }
+.dl-tone-mid { color: var(--fl-warn); }
+.dl-tone-low { color: var(--fl-danger); }
+
+.dl-bar {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--fl-track);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+/* 접으면 그림이 사라지므로 막대 아래 여백도 없앤다 */
+.dl-truck.is-collapsed .dl-bar {
+  margin-bottom: 0;
+}
+
+.dl-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+
+.dl-bar-fill.dl-tone-good { background: var(--fl-success); }
+.dl-bar-fill.dl-tone-mid { background: var(--fl-warn); }
+.dl-bar-fill.dl-tone-low { background: var(--fl-danger); }
+
+/* 적재함 그림 — 칸 폭에 맞춰 늘어나고 비율은 적재함 치수를 따른다 */
+.dl-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--fl-border);
+  border-radius: 9px;
+  background: var(--fl-surface);
+}
+
+.dl-svg-item {
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.dl-svg-label {
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 트럭에 실린 물품 요약 칩 */
+.dl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.dl-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--fl-border);
+  background: var(--fl-surface);
+  font-size: 12.5px;
+  color: var(--fl-muted);
+  max-width: 100%;
+}
+
+.dl-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.dl-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fl-text);
+}
+
+.dl-chip-count {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 시나리오 목록 (불러오기 모달) ───────────────────────────── */
+
+.dl-modal-wide {
+  max-width: 680px;
+}
+
+.dl-scenario-search {
+  padding: 14px 24px 0;
+}
+
+.dl-scenario-search .fl-input {
+  width: 100%;
+}
+
+/* 모달 본문이 길어질 수 있어 목록만 따로 스크롤한다 */
+.dl-scenario-body {
+  max-height: min(56vh, 480px);
+  overflow-y: auto;
+}
+
+.dl-scenario-group + .dl-scenario-group {
+  margin-top: 20px;
+}
+
+.dl-scenario-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fl-muted-2);
+}
+
+.dl-scenario-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dl-scenario {
+  border: 1px solid var(--fl-border);
+  border-radius: 11px;
+  background: var(--fl-sunken);
+  padding: 13px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  transition: border-color 0.15s ease;
+}
+
+.dl-scenario:hover {
+  border-color: var(--fl-muted-2);
+}
+
+.dl-scenario-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dl-scenario-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dl-scenario-desc {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: var(--fl-muted);
+}
+
+.dl-scenario-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12.5px;
+  color: var(--fl-muted-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-scenario-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+/* 즐겨찾기 별 — 켜졌을 때만 강조색 */
+.dl-star {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid var(--fl-border);
+  background: var(--fl-surface);
+  color: var(--fl-muted-2);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.dl-star:hover {
+  border-color: var(--fl-warn);
+  color: var(--fl-warn);
+}
+
+.dl-star.is-on {
+  border-color: var(--fl-warn);
+  background: var(--fl-warn-soft);
+  color: var(--fl-warn);
+}
+
+/* ── 삭제 확인 모달 ──────────────────────────────────────────── */
+
+.dl-modal-narrow {
+  max-width: 420px;
+}
+
+.dl-confirm-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--fl-muted);
+}
+
+.dl-confirm-name {
+  font-weight: 600;
+  color: var(--fl-text);
+}
+
+/* ── 반응형 ──────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .dl-item-head,
+  .dl-item-row {
+    grid-template-columns: 48px minmax(0, 1fr) 190px 72px 72px;
+  }
+}
+
+@media (max-width: 768px) {
+  /*
+   * 좁은 화면에서는 .fl-tr의 세로 스택 대신 영역 배치를 쓴다.
+   * 순서·이름·관리가 한 줄에 모여야 한 물품을 한눈에 읽을 수 있다.
+   * (.fl-tr와 특이도를 벌리려고 두 클래스를 함께 건다)
+   */
+  .fl-tr.dl-item-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'order name actions'
+      'dims dims qty'
+      'note note note';
+    gap: 10px;
+    align-items: center;
+  }
+
+  .dl-item-order { grid-area: order; }
+  .dl-item-name { grid-area: name; }
+  .dl-dims { grid-area: dims; }
+  .dl-item-qty { grid-area: qty; width: 72px; }
+  .dl-item-actions { grid-area: actions; }
+  .dl-item-note { grid-area: note; }
+
+  .dl-bin-field { flex: 1 1 100px; width: auto; }
+  .dl-toggle { flex: 1 1 100%; justify-content: center; }
+
+  .dl-preview-body { padding: 14px 16px 16px; }
+  .dl-truck { padding: 14px 14px 16px; }
+  .dl-truck-grid { gap: 12px; }
+  .dl-scenario-search { padding: 12px 16px 0; }
+  .dl-scenario-body { max-height: none; }
+}
+
+/* ── 인쇄 ────────────────────────────────────────────────────── */
+
+/*
+ * 현장에 넘길 적재도만 남긴다. 입력 폼은 종이에서 쓸모가 없고, 접어둔 트럭도
+ * 인쇄물에는 다 나와야 한다. (그래서 접기를 DOM 제거가 아니라 CSS로 처리했다)
+ */
+@media print {
+  body:has(.fl-page) {
+    background: #fff;
+  }
+
+  .fl-page.dl-page {
+    padding: 0;
+    max-width: none;
+  }
+
+  .fl-header,
+  .dl-titleband-actions,
+  .dl-more,
+  .dl-truck-save,
+  .dl-truck-caret,
+  .fl-modal-overlay {
+    display: none !important;
+  }
+
+  /* 적재함 설정 / 물품 목록 카드는 빼고 미리보기만 */
+  .dl-page > .fl-card:not(.dl-preview-card) {
+    display: none !important;
+  }
+
+  /* 진입 애니메이션이 인쇄 시점에 걸려 있으면 빈 종이가 나올 수 있다 */
+  .fl-page > * {
+    animation: none !important;
+  }
+
+  .dl-truck.is-collapsed .dl-truck-figure {
+    display: block !important;
+  }
+
+  .dl-truck.is-collapsed .dl-bar {
+    margin-bottom: 12px;
+  }
+
+  .dl-truck {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    background: #fff;
+    border-color: #999;
+  }
+
+  .fl-card,
+  .fl-stat {
+    box-shadow: none;
+    border-color: #999;
+  }
+
+  .dl-svg {
+    border-color: #999;
+    background: #fff;
+  }
+}

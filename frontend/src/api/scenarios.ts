@@ -6,6 +6,8 @@ export interface PackingItem {
   width: number
   height: number
   quantity: number
+  /** 물품 목록에서의 순서. 이 컬럼이 생기기 전 시나리오는 없을 수 있다. */
+  sortOrder?: number | null
 }
 
 export interface PackingScenario {
@@ -16,6 +18,8 @@ export interface PackingScenario {
   truckHeight: number
   allowRotate: boolean
   margin: number
+  /** 적재 시 물품 목록 순서를 그대로 쓸지 */
+  preserveOrder: boolean
   isFavorite: boolean
   createdAt?: string
   updatedAt?: string
@@ -29,6 +33,7 @@ export interface CreateScenarioRequest {
   truckHeight: number
   allowRotate: boolean
   margin: number
+  preserveOrder: boolean
   items: PackingItem[]
 }
 

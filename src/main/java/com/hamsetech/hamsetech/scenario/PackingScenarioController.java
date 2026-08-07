@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @RestController
 @RequestMapping("/api/scenarios")
@@ -39,6 +40,7 @@ public class PackingScenarioController {
             @NotNull(message = "트럭 세로 크기를 입력해주세요") @Positive(message = "트럭 세로 크기는 양수여야 합니다") Integer truckHeight,
             Boolean allowRotate,
             Integer margin,
+            Boolean preserveOrder,
             @NotNull(message = "아이템 목록을 입력해주세요") List<ItemRequest> items
     ) {}
 
@@ -56,6 +58,7 @@ public class PackingScenarioController {
             @NotNull(message = "트럭 세로 크기를 입력해주세요") @Positive(message = "트럭 세로 크기는 양수여야 합니다") Integer truckHeight,
             Boolean allowRotate,
             Integer margin,
+            Boolean preserveOrder,
             @NotNull(message = "아이템 목록을 입력해주세요") List<ItemRequest> items
     ) {}
 
@@ -67,6 +70,7 @@ public class PackingScenarioController {
             Integer truckHeight,
             Boolean allowRotate,
             Integer margin,
+            Boolean preserveOrder,
             Boolean isFavorite,
             String createdAt,
             String updatedAt,
@@ -78,7 +82,8 @@ public class PackingScenarioController {
             String name,
             Integer width,
             Integer height,
-            Integer quantity
+            Integer quantity,
+            Integer sortOrder
     ) {}
 
     @AdminLoggable(action = AdminLog.Action.READ, entityType = AdminLog.EntityType.SCENARIO, details = "시나리오 전체 목록 조회")
@@ -195,16 +200,20 @@ public class PackingScenarioController {
         scenario.setTruckHeight(request.truckHeight());
         scenario.setAllowRotate(request.allowRotate() != null ? request.allowRotate() : true);
         scenario.setMargin(request.margin() != null ? request.margin() : 0);
+        scenario.setPreserveOrder(request.preserveOrder());
 
-        // 아이템들 추가
-        List<PackingItem> items = request.items().stream()
-                .map(itemRequest -> {
+        // 아이템들 추가. 목록의 인덱스가 곧 적재 순서다.
+        List<ItemRequest> requestItems = request.items();
+        List<PackingItem> items = IntStream.range(0, requestItems.size())
+                .mapToObj(index -> {
+                    ItemRequest itemRequest = requestItems.get(index);
                     PackingItem item = new PackingItem();
                     item.setScenario(scenario);
                     item.setName(itemRequest.name());
                     item.setWidth(itemRequest.width());
                     item.setHeight(itemRequest.height());
                     item.setQuantity(itemRequest.quantity());
+                    item.setSortOrder(index);
                     return item;
                 })
                 .collect(Collectors.toList());
@@ -256,21 +265,25 @@ public class PackingScenarioController {
             scenario.setTruckHeight(request.truckHeight());
             scenario.setAllowRotate(request.allowRotate() != null ? request.allowRotate() : true);
             scenario.setMargin(request.margin() != null ? request.margin() : 0);
+            scenario.setPreserveOrder(request.preserveOrder());
 
             logger.info("시나리오 기본 정보 업데이트 완료 - 아이템 수: {}", request.items().size());
 
             // 기존 아이템들을 모두 삭제하고 새로 추가
             List<PackingItem> items = scenario.getItems();
             items.clear(); // 기존 아이템들 제거
-            
-            // 새 아이템들 추가
-            for (var itemRequest : request.items()) {
+
+            // 새 아이템들 추가. 목록의 인덱스가 곧 적재 순서다.
+            List<ItemRequest> requestItems = request.items();
+            for (int index = 0; index < requestItems.size(); index++) {
+                ItemRequest itemRequest = requestItems.get(index);
                 PackingItem item = new PackingItem();
                 item.setScenario(scenario);
                 item.setName(itemRequest.name());
                 item.setWidth(itemRequest.width());
                 item.setHeight(itemRequest.height());
                 item.setQuantity(itemRequest.quantity());
+                item.setSortOrder(index);
                 items.add(item);
             }
 
@@ -348,7 +361,8 @@ public class PackingScenarioController {
                         item.getName(),
                         item.getWidth(),
                         item.getHeight(),
-                        item.getQuantity()
+                        item.getQuantity(),
+                        item.getSortOrder()
                 ))
                 .collect(Collectors.toList());
 
@@ -360,6 +374,7 @@ public class PackingScenarioController {
                 scenario.getTruckHeight(),
                 scenario.getAllowRotate(),
                 scenario.getMargin(),
+                scenario.getPreserveOrder(),
                 scenario.getIsFavorite(),
                 scenario.getCreatedAt().toString(),
                 scenario.getUpdatedAt().toString(),
