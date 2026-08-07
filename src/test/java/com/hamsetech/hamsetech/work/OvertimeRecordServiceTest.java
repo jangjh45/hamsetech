@@ -3,18 +3,20 @@ package com.hamsetech.hamsetech.work;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * 휴게시간 차감 규칙(총 근무시간 계산) 단위 테스트.
- * resolveTotalMinutes는 주입받은 의존성을 쓰지 않으므로 null로 생성해도 된다.
+ * 휴게시간 차감 규칙(총 근무시간 계산)과 입력값 검증 단위 테스트.
+ * 여기서 다루는 메서드들은 주입받은 의존성을 쓰기 전에 판단이 끝나므로 null로 생성해도 된다.
  */
 class OvertimeRecordServiceTest {
 
-    private final OvertimeRecordService service = new OvertimeRecordService(null, null, null, null);
+    private final OvertimeRecordService service = new OvertimeRecordService(null, null, null, null, null, null);
 
     private int minutes(OvertimeType type, String start, String end) {
         return service.resolveTotalMinutes(type, LocalTime.parse(start), LocalTime.parse(end), null);
@@ -79,5 +81,54 @@ class OvertimeRecordServiceTest {
     void missingBothInputsThrows() {
         assertThatThrownBy(() -> service.resolveTotalMinutes(OvertimeType.OVERTIME, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // ── 엑셀 내보내기 기간 검증 (DB를 건드리기 전에 걸러지므로 의존성 없이 확인할 수 있다) ──
+
+    @Test
+    @DisplayName("내보내기 기간에 빈 날짜가 있으면 예외")
+    void exportRejectsMissingDates() {
+        assertThatThrownBy(() -> service.exportRange(null, LocalDate.of(2026, 8, 14)))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.exportRange(LocalDate.of(2026, 7, 15), null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("시작일이 종료일보다 늦으면 예외")
+    void exportRejectsReversedRange() {
+        assertThatThrownBy(() -> service.exportRange(LocalDate.of(2026, 8, 14), LocalDate.of(2026, 7, 15)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("시작일");
+    }
+
+    @Test
+    @DisplayName("366일을 넘는 기간은 예외")
+    void exportRejectsTooLongRange() {
+        assertThatThrownBy(() -> service.exportRange(LocalDate.of(2025, 1, 1), LocalDate.of(2026, 8, 14)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("최대");
+    }
+
+    // ── 급여 주기 시작일 검증 ──
+
+    @Test
+    @DisplayName("급여 주기 시작일은 1~28만 허용한다")
+    void payrollStartDayRange() {
+        // 29~31은 그 날이 없는 달이 있어 주기 시작일로 쓸 수 없다
+        assertThatThrownBy(() -> OvertimePayrollSetting.validateCycleStartDay(0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> OvertimePayrollSetting.validateCycleStartDay(29))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        assertThatCode(() -> OvertimePayrollSetting.validateCycleStartDay(1)).doesNotThrowAnyException();
+        assertThatCode(() -> OvertimePayrollSetting.validateCycleStartDay(15)).doesNotThrowAnyException();
+        assertThatCode(() -> OvertimePayrollSetting.validateCycleStartDay(28)).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("급여 주기 시작일이 비어 있으면 기존 설정 유지 — 예외 없음")
+    void payrollStartDayNullIsAllowed() {
+        assertThatCode(() -> OvertimePayrollSetting.validateCycleStartDay(null)).doesNotThrowAnyException();
     }
 }

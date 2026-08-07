@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -39,19 +40,31 @@ public class OvertimeRecordService {
     private static final LocalTime DEFAULT_OVERTIME_START = LocalTime.of(16, 0);
     private static final LocalTime DEFAULT_OVERTIME_END = LocalTime.of(19, 0);
 
+    /** 급여 주기 시작일 초기값 — 달력 월과 동일하게 동작한다. */
+    private static final int DEFAULT_PAYROLL_START_DAY = 1;
+
+    /** 엑셀 내보내기 기간 상한. 실수로 전 기간을 요청해 응답이 폭주하는 것을 막는다. */
+    private static final long MAX_EXPORT_DAYS = 366;
+
     private final OvertimeRecordRepository repository;
     private final OvertimeDefaultTimeRepository defaultTimeRepository;
+    private final OvertimePayrollSettingRepository payrollSettingRepository;
     private final UserAccountRepository userAccountRepository;
     private final SecurityUtils securityUtils;
+    private final OvertimeExcelExporter excelExporter;
 
     public OvertimeRecordService(OvertimeRecordRepository repository,
                                   OvertimeDefaultTimeRepository defaultTimeRepository,
+                                  OvertimePayrollSettingRepository payrollSettingRepository,
                                   UserAccountRepository userAccountRepository,
-                                  SecurityUtils securityUtils) {
+                                  SecurityUtils securityUtils,
+                                  OvertimeExcelExporter excelExporter) {
         this.repository = repository;
         this.defaultTimeRepository = defaultTimeRepository;
+        this.payrollSettingRepository = payrollSettingRepository;
         this.userAccountRepository = userAccountRepository;
         this.securityUtils = securityUtils;
+        this.excelExporter = excelExporter;
     }
 
     public OvertimeRecord create(LocalDate workDate, OvertimeType type, LocalTime startTime, LocalTime endTime,
@@ -197,16 +210,62 @@ public class OvertimeRecordService {
         OvertimeDefaultTime special = ensureDefault(OvertimeType.SPECIAL);
         return new OvertimeDefaultsDto(
                 overtime.getStartTime().toString(), overtime.getEndTime().toString(),
-                special.getStartTime().toString(), special.getEndTime().toString());
+                special.getStartTime().toString(), special.getEndTime().toString(),
+                ensurePayrollSetting().getCycleStartDay());
     }
 
     public OvertimeDefaultsDto updateDefaults(OvertimeDefaultsDto req) {
         String me = securityUtils.currentUsername();
         OvertimeDefaultTime overtime = applyDefault(OvertimeType.OVERTIME, req.overtimeStart(), req.overtimeEnd(), me);
         OvertimeDefaultTime special = applyDefault(OvertimeType.SPECIAL, req.specialStart(), req.specialEnd(), me);
+        OvertimePayrollSetting payroll = applyPayrollStartDay(req.payrollStartDay(), me);
         return new OvertimeDefaultsDto(
                 overtime.getStartTime().toString(), overtime.getEndTime().toString(),
-                special.getStartTime().toString(), special.getEndTime().toString());
+                special.getStartTime().toString(), special.getEndTime().toString(),
+                payroll.getCycleStartDay());
+    }
+
+    private OvertimePayrollSetting ensurePayrollSetting() {
+        return payrollSettingRepository.findTopByOrderByIdAsc()
+                .orElseGet(() -> payrollSettingRepository.save(
+                        new OvertimePayrollSetting(DEFAULT_PAYROLL_START_DAY)));
+    }
+
+    /** 값이 없으면 기존 설정을 유지한다 — 이 필드를 모르는 클라이언트가 저장해도 설정이 초기화되지 않는다. */
+    private OvertimePayrollSetting applyPayrollStartDay(Integer day, String updatedBy) {
+        // DB를 건드리기 전에 먼저 거른다.
+        OvertimePayrollSetting.validateCycleStartDay(day);
+        OvertimePayrollSetting setting = ensurePayrollSetting();
+        if (day == null) {
+            return setting;
+        }
+        setting.setCycleStartDay(day);
+        setting.setUpdatedBy(updatedBy);
+        return payrollSettingRepository.save(setting);
+    }
+
+    /**
+     * 지정한 기간의 잔업/특근을 엑셀 워크북(byte[])으로 만든다.
+     * 급여 주기가 달력 월과 어긋날 수 있어 월이 아닌 임의 기간을 받는다.
+     */
+    @Transactional(readOnly = true)
+    public byte[] exportRange(LocalDate from, LocalDate to) {
+        if (from == null || to == null) {
+            throw new IllegalArgumentException("시작일과 종료일을 모두 입력해주세요");
+        }
+        if (from.isAfter(to)) {
+            throw new IllegalArgumentException("시작일이 종료일보다 늦을 수 없습니다");
+        }
+        if (ChronoUnit.DAYS.between(from, to) + 1 > MAX_EXPORT_DAYS) {
+            throw new IllegalArgumentException("한 번에 내보낼 수 있는 기간은 최대 " + MAX_EXPORT_DAYS + "일입니다");
+        }
+
+        // 페이징 없이 기간 전량. 근무일 오름차순 정렬은 exporter가 보장한다
+        // (공용 Specification이 workDate DESC를 강제로 걸지만 여기서 고치면 목록 화면의 정렬까지 바뀐다).
+        List<OvertimeRecord> records = repository.findAll(
+                OvertimeRecordSpecification.withFilters(null, null, null, from, to));
+
+        return excelExporter.build(from, to, records, monthlySummary(from, to));
     }
 
     private OvertimeDefaultTime ensureDefault(OvertimeType type) {

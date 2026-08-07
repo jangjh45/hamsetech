@@ -8,11 +8,14 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
@@ -22,6 +25,9 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/overtime-records")
 public class OvertimeRecordController {
+
+    private static final String XLSX_CONTENT_TYPE =
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     private final OvertimeRecordService service;
 
@@ -98,6 +104,36 @@ public class OvertimeRecordController {
     @PutMapping("/{id}/reject")
     public ResponseEntity<?> reject(@PathVariable @NonNull Long id, @RequestBody RejectReq req) {
         return service.reject(id, req.reason());
+    }
+
+    @AdminLoggable(action = AdminLog.Action.READ, entityType = AdminLog.EntityType.OVERTIME_RECORD,
+            details = "잔업/특근 엑셀 다운로드")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    @GetMapping("/export")
+    public ResponseEntity<?> export(@RequestParam LocalDate from, @RequestParam LocalDate to) {
+        byte[] workbook;
+        try {
+            workbook = service.exportRange(from, to);
+        } catch (IllegalArgumentException e) {
+            // 이 컨트롤러에는 IllegalArgumentException 전역 핸들러가 없어 그대로 두면 500이 된다.
+            // 프론트가 메시지를 그대로 띄울 수 있도록 여기서 400 + {"error": ...}로 바꾼다.
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, XLSX_CONTENT_TYPE)
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition(from, to))
+                .body(workbook);
+    }
+
+    /**
+     * 한글 파일명은 그대로 담을 수 없어 ASCII 폴백(filename)과 RFC 5987 형식(filename*)을 함께 준다.
+     * 개발 환경은 교차 출처라 브라우저가 이 헤더를 읽지 못하므로, 화면에서는 파일명을 따로 만든다(Admin.tsx).
+     */
+    private String contentDisposition(LocalDate from, LocalDate to) {
+        String korean = "잔업특근_" + from + "_" + to + ".xlsx";
+        String encoded = URLEncoder.encode(korean, StandardCharsets.UTF_8).replace("+", "%20");
+        return "attachment; filename=\"overtime-" + from + "_" + to + ".xlsx\"; filename*=UTF-8''" + encoded;
     }
 
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")

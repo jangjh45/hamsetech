@@ -5,7 +5,12 @@ function dispatchTokenExpired() {
   window.dispatchEvent(new CustomEvent('token-expired'))
 }
 
-export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
+/**
+ * 요청을 보내고 응답 본문은 건드리지 않은 채 Response를 돌려준다.
+ * 실패 응답(401/403 자동 로그아웃 포함)은 여기서 전부 처리하고 예외로 던지므로,
+ * 호출자는 성공 응답을 원하는 형태(json/text/blob)로만 읽으면 된다.
+ */
+async function rawFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   let base = (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_BASE) || ''
   if (!base && typeof window !== 'undefined') {
     if (window.location.host.includes('localhost:5173') || window.location.host.includes('127.0.0.1:5173')) {
@@ -21,7 +26,9 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
   }
   if (token) headers.set('Authorization', `Bearer ${token}`)
   const res = await fetch(url, { ...init, headers, credentials: 'include', mode: 'cors' as RequestMode })
-  
+
+  if (res.ok) return res
+
   // 응답 본문을 한 번만 읽기 위한 함수
   const readResponseBody = async () => {
     const contentType = res.headers.get('Content-Type') || ''
@@ -35,23 +42,23 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
       return await res.text()
     }
   }
-  
+
+  const bodyData = await readResponseBody()
+  let message = ''
+
+  if (typeof bodyData === 'object' && bodyData !== null) {
+    message = (bodyData as any).error || (bodyData as any).message || ''
+    if (!message) message = JSON.stringify(bodyData)
+  } else {
+    message = String(bodyData)
+  }
+
   // 토큰 만료 감지 (401 Unauthorized 또는 403 Forbidden)
   // 만료된 토큰은 필터에서 걸러져 익명 요청이 되고, Spring은 그때 401이 아니라 403을 준다.
   // 그래서 403도 만료로 취급해야 하는데, "남의 항목이라 안 됨"도 같은 403이라
   // 그대로 두면 정상 로그인 사용자가 권한 거부 한 번에 로그아웃된다.
   // 서버가 code: FORBIDDEN을 붙인 응답은 만료가 아닌 권한 거부로 구분한다.
-  if (!res.ok && (res.status === 401 || res.status === 403)) {
-    const bodyData = await readResponseBody()
-    let message = ''
-
-    if (typeof bodyData === 'object' && bodyData !== null) {
-      message = (bodyData as any).error || (bodyData as any).message || ''
-      if (!message) message = JSON.stringify(bodyData)
-    } else {
-      message = String(bodyData)
-    }
-
+  if (res.status === 401 || res.status === 403) {
     const isPermissionDenied =
       typeof bodyData === 'object' && bodyData !== null && (bodyData as any).code === 'FORBIDDEN'
 
@@ -72,33 +79,27 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
 
       throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.')
     }
-    
-    // 토큰이 없는 경우 일반 오류로 처리
-    const err = new Error(message || `HTTP ${res.status}`)
-    try { console.error('apiFetch error', { url, status: res.status, message }) } catch {}
-    throw err
   }
-  
-  if (!res.ok) {
-    const bodyData = await readResponseBody()
-    let message = ''
-    
-    if (typeof bodyData === 'object' && bodyData !== null) {
-      message = (bodyData as any).error || (bodyData as any).message || ''
-      if (!message) message = JSON.stringify(bodyData)
-    } else {
-      message = String(bodyData)
-    }
-    
-    const err = new Error(message || `HTTP ${res.status}`)
-    try { console.error('apiFetch error', { url, status: res.status, message }) } catch {}
-    throw err
-  }
-  
+
+  const err = new Error(message || `HTTP ${res.status}`)
+  try { console.error('apiFetch error', { url, status: res.status, message }) } catch {}
+  throw err
+}
+
+export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
+  const res = await rawFetch(input, init)
+
   // 성공 응답 처리
   const contentType = res.headers.get('Content-Type') || ''
   if (contentType.includes('application/json')) return res.json()
   return res.text()
 }
 
-
+/**
+ * 파일 다운로드용. 엑셀 같은 바이너리 응답은 apiFetch로 받으면 text()로 읽혀 파일이 깨진다.
+ * 토큰이 쿠키가 아니라 localStorage에 있어 <a href> 직접 링크로는 받을 수 없다.
+ */
+export async function apiFetchBlob(input: RequestInfo | URL, init: RequestInit = {}): Promise<Blob> {
+  const res = await rawFetch(input, init)
+  return res.blob()
+}
