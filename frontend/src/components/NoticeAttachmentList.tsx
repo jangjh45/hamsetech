@@ -12,6 +12,30 @@ interface Props {
 }
 
 /**
+ * 클립 아이콘.
+ *
+ * 이모지(📎) 대신 선으로 그린다. 이모지는 OS마다 모양과 색이 제각각이라
+ * 다크 모드에서 혼자 튀고, 이 화면의 다른 글리프(✎ ✕ ✓)와도 결이 다르다.
+ * currentColor를 쓰므로 주변 글자색을 그대로 따라간다.
+ */
+function PaperclipIcon() {
+  return (
+    <svg
+      className="nt-attach-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </svg>
+  )
+}
+
+/**
  * 첨부 목록.
  *
  * 본문에 삽입된 이미지(IMAGE)는 이미 본문에 보이므로 여기서는 빼고,
@@ -44,9 +68,7 @@ export default function NoticeAttachmentList({ attachments, onRemove }: Props) {
 
       {files.map((att) => (
         <div key={att.id} className="nt-attach-row">
-          <span className="nt-attach-icon" aria-hidden="true">
-            📎
-          </span>
+          <PaperclipIcon />
           <button
             type="button"
             className="nt-attach-name"

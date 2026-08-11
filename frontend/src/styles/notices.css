@@ -404,9 +404,12 @@
   background: var(--fl-sunken);
 }
 
+/* 선으로 그린 클립 아이콘. 색은 currentColor라 주변 글자색을 따라간다 */
 .nt-attach-icon {
   flex-shrink: 0;
-  font-size: 13px;
+  width: 15px;
+  height: 15px;
+  color: var(--fl-muted-2);
 }
 
 /* 파일명은 링크처럼 보이지만 실제로는 blob 내려받기라 button이다 */
