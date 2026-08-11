@@ -675,6 +675,19 @@
   color: var(--fl-muted);
 }
 
+/* 에디터를 따로 내려받는 동안 자리를 잡아 폼이 튀지 않게 한다 */
+.nt-editor-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 360px;
+  border: 1px solid var(--fl-border);
+  border-radius: 10px;
+  background: var(--fl-sunken);
+  font-size: 14px;
+  color: var(--fl-muted-2);
+}
+
 /* 분류 select와 상단 고정 체크박스를 한 줄에 */
 .nt-editor-row {
   display: flex;

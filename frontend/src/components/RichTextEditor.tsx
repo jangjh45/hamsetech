@@ -136,32 +136,3 @@ export default function RichTextEditor({ initialHtml, onChange, onImageUploaded,
 
   return <div className="nt-editor" ref={containerRef} />
 }
-
-/**
- * 편집기가 비었는지.
- *
- * Quill은 빈 상태에서도 "<p><br></p>"를 내보내기 때문에 문자열 길이로는 판단할 수 없다.
- * 글자가 없어도 이미지만 있는 글은 유효하다.
- */
-export function isEmptyHtml(html: string): boolean {
-  if (!html) return true
-  if (/<img\b/i.test(html)) return false
-  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() === ''
-}
-
-/**
- * 평문을 문단 HTML로 옮긴다. 리치 텍스트 도입 전에 쓴 글을 편집기에 올릴 때 쓴다.
- *
- * 이스케이프가 먼저다. 본문에 <나 &가 들어 있는 글을 그대로 넣으면 태그로 해석돼
- * 내용이 깨지거나 사라진다.
- */
-export function plainTextToHtml(plain: string): string {
-  const escaped = plain
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-  return escaped
-    .split(/\r?\n/)
-    .map((line) => `<p>${line || '<br>'}</p>`)
-    .join('')
-}

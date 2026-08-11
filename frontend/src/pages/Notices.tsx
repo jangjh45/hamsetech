@@ -17,6 +17,8 @@ const PAGE_SIZE = 10
 export default function NoticesPage() {
   const [items, setItems] = useState<NoticeSummary[]>([])
   const [pinned, setPinned] = useState<NoticeSummary[]>([])
+  // 고정 공지는 첫 페이지에서만 내려오므로, 머리말 건수를 위해 개수를 따로 기억한다
+  const [pinnedTotal, setPinnedTotal] = useState(0)
   const [q, setQ] = useState('')
   const [category, setCategory] = useState<NoticeCategory | ''>('')
   const [page, setPage] = useState(0)
@@ -30,6 +32,7 @@ export default function NoticesPage() {
       const resp = await listNotices(p, PAGE_SIZE, query, cat || undefined)
       setItems(resp.page.content)
       setPinned(resp.pinned)
+      if (p === 0) setPinnedTotal(resp.pinned.length)
       setTotalElements(resp.page.totalElements)
       setTotalPages(resp.page.totalPages)
       setPage(resp.page.number)
@@ -59,12 +62,16 @@ export default function NoticesPage() {
   // 고정 공지가 페이징 밖으로 빠져 있어 이 계산은 고정글 수와 무관하게 그대로 맞다
   const startNumber = totalElements - page * PAGE_SIZE
 
+  // 머리말 건수에는 고정 공지도 넣는다. totalElements는 일반글만 세기 때문에
+  // 그대로 쓰면 화면에 보이는 줄 수보다 적게 나온다.
+  const displayTotal = totalElements + pinnedTotal
+
   return (
     <div className="fl-page">
       <div className="fl-titleband">
         <div>
           <h1>공지사항</h1>
-          <p>전체 {totalElements}건</p>
+          <p>전체 {displayTotal}건</p>
         </div>
         {isAdmin() && (
           <Link className="fl-btn fl-btn-primary" to="/notice/new">

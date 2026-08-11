@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import {
   createNotice,
   getNotice,
@@ -10,9 +10,13 @@ import {
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { isAdmin, getDisplayName } from '../auth/token'
 import { uploadAttachment, type NoticeAttachment } from '../api/noticeAttachments'
-import RichTextEditor, { isEmptyHtml, plainTextToHtml } from '../components/RichTextEditor'
+import { isEmptyHtml, plainTextToHtml } from '../utils/noticeHtml'
 import NoticeAttachmentList from '../components/NoticeAttachmentList'
 import '../styles/notices.css'
+
+// 에디터는 관리자만 여는 화면인데 무게가 상당하다(Quill + 테마 CSS).
+// 따로 떼어 두면 공지를 읽기만 하는 대다수는 내려받지 않는다.
+const RichTextEditor = lazy(() => import('../components/RichTextEditor'))
 
 export default function NoticeEditorPage() {
   const { id } = useParams()
@@ -163,12 +167,14 @@ export default function NoticeEditorPage() {
           <div className="nt-field">
             <span className="nt-field-label">내용</span>
             {ready && (
-              <RichTextEditor
-                initialHtml={content}
-                onChange={setContent}
-                onImageUploaded={(id) => setImageIds((prev) => [...prev, id])}
-                placeholder="공지 내용을 입력하세요"
-              />
+              <Suspense fallback={<div className="nt-editor-loading">편집기를 불러오는 중...</div>}>
+                <RichTextEditor
+                  initialHtml={content}
+                  onChange={setContent}
+                  onImageUploaded={(id) => setImageIds((prev) => [...prev, id])}
+                  placeholder="공지 내용을 입력하세요"
+                />
+              </Suspense>
             )}
           </div>
 
