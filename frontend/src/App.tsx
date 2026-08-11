@@ -47,8 +47,9 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/notices" element={<NoticesPage />} />
           <Route path="/notice/:id" element={<NoticeDetailPage />} />
-          <Route path="/notice/new" element={<NoticeEditorPage />} />
-          <Route path="/notice/:id/edit" element={<NoticeEditorPage />} />
+          {/* 공지 작성·수정은 관리자만. 서버도 403으로 막지만 폼까지 갈 이유가 없다 */}
+          <Route path="/notice/new" element={<AdminRoute><NoticeEditorPage /></AdminRoute>} />
+          <Route path="/notice/:id/edit" element={<AdminRoute><NoticeEditorPage /></AdminRoute>} />
           <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
           <Route path="/delivery" element={<DeliveryPage />} />
           <Route path="/profile" element={<ProfilePage />} />

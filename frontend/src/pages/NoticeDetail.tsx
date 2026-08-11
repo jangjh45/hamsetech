@@ -3,20 +3,21 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   addComment,
   getNotice,
+  getNoticeNeighbors,
   listComments,
-  listNotices,
   deleteNotice,
   deleteComment,
-  type Notice,
+  NOTICE_CATEGORY_LABELS,
+  type NoticeDetail,
+  type NoticeNeighbors,
   type NoticeComment,
 } from '../api/notices'
 import { isAuthenticated, isAdmin, getUsername } from '../auth/token'
 import { formatDateTime } from '../utils/formatDate'
 import CommentNode, { type CommentNodeData } from '../components/CommentNode'
+import NoticeHtmlView from '../components/NoticeHtmlView'
+import NoticeAttachmentList from '../components/NoticeAttachmentList'
 import '../styles/notices.css'
-
-// 이전·다음 글을 찾기 위해 훑는 목록 범위. 별도 API 없이 목록 API를 재사용한다.
-const NEIGHBOR_SCAN_SIZE = 50
 
 function buildCommentTree(flatComments: NoticeComment[]): CommentNodeData[] {
   const map = new Map<number, CommentNodeData>()
@@ -52,12 +53,10 @@ export default function NoticeDetailPage() {
   const noticeId = Number(id)
   const navigate = useNavigate()
 
-  const [notice, setNotice] = useState<Notice | null>(null)
+  const [notice, setNotice] = useState<NoticeDetail | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [comments, setComments] = useState<NoticeComment[]>([])
-  // 서버가 id DESC로 내려주므로 목록에서 앞이 최신(다음 글), 뒤가 이전 글이다.
-  const [prev, setPrev] = useState<Notice | null>(null)
-  const [next, setNext] = useState<Notice | null>(null)
+  const [neighbors, setNeighbors] = useState<NoticeNeighbors>({ prev: null, next: null })
   const [text, setText] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -74,13 +73,9 @@ export default function NoticeDetailPage() {
   useEffect(() => {
     if (!noticeId) return
     let cancelled = false
-    listNotices(0, NEIGHBOR_SCAN_SIZE)
-      .then((page) => {
-        if (cancelled) return
-        const idx = page.content.findIndex((n) => n.id === noticeId)
-        if (idx < 0) return
-        setNext(idx > 0 ? page.content[idx - 1] : null)
-        setPrev(idx < page.content.length - 1 ? page.content[idx + 1] : null)
+    getNoticeNeighbors(noticeId)
+      .then((n) => {
+        if (!cancelled) setNeighbors(n)
       })
       .catch(() => {})
     return () => {
@@ -177,6 +172,9 @@ export default function NoticeDetailPage() {
             <h1 className="nt-article-title">{notice ? notice.title : '불러오는 중...'}</h1>
             {notice && (
               <div className="nt-article-meta">
+                <span className="nt-badge-cat">{NOTICE_CATEGORY_LABELS[notice.category]}</span>
+                {notice.pinned && <span className="nt-badge-pin">공지</span>}
+                <span className="nt-meta-sep" />
                 <span className="nt-article-meta-author">
                   <span className="nt-avatar-sm">{author.charAt(0)}</span>
                   {author}
@@ -189,11 +187,17 @@ export default function NoticeDetailPage() {
                     <span className="nt-tnum">수정됨 {formatDateTime(notice.updatedAt)}</span>
                   </>
                 )}
+                <span className="nt-meta-sep" />
+                <span className="nt-tnum">조회 {notice.viewCount}</span>
               </div>
             )}
           </div>
 
-          {notice && <div className="nt-article-body">{notice.content}</div>}
+          {notice && (
+            <NoticeHtmlView content={notice.content} contentFormat={notice.contentFormat} />
+          )}
+
+          {notice && <NoticeAttachmentList attachments={notice.attachments} />}
 
           <div className="nt-actions nt-actions-article">
             <Link className="fl-btn" to="/notices">
@@ -257,14 +261,14 @@ export default function NoticeDetailPage() {
           </div>
         </section>
 
-        {(prev || next) && (
+        {(neighbors.prev || neighbors.next) && (
           <section className="fl-card">
             <div className="fl-card-head">
               <span className="fl-card-title">이전 · 다음 글</span>
             </div>
             <div className="fl-card-body fl-flush">
-              <NeighborRow label="이전" notice={prev} />
-              <NeighborRow label="다음" notice={next} />
+              <NeighborRow label="이전" notice={neighbors.prev} />
+              <NeighborRow label="다음" notice={neighbors.next} />
             </div>
           </section>
         )}
@@ -273,7 +277,13 @@ export default function NoticeDetailPage() {
   )
 }
 
-function NeighborRow({ label, notice }: { label: string; notice: Notice | null }) {
+function NeighborRow({
+  label,
+  notice,
+}: {
+  label: string
+  notice: { id: number; title: string } | null
+}) {
   const body = (
     <>
       <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--fl-muted-2)' }}>{label}</span>

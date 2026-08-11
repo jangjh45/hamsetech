@@ -46,8 +46,11 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      UPLOAD_DIR: /app/uploads
     expose:
       - "8080"                             # 외부 포트 미노출 (Nginx가 내부 연결)
+    volumes:
+      - notice_uploads:/app/uploads        # 공지 첨부파일. 컨테이너를 다시 만들어도 남는다
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,4 +81,7 @@ networks:
 
 volumes:
   postgres_prod_data:
+    driver: local
+  # 공지 첨부파일 원본. DB 백업에 포함되지 않으므로 따로 백업해야 한다.
+  notice_uploads:
     driver: local

@@ -39,6 +39,9 @@ out/
 ### Logs ###
 logs/
 
+### 공지 첨부파일 (개발 중 업로드한 실제 파일) ###
+uploads/
+
 ### Docker ###
 .env
 ### Claude Code ###

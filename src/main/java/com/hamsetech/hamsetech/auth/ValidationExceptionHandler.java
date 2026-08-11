@@ -25,6 +25,17 @@ public class ValidationExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
+    /**
+     * 어노테이션만으로는 못 잡는 본문 검증(예: 공지 본문이 태그만 남고 글자가 없는 경우)에서
+     * 던지는 예외. 그대로 두면 500이 나가 사용자에게 원인이 전달되지 않는다.
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<?> handleIllegalArgument(IllegalArgumentException ex) {
+        Map<String, String> body = new HashMap<>();
+        body.put("error", ex.getMessage() != null ? ex.getMessage() : "입력 값이 올바르지 않습니다.");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<?> handleDup(DataIntegrityViolationException ex) {
         // 유니크 제약 등 중복 위반 시 사용자 친화 메시지 반환

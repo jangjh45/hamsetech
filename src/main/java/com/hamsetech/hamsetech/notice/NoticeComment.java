@@ -24,7 +24,13 @@ public class NoticeComment {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private NoticeComment parent;
 
-    @Column(nullable = false)
+    /**
+     * 컨트롤러 검증(@Size(max = 500))과 길이를 맞춘다.
+     * length를 명시하지 않던 동안 DDL은 varchar(255)로 생성돼, 256~500자 댓글이
+     * 검증은 통과하고 DB 저장에서 터졌다. ddl-auto=update는 기존 컬럼 길이를
+     * 바꿔주지 않으므로 이미 만들어진 테이블은 NoticeSchemaFixer가 보정한다.
+     */
+    @Column(nullable = false, length = 500)
     private String content;
 
     @Column(nullable = false, length = 100)
