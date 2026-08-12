@@ -1,0 +1,25 @@
+# 프론트엔드 이미지 빌드 컨텍스트에서 뺄 것들.
+#
+# node_modules를 빼는 것이 이 파일의 핵심이다.
+# Dockerfile은 package*.json만 먼저 복사해 `npm ci`로 리눅스용 의존성을 깔고,
+# 그 다음 `COPY . .`로 소스를 얹는다. 이때 호스트의 node_modules가 함께
+# 복사되면 방금 깐 리눅스 바이너리를 윈도우/맥용 바이너리가 덮어써
+# esbuild·rollup이 "wrong platform" 으로 죽는다.
+# CI는 클린 체크아웃이라 안 터지지만 로컬 빌드만 조용히 깨진다.
+
+node_modules/
+
+# 컨테이너 안에서 npm run build로 다시 만든다. 호스트 산출물이 섞이면
+# 최신 소스가 아닌 오래된 번들이 이미지에 들어갈 수 있다.
+dist/
+
+# ── 버전 관리·에디터 ────────────────────────
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# ── 이미지 안에서 쓰지 않는 것 ──────────────
+Dockerfile
+.dockerignore
+*.md
