@@ -1,0 +1,49 @@
+# 백엔드 이미지 빌드 컨텍스트에서 뺄 것들.
+#
+# Dockerfile이 실제로 쓰는 것은 gradlew, gradle/, build.gradle, settings.gradle,
+# src/, docker/backend-dev-entrypoint.sh 뿐이다. 나머지는 도커 데몬으로
+# 전송만 되고 쓰이지 않는다. 이 파일이 없으면 컨텍스트가 200MB를 넘는다
+# (frontend/node_modules 118MB + build 95MB).
+
+# ── 빌드 산출물 ─────────────────────────────
+# 호스트에서 만든 클래스·jar가 컨테이너 빌드에 섞이면 안 된다.
+# 컨테이너는 자기 안에서 ./gradlew bootJar 로 다시 빌드한다.
+build/
+.gradle/
+bin/
+out/
+
+# ── 프론트엔드 ──────────────────────────────
+# 백엔드 이미지와 무관하다. 프론트는 frontend/Dockerfile이 따로 빌드한다.
+frontend/
+
+# ── 버전 관리·에디터 ────────────────────────
+.git/
+.gitattributes
+.gitignore
+.github/
+.vscode/
+.idea/
+.cursor/
+.claude/
+
+# ── 비밀·런타임 데이터 ──────────────────────
+# .env가 이미지에 들어가지는 않지만(COPY 대상이 아님), 컨텍스트에
+# 올리지 않는 편이 안전하다.
+.env
+.env.*
+!.env.example
+uploads/
+logs/
+
+# ── 컨테이너 오케스트레이션 ─────────────────
+# 이미지 안에서 쓸 일이 없다.
+docker-compose.yml
+docker-compose.prod.yml
+Dockerfile
+.dockerignore
+
+# ── 기타 ────────────────────────────────────
+*.md
+cspell.json
+gradlew.bat
