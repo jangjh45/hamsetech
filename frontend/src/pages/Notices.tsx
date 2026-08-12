@@ -10,6 +10,7 @@ import {
 import { isAdmin } from '../auth/token'
 import { formatDate } from '../utils/formatDate'
 import Pager from '../components/Pager'
+import { CommentIcon, PaperclipIcon } from '../components/NoticeIcons'
 import '../styles/notices.css'
 
 const PAGE_SIZE = 10
@@ -151,8 +152,18 @@ function NoticeRow({ notice, number }: { notice: NoticeSummary; number?: number 
       </span>
       <span className="nt-row-title">
         {notice.title}
-        {notice.commentCount > 0 && <span className="nt-row-badge">💬 {notice.commentCount}</span>}
-        {notice.attachmentCount > 0 && <span className="nt-row-badge">📎 {notice.attachmentCount}</span>}
+        {notice.commentCount > 0 && (
+          <span className="nt-row-badge" title={`댓글 ${notice.commentCount}개`}>
+            <CommentIcon />
+            {notice.commentCount}
+          </span>
+        )}
+        {notice.attachmentCount > 0 && (
+          <span className="nt-row-badge" title={`첨부파일 ${notice.attachmentCount}개`}>
+            <PaperclipIcon />
+            {notice.attachmentCount}
+          </span>
+        )}
       </span>
       <span className="nt-row-author">{author}</span>
       <span className="nt-row-views">{notice.viewCount}</span>

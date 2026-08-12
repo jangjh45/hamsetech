@@ -4,35 +4,12 @@ import {
   formatFileSize,
   type NoticeAttachment,
 } from '../api/noticeAttachments'
+import { PaperclipIcon } from './NoticeIcons'
 
 interface Props {
   attachments: NoticeAttachment[]
   /** 편집 화면에서만 넘긴다. 있으면 제거 버튼이 붙는다. */
   onRemove?: (id: number) => void
-}
-
-/**
- * 클립 아이콘.
- *
- * 이모지(📎) 대신 선으로 그린다. 이모지는 OS마다 모양과 색이 제각각이라
- * 다크 모드에서 혼자 튀고, 이 화면의 다른 글리프(✎ ✕ ✓)와도 결이 다르다.
- * currentColor를 쓰므로 주변 글자색을 그대로 따라간다.
- */
-function PaperclipIcon() {
-  return (
-    <svg
-      className="nt-attach-icon"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-    </svg>
-  )
 }
 
 /**
@@ -68,7 +45,7 @@ export default function NoticeAttachmentList({ attachments, onRemove }: Props) {
 
       {files.map((att) => (
         <div key={att.id} className="nt-attach-row">
-          <PaperclipIcon />
+          <PaperclipIcon className="nt-attach-icon" />
           <button
             type="button"
             className="nt-attach-name"

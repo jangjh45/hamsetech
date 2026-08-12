@@ -138,9 +138,41 @@ public class NoticeSchemaFixer {
         };
     }
 
-    /** 첨부 조회 인덱스. 고아 정리는 notice_id가 NULL인 행만 훑으므로 부분 인덱스로 둔다. */
+    /**
+     * 댓글 → 공지 외래키에 ON DELETE CASCADE를 건다.
+     *
+     * Notice에는 댓글 컬렉션이 없어서 공지를 지울 때 Hibernate가 댓글을 먼저 지우지
+     * 않는다. 그래서 DB가 대신 정리해 줘야 하는데, 이 제약이 CASCADE 없이 만들어진
+     * 동안에는 댓글이 달린 공지가 외래키 위반으로 삭제되지 않았다.
+     * ddl-auto=update는 이미 있는 제약을 고쳐 주지 않으므로 여기서 다시 만든다.
+     */
     @Bean
     @Order(14)
+    CommandLineRunner cascadeNoticeCommentsOnDelete(JdbcTemplate jdbc) {
+        return args -> {
+            try {
+                // confdeltype 'c'가 CASCADE다. 이미 c면 건드리지 않는다.
+                List<String> stale = jdbc.queryForList(
+                        "SELECT conname FROM pg_constraint " +
+                        "WHERE contype = 'f' AND conrelid = 'notice_comments'::regclass " +
+                        "AND confrelid = 'notices'::regclass AND confdeltype <> 'c'",
+                        String.class);
+                for (String name : stale) {
+                    jdbc.execute("ALTER TABLE notice_comments DROP CONSTRAINT IF EXISTS \"" + name + "\"");
+                    jdbc.execute("ALTER TABLE notice_comments " +
+                                 "ADD CONSTRAINT fk_notice_comments_notice " +
+                                 "FOREIGN KEY (notice_id) REFERENCES notices(id) ON DELETE CASCADE");
+                    logger.info("Rebuilt notice_comments -> notices FK with ON DELETE CASCADE");
+                }
+            } catch (Exception e) {
+                logger.error("Failed to add cascade to notice_comments FK — 댓글 있는 공지 삭제가 실패할 수 있습니다", e);
+            }
+        };
+    }
+
+    /** 첨부 조회 인덱스. 고아 정리는 notice_id가 NULL인 행만 훑으므로 부분 인덱스로 둔다. */
+    @Bean
+    @Order(15)
     CommandLineRunner indexNoticeAttachments(JdbcTemplate jdbc) {
         return args -> {
             try {

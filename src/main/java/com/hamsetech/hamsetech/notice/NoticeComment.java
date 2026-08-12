@@ -12,7 +12,13 @@ public class NoticeComment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * Notice 쪽에는 댓글 컬렉션이 없어 공지를 지울 때 Hibernate가 댓글부터 지워 주지 않는다.
+     * DB에 CASCADE를 걸어 두지 않으면 댓글이 하나라도 달린 공지는 외래키 위반으로
+     * 삭제 자체가 실패한다.
+     */
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Notice notice;
 
     /**
