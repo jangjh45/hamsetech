@@ -1,0 +1,70 @@
+name: Docker Build
+
+# 도커 빌드는 main 푸시에만 돌린다. PR은 ci.yml로 충분하고,
+# 이미지 빌드는 가장 느려서 PR을 붙잡아 두면 손해가 크다.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# main 빌드는 캐시를 데워 두는 목적이 있어 이전 실행을 굳이 죽이지 않는다.
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  backend-image:
+    name: backend image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # push: false  -> 레지스트리 자격증명이 필요 없다
+      # load: false  -> 결과 이미지를 도커 데몬에 적재하지 않아 그만큼 빠르다.
+      #                 여기서 보는 것은 "Dockerfile이 끝까지 빌드되는가"뿐이다.
+      # Dockerfile에 ARG가 하나도 없어 build-args·secrets도 필요 없다.
+      #
+      # target: prod가 builder 스테이지에 의존하므로 builder도 함께 검증된다.
+      # dev 스테이지는 볼륨 마운트를 전제로 해서 CI에서 빌드해도 의미가 없다.
+      - name: Build backend prod image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          target: prod
+          push: false
+          load: false
+          tags: hamsetech-backend:ci
+          # scope를 나누지 않으면 두 잡이 같은 캐시 키를 서로 덮어쓴다
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+  frontend-image:
+    name: frontend image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build frontend prod image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          target: prod
+          push: false
+          load: false
+          tags: hamsetech-frontend:ci
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
