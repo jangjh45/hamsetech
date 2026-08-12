@@ -10,6 +10,15 @@ spring:
     password: ${DB_PASSWORD:hamsetech}
     driver-class-name: org.postgresql.Driver
 
+  # 공지 첨부파일 업로드
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 20MB
+      max-request-size: 30MB
+      # 이 크기를 넘으면 메모리 대신 임시파일로 받는다
+      file-size-threshold: 1MB
+
   # JPA 설정
   jpa:
     hibernate:
@@ -48,6 +57,22 @@ admin:
     retention-days: ${READ_LOG_RETENTION_DAYS:90}
     cleanup-cron: "0 30 4 * * *"
 
+# 공지
+app:
+  notice:
+    # 같은 사람이 같은 글을 다시 열어도 이 시간 안에는 조회수를 올리지 않는다.
+    # 새로고침 연타와 React StrictMode의 이펙트 2회 실행을 함께 흡수한다.
+    view-window-hours: ${NOTICE_VIEW_WINDOW_HOURS:6}
+  upload:
+    # 컨테이너에서는 /app/uploads(도커 볼륨). DB 백업과 별개로 백업해야 한다.
+    dir: ${UPLOAD_DIR:./uploads}
+    max-image-size: 5242880    # 5MB - 본문 삽입 이미지
+    max-file-size: 20971520    # 20MB - 일반 첨부
+    # 글을 저장하지 않고 나가면 파일만 남는다. 이 시간이 지난 미확정 첨부를 지운다.
+    orphan-retention-hours: ${UPLOAD_ORPHAN_RETENTION_HOURS:24}
+    # 조회 로그 정리(04:30)와 겹치지 않게 둔다
+    orphan-cleanup-cron: "0 15 4 * * *"
+
 # Character encoding
 server:
   servlet:
@@ -55,6 +80,10 @@ server:
       charset: UTF-8
       enabled: true
       force: true
+  tomcat:
+    # 크기 초과로 413을 낼 때 남은 요청 본문을 읽어 버리지 않으면 커넥션이 리셋되고,
+    # 브라우저는 에러 메시지 대신 "네트워크 오류"만 보게 된다.
+    max-swallow-size: -1
 
 # Actuator: Redis 컨테이너가 아직 구성되지 않아 헬스체크 집계에서 제외
 management:

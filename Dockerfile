@@ -49,7 +49,13 @@ FROM eclipse-temurin:21-jre-alpine AS prod
 
 WORKDIR /app
 
-RUN addgroup -S spring && adduser -S spring -G spring
+# 업로드 디렉터리를 root 권한일 때 미리 만들고 소유권을 넘긴다.
+# 도커는 이미지에 이미 있는 경로에 볼륨을 처음 붙일 때만 그 소유권을 볼륨에 복사한다.
+# 이 mkdir/chown 없이 볼륨을 붙이면 볼륨이 root 소유로 만들어져,
+# 비root(spring)로 뜬 앱이 파일을 쓰지 못한다.
+RUN addgroup -S spring && adduser -S spring -G spring \
+ && mkdir -p /app/uploads \
+ && chown -R spring:spring /app/uploads
 USER spring
 
 COPY --from=builder /app/build/libs/*.jar app.jar

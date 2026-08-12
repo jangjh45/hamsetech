@@ -1,0 +1,141 @@
+/*
+ * Quill snow 테마를 앱 토큰에 맞춘다.
+ *
+ * quill.snow.css는 흰 배경과 회색 계열을 값으로 박아 두고 있어서, 그대로 두면
+ * 다크 모드에서 툴바만 흰 판으로 뜨고 아이콘이 안 보인다. 색은 전부 --fl-* 토큰으로
+ * 덮어써서 라이트/다크가 함께 따라오게 한다.
+ */
+
+.nt-editor .ql-toolbar.ql-snow,
+.nt-editor .ql-container.ql-snow {
+  border-color: var(--fl-border);
+  background: var(--fl-surface);
+}
+
+.nt-editor .ql-toolbar.ql-snow {
+  border-radius: 10px 10px 0 0;
+}
+
+.nt-editor .ql-container.ql-snow {
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  font-family: inherit;
+  font-size: 15px;
+}
+
+.nt-editor:focus-within .ql-toolbar.ql-snow,
+.nt-editor:focus-within .ql-container.ql-snow {
+  border-color: var(--fl-primary);
+}
+
+.nt-editor .ql-editor {
+  min-height: 320px;
+  line-height: 1.75;
+  color: var(--fl-text);
+  text-align: left;
+}
+
+.nt-editor .ql-editor.ql-blank::before {
+  color: var(--fl-muted-2);
+  font-style: normal;
+}
+
+/* 툴바 아이콘은 stroke/fill로 그려져 있어 currentColor가 통하지 않는다 */
+.nt-editor .ql-snow .ql-stroke {
+  stroke: var(--fl-muted);
+}
+
+.nt-editor .ql-snow .ql-fill,
+.nt-editor .ql-snow .ql-stroke.ql-fill {
+  fill: var(--fl-muted);
+}
+
+.nt-editor .ql-snow .ql-picker {
+  color: var(--fl-muted);
+}
+
+.nt-editor .ql-snow button:hover .ql-stroke,
+.nt-editor .ql-snow button:focus .ql-stroke,
+.nt-editor .ql-snow .ql-picker-label:hover .ql-stroke {
+  stroke: var(--fl-text);
+}
+
+.nt-editor .ql-snow button:hover .ql-fill,
+.nt-editor .ql-snow button:focus .ql-fill {
+  fill: var(--fl-text);
+}
+
+.nt-editor .ql-snow button.ql-active .ql-stroke,
+.nt-editor .ql-snow .ql-picker-label.ql-active .ql-stroke {
+  stroke: var(--fl-primary);
+}
+
+.nt-editor .ql-snow button.ql-active .ql-fill {
+  fill: var(--fl-primary);
+}
+
+.nt-editor .ql-snow button:hover,
+.nt-editor .ql-snow button.ql-active,
+.nt-editor .ql-snow .ql-picker-label:hover {
+  color: var(--fl-text);
+}
+
+/* 드롭다운(제목/색상/정렬) */
+.nt-editor .ql-snow .ql-picker-options {
+  background: var(--fl-surface);
+  border-color: var(--fl-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+}
+
+.nt-editor .ql-snow .ql-picker.ql-expanded .ql-picker-label {
+  border-color: var(--fl-border);
+  color: var(--fl-text);
+}
+
+.nt-editor .ql-snow .ql-picker-item {
+  color: var(--fl-muted);
+}
+
+.nt-editor .ql-snow .ql-picker-item:hover,
+.nt-editor .ql-snow .ql-picker-item.ql-selected {
+  color: var(--fl-primary);
+}
+
+/* 링크 입력 팝업 */
+.nt-editor .ql-snow .ql-tooltip {
+  background: var(--fl-surface);
+  border-color: var(--fl-border);
+  border-radius: 8px;
+  color: var(--fl-text);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+}
+
+.nt-editor .ql-snow .ql-tooltip input[type='text'] {
+  background: var(--fl-sunken);
+  border-color: var(--fl-border);
+  border-radius: 6px;
+  color: var(--fl-text);
+}
+
+.nt-editor .ql-snow .ql-tooltip a {
+  color: var(--fl-primary);
+}
+
+/* 편집 중에도 본문과 같은 모양으로 보이게 한다 */
+.nt-editor .ql-editor blockquote {
+  border-left: 3px solid var(--fl-border);
+  color: var(--fl-muted);
+}
+
+.nt-editor .ql-editor pre,
+.nt-editor .ql-editor code {
+  background: var(--fl-sunken);
+  color: var(--fl-text);
+}
+
+.nt-editor .ql-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}

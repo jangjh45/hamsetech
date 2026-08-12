@@ -21,7 +21,11 @@ async function rawFetch(input: RequestInfo | URL, init: RequestInit = {}): Promi
   const token = getToken()
   const headers = new Headers(init.headers || {})
   const method = (init.method || 'GET').toUpperCase()
-  if (method !== 'GET' && method !== 'HEAD') {
+  // FormData는 브라우저가 boundary를 포함한 Content-Type을 직접 붙인다.
+  // 여기서 application/json으로 덮어쓰면 boundary가 사라져 서버가 본문을 파싱하지 못한다.
+  // 호출자가 직접 지정한 Content-Type도 존중한다.
+  const isFormData = typeof FormData !== 'undefined' && init.body instanceof FormData
+  if (method !== 'GET' && method !== 'HEAD' && !isFormData && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
   if (token) headers.set('Authorization', `Bearer ${token}`)
@@ -102,4 +106,15 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
 export async function apiFetchBlob(input: RequestInfo | URL, init: RequestInit = {}): Promise<Blob> {
   const res = await rawFetch(input, init)
   return res.blob()
+}
+
+/**
+ * multipart 업로드용.
+ *
+ * Content-Type을 절대 지정하지 않는다. boundary는 브라우저만 알고 있어서,
+ * 직접 헤더를 쓰는 순간 서버가 본문을 읽지 못한다.
+ */
+export async function apiUpload<T>(input: RequestInfo | URL, form: FormData): Promise<T> {
+  const res = await rawFetch(input, { method: 'POST', body: form })
+  return res.json() as Promise<T>
 }

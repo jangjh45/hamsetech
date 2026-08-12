@@ -11,12 +11,11 @@
 
 /* ── 목록 ────────────────────────────────────────────────────── */
 
-/* 목업의 5열(구분/제목/작성자/등록일/조회)에서 백엔드에 없는
-   구분·조회를 뺀 4열 */
+/* 번호/분류/제목/작성자/조회/등록일 */
 .nt-table-head,
 .nt-row {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) 120px 110px;
+  grid-template-columns: 64px 92px minmax(0, 1fr) 110px 56px 110px;
   gap: 12px;
   align-items: center;
 }
@@ -53,6 +52,15 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 상단 고정 공지는 배경을 살짝 눌러 일반글과 구분한다 */
+.nt-row.is-pinned {
+  background: var(--fl-sunken);
+}
+
+.nt-row.is-pinned:hover {
+  background: var(--fl-hover);
+}
+
 .nt-row-title {
   min-width: 0;
   font-size: 15px;
@@ -60,6 +68,69 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.nt-row.is-pinned .nt-row-title {
+  font-weight: 600;
+}
+
+/* 제목 옆 댓글/첨부 개수.
+   inline-flex로 아이콘과 숫자를 붙여 두면 제목이 길어 말줄임될 때도 함께 잘린다 */
+.nt-row-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 7px;
+  font-size: 12px;
+  color: var(--fl-muted-2);
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+
+.nt-row-badge svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.nt-row-views {
+  font-size: 13px;
+  color: var(--fl-muted-2);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.nt-row-cat {
+  min-width: 0;
+}
+
+/* 분류 칩 */
+.nt-badge-cat {
+  display: inline-block;
+  max-width: 100%;
+  padding: 3px 8px;
+  border: 1px solid var(--fl-border);
+  border-radius: 999px;
+  background: var(--fl-sunken);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fl-muted);
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 고정 공지 배지 */
+.nt-badge-pin {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--fl-primary-soft);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fl-primary);
+  line-height: 1.5;
 }
 
 .nt-row-author {
@@ -91,6 +162,16 @@
 
 .nt-search .fl-input {
   width: 220px;
+}
+
+.nt-search .nt-select {
+  width: 130px;
+}
+
+/* select는 기본 화살표를 남기려고 fl-input의 패딩만 살짝 줄인다 */
+.nt-select {
+  padding-right: 8px;
+  cursor: pointer;
 }
 
 /* 페이지네이션은 dashboard.css의 .fl-pager / .fl-page-btn (components/Pager.tsx) */
@@ -193,6 +274,90 @@
   text-align: left;
 }
 
+/* 리치 텍스트 본문.
+   평문 모드가 쓰는 pre-wrap을 꺼야 <p> 사이 여백이 정상으로 보인다. */
+.nt-article-body.nt-article-html {
+  white-space: normal;
+}
+
+/* ql-editor를 함께 쓰지만 여백은 상세 화면 기준을 따른다 */
+.nt-article-body.ql-editor {
+  padding: 26px 28px;
+}
+
+.nt-article-html > *:first-child {
+  margin-top: 0;
+}
+
+.nt-article-html > *:last-child {
+  margin-bottom: 0;
+}
+
+.nt-article-html p {
+  margin: 0 0 0.9em;
+}
+
+.nt-article-html h1,
+.nt-article-html h2,
+.nt-article-html h3,
+.nt-article-html h4 {
+  margin: 1.4em 0 0.5em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+}
+
+.nt-article-html h1 { font-size: 22px; }
+.nt-article-html h2 { font-size: 19px; }
+.nt-article-html h3 { font-size: 17px; }
+.nt-article-html h4 { font-size: 15px; }
+
+.nt-article-html ul,
+.nt-article-html ol {
+  margin: 0 0 0.9em;
+}
+
+.nt-article-html a {
+  color: var(--fl-primary);
+}
+
+.nt-article-html blockquote {
+  margin: 0 0 0.9em;
+  padding: 2px 0 2px 14px;
+  border-left: 3px solid var(--fl-border);
+  color: var(--fl-muted);
+}
+
+.nt-article-html pre,
+.nt-article-html code {
+  background: var(--fl-sunken);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.nt-article-html code {
+  padding: 2px 5px;
+}
+
+.nt-article-html pre {
+  padding: 12px 14px;
+  overflow-x: auto;
+}
+
+.nt-article-html hr {
+  margin: 1.4em 0;
+  border: none;
+  border-top: 1px solid var(--fl-divider);
+}
+
+/* 이미지가 로드되기 전에도 자리를 잡아 본문이 튀지 않게 한다 */
+.nt-article-html img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  background: var(--fl-sunken);
+}
+
 /* 목록/수정/삭제 액션 바. 기본은 카드 본문(22px)에 맞추고,
    본문 여백이 넓은 상세 화면에서는 .nt-actions-article로 28px */
 .nt-actions {
@@ -215,6 +380,112 @@
 }
 
 /* 위험 동작 버튼은 dashboard.css의 .fl-btn-danger */
+
+/* ── 첨부파일 ────────────────────────────────────────────────── */
+
+.nt-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 상세 화면에서는 본문 아래에 구분선을 두고 붙는다 */
+.nt-article-body + .nt-attachments {
+  margin: 0 28px;
+  padding: 18px 0 4px;
+  border-top: 1px solid var(--fl-divider);
+}
+
+.nt-attachments-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fl-text);
+}
+
+.nt-attach-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--fl-border);
+  border-radius: 9px;
+  background: var(--fl-sunken);
+}
+
+/* 선으로 그린 클립 아이콘. 색은 currentColor라 주변 글자색을 따라간다 */
+.nt-attach-icon {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  color: var(--fl-muted-2);
+}
+
+/* 파일명은 링크처럼 보이지만 실제로는 blob 내려받기라 button이다 */
+.nt-attach-name {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--fl-primary);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.nt-attach-name:hover {
+  text-decoration: underline;
+}
+
+.nt-attach-name:disabled {
+  color: var(--fl-muted-2);
+  cursor: default;
+  text-decoration: none;
+}
+
+.nt-attach-size {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--fl-muted-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 기본 파일 입력은 감추고 라벨을 버튼처럼 쓴다 */
+.nt-filepick {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid var(--fl-border);
+  border-radius: 9px;
+  background: var(--fl-surface);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--fl-text);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.nt-filepick:hover {
+  background: var(--fl-hover);
+}
+
+.nt-filepick input {
+  display: none;
+}
+
+.nt-filepick:has(input:disabled) {
+  color: var(--fl-muted-2);
+  cursor: default;
+}
 
 /* ── 댓글 ────────────────────────────────────────────────────── */
 
@@ -418,6 +689,57 @@
   color: var(--fl-muted);
 }
 
+/* 에디터를 따로 내려받는 동안 자리를 잡아 폼이 튀지 않게 한다 */
+.nt-editor-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 360px;
+  border: 1px solid var(--fl-border);
+  border-radius: 10px;
+  background: var(--fl-sunken);
+  font-size: 14px;
+  color: var(--fl-muted-2);
+}
+
+/* 분류 select와 상단 고정 체크박스를 한 줄에 */
+.nt-editor-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.nt-editor-row .nt-field {
+  width: 200px;
+}
+
+.nt-checkfield {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 44px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--fl-text);
+  cursor: pointer;
+}
+
+.nt-checkfield input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--fl-primary);
+  cursor: pointer;
+}
+
+.nt-checkfield em {
+  display: block;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  color: var(--fl-muted-2);
+}
+
 /* ── 반응형 ──────────────────────────────────────────────────── */
 
 @media (max-width: 900px) {
@@ -442,9 +764,16 @@
 
   /* 개별 컬럼 대신 제목 + 요약 한 줄로 */
   .nt-row-num,
+  .nt-row-cat,
   .nt-row-author,
+  .nt-row-views,
   .nt-row-date {
     display: none;
+  }
+
+  /* 고정 공지만은 배지를 남겨 한눈에 구분되게 한다 */
+  .nt-row.is-pinned .nt-row-num {
+    display: block;
   }
 
   .nt-row-title {
@@ -466,11 +795,17 @@
 
   .nt-search {
     width: 100%;
+    flex-wrap: wrap;
   }
 
   .nt-search .fl-input {
     width: auto;
     flex: 1;
+  }
+
+  .nt-search .nt-select {
+    width: 100%;
+    flex: none;
   }
 
   .nt-article-head {
@@ -482,9 +817,14 @@
   }
 
   .nt-article-body,
+  .nt-article-body.ql-editor,
   .nt-actions,
   .nt-actions.nt-actions-article {
     padding: 20px 16px;
+  }
+
+  .nt-article-body + .nt-attachments {
+    margin: 0 16px;
   }
 
   .nt-comments {
