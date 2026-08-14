@@ -52,7 +52,7 @@ export default function Header() {
   const userChip = displayName ? (
     <Link to="/profile" className="fl-userchip" onClick={() => setShowMobileMenu(false)}>
       <span className="fl-avatar">{displayName.charAt(0)}</span>
-      <span>{displayName}님</span>
+      <span className="fl-userchip-name">{displayName}님</span>
     </Link>
   ) : null
 
@@ -99,44 +99,26 @@ export default function Header() {
           </>
         )}
 
-        {isMobile && showMobileMenu && (
-          <nav
-            style={{
-              width: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-              padding: '8px 0 12px',
-              borderTop: '1px solid var(--fl-divider)',
-            }}
-          >
+        {isMobile && (
+          <nav className={`fl-mobile-nav${showMobileMenu ? ' is-open' : ''}`} aria-hidden={!showMobileMenu}>
             {navLinks.map((link) => (
               <NavLink
                 key={link.to}
                 to={link.to}
                 end={link.end}
                 className={navClass}
+                tabIndex={showMobileMenu ? undefined : -1}
                 onClick={() => setShowMobileMenu(false)}
               >
                 {link.label}
               </NavLink>
             ))}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                justifyContent: 'space-between',
-                paddingTop: 10,
-                marginTop: 6,
-                borderTop: '1px solid var(--fl-divider)',
-              }}
-            >
+            <div className="fl-mobile-nav-bottom">
               {themeButton}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <div className="fl-mobile-nav-actions">
                 {authed && userChip}
                 {authed && (
-                  <button className="fl-btn" onClick={handleLogout}>
+                  <button className="fl-btn" onClick={handleLogout} tabIndex={showMobileMenu ? undefined : -1}>
                     로그아웃
                   </button>
                 )}
