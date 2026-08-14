@@ -68,7 +68,6 @@ export default function LoginPage() {
       }
     >
       <div className="au-heading">
-        <h2>다시 오셨네요</h2>
         <p>사내 계정으로 로그인하세요.</p>
       </div>
 
