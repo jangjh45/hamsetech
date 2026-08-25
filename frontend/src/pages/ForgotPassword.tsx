@@ -31,22 +31,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <AuthShell
-      brandTitle={
-        <>
-          비밀번호는
-          <br />
-          바로 다시 정할 수 있어요.
-        </>
-      }
-      brandBody={
-        <div className="au-points">
-          <div className="au-point">가입할 때 쓴 아이디와 이메일로 본인 확인</div>
-          <div className="au-point">관리자 승인을 기다리지 않아도 됩니다</div>
-          <div className="au-point">재설정하면 바로 로그인 화면으로</div>
-        </div>
-      }
-    >
+    <AuthShell>
       <div className="au-heading">
         <h2>비밀번호 재설정</h2>
         <p>아이디와 가입 이메일이 일치하면 바로 바꿀 수 있습니다.</p>

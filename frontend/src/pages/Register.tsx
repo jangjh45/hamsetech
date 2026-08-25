@@ -57,33 +57,7 @@ export default function RegisterPage() {
 
   if (submitted) {
     return (
-      <AuthShell
-        brandTitle={
-          <>
-            신청이
-            <br />
-            접수되었습니다.
-          </>
-        }
-        brandBody={
-          <div className="au-steps">
-            <div className="au-step">
-              <span className="au-step-num">✓</span>
-              <div>
-                <div className="au-step-name">가입 신청</div>
-                <div className="au-step-sub">완료</div>
-              </div>
-            </div>
-            <div className="au-step is-active">
-              <span className="au-step-num">2</span>
-              <div>
-                <div className="au-step-name">관리자 승인</div>
-                <div className="au-step-sub">대기 중</div>
-              </div>
-            </div>
-          </div>
-        }
-      >
+      <AuthShell>
         <div className="au-heading">
           <h2>승인을 기다리는 중이에요</h2>
           <p>{submitted}</p>
@@ -102,40 +76,15 @@ export default function RegisterPage() {
   }
 
   return (
-    <AuthShell
-      brandTitle={
-        <>
-          2분이면
-          <br />
-          계정이 만들어집니다.
-        </>
-      }
-      brandBody={
-        <div className="au-steps">
-          <div className={step === 1 ? 'au-step is-active' : 'au-step'}>
-            <span className="au-step-num">1</span>
-            <div>
-              <div className="au-step-name">계정 정보</div>
-              <div className="au-step-sub">아이디와 비밀번호</div>
-            </div>
-          </div>
-          <div className={step === 2 ? 'au-step is-active' : 'au-step'}>
-            <span className="au-step-num">2</span>
-            <div>
-              <div className="au-step-name">프로필</div>
-              <div className="au-step-sub">이메일과 표시 이름</div>
-            </div>
-          </div>
-        </div>
-      }
-    >
+    <AuthShell>
       <div className="au-progress">
         <span className="au-progress-bar is-on" />
         <span className={step === 2 ? 'au-progress-bar is-on' : 'au-progress-bar'} />
         <span className="au-progress-label">{step}/2</span>
       </div>
 
-      <div className="au-heading">
+      {/* key로 단계마다 새 노드를 만들어야 au-enter 등장 모션이 다시 돈다 */}
+      <div className="au-heading" key={`h${step}`}>
         <h2>{step === 1 ? '계정 정보' : '프로필 정보'}</h2>
         <p>
           {step === 1
@@ -145,7 +94,7 @@ export default function RegisterPage() {
       </div>
 
       {step === 1 ? (
-        <form className="au-fields" onSubmit={onNext}>
+        <form className="au-fields" key="step1" onSubmit={onNext}>
           <div className="fl-field">
             <label className="fl-field-label" htmlFor="reg-username">
               아이디
@@ -190,7 +139,7 @@ export default function RegisterPage() {
           </div>
         </form>
       ) : (
-        <form className="au-fields" onSubmit={onSubmit}>
+        <form className="au-fields" key="step2" onSubmit={onSubmit}>
           <div className="fl-field">
             <label className="fl-field-label" htmlFor="reg-email">
               이메일
