@@ -51,22 +51,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthShell
-      brandTitle={
-        <>
-          현장과 사무실이
-          <br />
-          같은 화면을 봅니다.
-        </>
-      }
-      brandBody={
-        <div className="au-points">
-          <div className="au-point">적재 시뮬레이터로 차량 배치 미리 확인</div>
-          <div className="au-point">잔업·특근 신청과 집계를 한 곳에서</div>
-          <div className="au-point">공지사항·오늘 일정을 홈에서 바로</div>
-        </div>
-      }
-    >
+    <AuthShell>
       <div className="au-heading">
         <p>사내 계정으로 로그인하세요.</p>
       </div>
@@ -87,12 +72,9 @@ export default function LoginPage() {
         </div>
 
         <div className="fl-field">
-          <div className="fl-field-label">
-            <label htmlFor="login-password">비밀번호</label>
-            <Link className="au-forgot" to="/forgot-password">
-              잊으셨나요?
-            </Link>
-          </div>
+          <label className="fl-field-label" htmlFor="login-password">
+            비밀번호
+          </label>
           <input
             id="login-password"
             className="fl-input"
@@ -102,6 +84,12 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          {/* 아이디 → 비밀번호 탭 이동을 링크가 가로채지 않도록 입력칸 아래에 둔다 */}
+          <div className="au-forgot-row">
+            <Link className="au-forgot" to="/forgot-password">
+              비밀번호를 잊으셨나요?
+            </Link>
+          </div>
         </div>
 
         {error && (
