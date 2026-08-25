@@ -3,6 +3,7 @@ package com.hamsetech.hamsetech.work;
 import com.hamsetech.hamsetech.admin.AdminLog;
 import com.hamsetech.hamsetech.admin.AdminLoggable;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -43,6 +44,18 @@ public class OvertimeRecordController {
             Integer totalMinutes,
             String reason) {}
 
+    /** 관리자 일괄 등록. 선택한 직원 전원에게 같은 근무 조건으로 한 건씩 만든다. */
+    public record BulkCreateReq(
+            @NotEmpty(message = "직원을 한 명 이상 선택해주세요") List<Long> userIds,
+            @NotNull(message = "날짜를 입력해주세요") LocalDate workDate,
+            @NotNull(message = "유형을 선택해주세요") OvertimeType type,
+            LocalTime startTime,
+            LocalTime endTime,
+            Integer totalMinutes,
+            String reason,
+            /** 생략하면 바로 승인 처리한다. 관리자가 직접 넣은 기록이라 다시 승인받을 이유가 없다. */
+            Boolean approveNow) {}
+
     public record RejectReq(String reason) {}
 
     @AdminLoggable(action = AdminLog.Action.CREATE, entityType = AdminLog.EntityType.OVERTIME_RECORD,
@@ -52,6 +65,15 @@ public class OvertimeRecordController {
     public ResponseEntity<OvertimeRecord> create(@Valid @RequestBody OvertimeRecordReq req) {
         return ResponseEntity.ok(service.create(req.workDate(), req.type(), req.startTime(), req.endTime(),
                 req.totalMinutes(), req.reason()));
+    }
+
+    @AdminLoggable(action = AdminLog.Action.CREATE, entityType = AdminLog.EntityType.OVERTIME_RECORD,
+            details = "잔업/특근 일괄 등록")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
+    @PostMapping("/bulk")
+    public OvertimeRecordService.BulkCreateResult createBulk(@Valid @RequestBody BulkCreateReq req) {
+        return service.createForUsers(req.userIds(), req.workDate(), req.type(), req.startTime(), req.endTime(),
+                req.totalMinutes(), req.reason(), req.approveNow() == null || req.approveNow());
     }
 
     @PreAuthorize("isAuthenticated()")

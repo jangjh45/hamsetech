@@ -52,6 +52,29 @@ export async function createOvertimeRecord(data: OvertimeRecordInput): Promise<O
   return apiFetch('/api/overtime-records', { method: 'POST', body: JSON.stringify(data) })
 }
 
+export interface OvertimeBulkInput extends OvertimeRecordInput {
+  userIds: number[]
+  /** 생략하면 서버가 바로 승인 처리한다. false면 승인 대기 상태로 들어간다. */
+  approveNow?: boolean
+}
+
+/** 일괄 등록에서 제외된 직원 한 명 */
+export interface OvertimeBulkSkip {
+  name: string
+  reason: string
+}
+
+export interface OvertimeBulkResult {
+  created: number
+  records: OvertimeRecord[]
+  skipped: OvertimeBulkSkip[]
+}
+
+/** 관리자 전용. 선택한 직원 전원에게 같은 근무 조건으로 한 건씩 등록한다. */
+export async function createOvertimeRecordsBulk(data: OvertimeBulkInput): Promise<OvertimeBulkResult> {
+  return apiFetch('/api/overtime-records/bulk', { method: 'POST', body: JSON.stringify(data) })
+}
+
 export async function listMyOvertimeRecords(from?: string, to?: string): Promise<OvertimeRecord[]> {
   const params = new URLSearchParams()
   if (from) params.set('from', from)

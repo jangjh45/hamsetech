@@ -378,6 +378,169 @@
   color: var(--fl-muted);
 }
 
+/* ── 관리자: 일괄 등록 모달 ─────────────────────────────────── */
+
+/*
+ * 직원 목록이 들어가 기본 모달보다 넓고, 폼이 길어 화면을 넘긴다.
+ * 높이를 화면에 맞추고 본문만 스크롤시켜 제목과 등록 버튼이 항상 보이게 한다.
+ * (.fl-modal-overlay의 세로 여백 24px × 2를 뺀다)
+ */
+.ot-bulk-modal {
+  max-width: 620px;
+  max-height: calc(100vh - 48px);
+}
+
+.ot-bulk-modal .fl-modal-body {
+  overflow-y: auto;
+}
+
+.ot-bulk-picker {
+  border: 1px solid var(--fl-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--fl-surface);
+}
+
+.ot-bulk-picker-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid var(--fl-divider);
+}
+
+.ot-bulk-picker-head .fl-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 인원이 많아도 모달이 길어지지 않게 목록만 스크롤한다 */
+.ot-bulk-list {
+  max-height: 232px;
+  overflow-y: auto;
+}
+
+.ot-bulk-person {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--fl-divider-soft);
+  font-size: 13.5px;
+}
+
+.ot-bulk-person:last-child {
+  border-bottom: none;
+}
+
+.ot-bulk-person:hover {
+  background: var(--fl-hover);
+}
+
+.ot-bulk-person.is-on {
+  background: var(--fl-primary-soft);
+}
+
+.ot-bulk-person input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--fl-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ot-bulk-person-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ot-bulk-person-id {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--fl-muted-2);
+  flex-shrink: 0;
+}
+
+.ot-bulk-approve {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.ot-bulk-approve input[type='checkbox'] {
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  accent-color: var(--fl-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ot-bulk-approve .fl-hint {
+  display: block;
+  margin-top: 2px;
+}
+
+/* 결과 화면 */
+.ot-bulk-result {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--fl-primary-soft);
+  color: var(--fl-primary);
+}
+
+.ot-bulk-result-num {
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ot-bulk-result-text {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.ot-bulk-skip {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--fl-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.ot-bulk-skip li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--fl-divider-soft);
+}
+
+.ot-bulk-skip li:last-child {
+  border-bottom: none;
+}
+
+.ot-bulk-skip-name {
+  font-weight: 500;
+}
+
+.ot-bulk-skip-reason {
+  color: var(--fl-muted-2);
+  font-size: 12.5px;
+  text-align: right;
+}
+
 /* ── 반응형 ──────────────────────────────────────────────────── */
 
 @media (max-width: 1100px) {
