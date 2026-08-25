@@ -10,7 +10,8 @@ import {
   type OvertimeStatus,
   type OvertimeType,
 } from '../api/overtimeRecords'
-import { formatTime, toYmd } from '../utils/formatDate'
+import { formatMinutes, formatTime, toYmd } from '../utils/formatDate'
+import { defaultTimesFor, durationOf } from '../utils/overtime'
 import Pager from '../components/Pager'
 import '../styles/overtime.css'
 
@@ -24,15 +25,6 @@ const STATUS_TONE: Record<OvertimeStatus, string> = {
   APPROVED: 'fl-tone-success',
   REJECTED: 'fl-tone-danger',
 }
-
-/** 특근 시 점심 휴게시간(분). 서버 OvertimeRecordService와 같은 규칙이어야 미리보기가 맞는다. */
-const LUNCH_BREAK_MINUTES = 60
-const LUNCH_DEDUCTION_THRESHOLD_MINUTES = 6 * 60
-
-/** 저녁 휴게 구간(자정 기준 분). 구분과 무관하게 겹친 만큼 차감된다. */
-const DINNER_BREAK_START_MIN = 17 * 60
-const DINNER_BREAK_END_MIN = 17 * 60 + 30
-const MINUTES_PER_DAY = 24 * 60
 
 type StatusFilter = 'ALL' | OvertimeStatus
 type TypeFilter = 'ALL' | OvertimeType
@@ -88,14 +80,6 @@ function monthMatrix(first: Date): CalCell[] {
   return cells
 }
 
-function formatMinutes(min: number): string {
-  const h = Math.floor(min / 60)
-  const m = min % 60
-  if (h === 0) return `${m}분`
-  if (m === 0) return `${h}시간`
-  return `${h}시간 ${m}분`
-}
-
 /** '2026-08-14' → '08.14 (금)' */
 function formatWorkDate(ymd: string): string {
   const [y, m, d] = ymd.split('-').map(Number)
@@ -108,38 +92,6 @@ function formatLongDate(ymd: string): string {
   const [y, m, d] = ymd.split('-').map(Number)
   if (!y || !m || !d) return ymd
   return `${y}년 ${m}월 ${d}일 (${WEEKDAYS[new Date(y, m - 1, d).getDay()]})`
-}
-
-function overlapMinutes(aStart: number, aEnd: number, bStart: number, bEnd: number): number {
-  return Math.max(0, Math.min(aEnd, bEnd) - Math.max(aStart, bStart))
-}
-
-/** 서버 resolveTotalMinutes와 같은 계산. 저장 전 미리보기용. */
-function durationOf(type: OvertimeType, start: string, end: string): number | null {
-  if (!start || !end) return null
-  const [sh, sm] = start.split(':').map(Number)
-  const [eh, em] = end.split(':').map(Number)
-  if ([sh, sm, eh, em].some((n) => Number.isNaN(n))) return null
-
-  // 휴게 차감은 차감 전 경과 시간(gross) 기준의 시간대로 계산한다.
-  const workStart = sh * 60 + sm
-  let gross = eh * 60 + em - workStart
-  if (gross < 0) gross += MINUTES_PER_DAY
-  const workEnd = workStart + gross
-
-  let net = gross
-  if (type === 'SPECIAL' && gross >= LUNCH_DEDUCTION_THRESHOLD_MINUTES) {
-    net -= LUNCH_BREAK_MINUTES
-  }
-  // 자정을 넘긴 근무는 다음 날 저녁 구간과도 겹칠 수 있어 이틀치를 모두 확인한다.
-  net -= overlapMinutes(workStart, workEnd, DINNER_BREAK_START_MIN, DINNER_BREAK_END_MIN)
-  net -= overlapMinutes(
-    workStart,
-    workEnd,
-    DINNER_BREAK_START_MIN + MINUTES_PER_DAY,
-    DINNER_BREAK_END_MIN + MINUTES_PER_DAY,
-  )
-  return Math.max(0, net)
 }
 
 /** 목록·달력에 공통으로 쓰는 근무시간 표기 */
@@ -157,13 +109,6 @@ interface FormState {
   endTime: string
   totalMinutes: string
   reason: string
-}
-
-function defaultTimesFor(type: OvertimeType, defaults: OvertimeDefaults | null): [string, string] {
-  if (!defaults) return ['', '']
-  return type === 'SPECIAL'
-    ? [formatTime(defaults.specialStart), formatTime(defaults.specialEnd)]
-    : [formatTime(defaults.overtimeStart), formatTime(defaults.overtimeEnd)]
 }
 
 export default function OvertimeRecordsPage() {

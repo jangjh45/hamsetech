@@ -20,6 +20,10 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -45,6 +49,9 @@ public class OvertimeRecordService {
 
     /** 엑셀 내보내기 기간 상한. 실수로 전 기간을 요청해 응답이 폭주하는 것을 막는다. */
     private static final long MAX_EXPORT_DAYS = 366;
+
+    /** 일괄 등록 1회 인원 상한. 잘못된 요청으로 대량 생성되는 것을 막는다. */
+    private static final int MAX_BULK_USERS = 100;
 
     private final OvertimeRecordRepository repository;
     private final OvertimeDefaultTimeRepository defaultTimeRepository;
@@ -83,6 +90,94 @@ public class OvertimeRecordService {
         record.setReason(reason);
         record.setStatus(OvertimeRecord.Status.PENDING);
         return repository.save(record);
+    }
+
+    /** 일괄 등록에서 제외된 직원 한 명. name은 화면에 그대로 보여줄 이름이다. */
+    public record BulkSkip(String name, String reason) {}
+
+    public record BulkCreateResult(int created, List<OvertimeRecord> records, List<BulkSkip> skipped) {}
+
+    /**
+     * 관리자가 여러 직원의 잔업/특근을 같은 조건(근무일·구분·시간)으로 한 번에 등록한다.
+     *
+     * 이미 같은 날 같은 구분으로 기록이 있는 직원은 건너뛴다. 버튼을 두 번 눌러도,
+     * 앞서 등록한 명단에 몇 명만 더해 다시 등록해도 중복이 생기지 않는다.
+     *
+     * @param approveNow 관리자가 직접 넣은 기록이라 바로 승인 처리할지 여부.
+     *                   false면 본인 신청과 같은 승인 대기 상태로 들어간다.
+     */
+    public BulkCreateResult createForUsers(List<Long> userIds, LocalDate workDate, OvertimeType type,
+                                            LocalTime startTime, LocalTime endTime, Integer totalMinutes,
+                                            String reason, boolean approveNow) {
+        if (userIds == null || userIds.isEmpty()) {
+            throw new IllegalArgumentException("직원을 한 명 이상 선택해주세요");
+        }
+        List<Long> ids = userIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            throw new IllegalArgumentException("직원을 한 명 이상 선택해주세요");
+        }
+        if (ids.size() > MAX_BULK_USERS) {
+            throw new IllegalArgumentException("한 번에 등록할 수 있는 인원은 최대 " + MAX_BULK_USERS + "명입니다");
+        }
+
+        // 모두 같은 근무 조건이라 시간 계산은 한 번만 한다. 입력이 잘못됐다면 아무것도 만들기 전에 걸린다.
+        Integer minutes = resolveTotalMinutes(type, startTime, endTime, totalMinutes);
+
+        Set<Long> alreadyRegistered = repository.findByWorkDateAndTypeAndUserIdIn(workDate, type, ids).stream()
+                .map(OvertimeRecord::getUserId)
+                .collect(Collectors.toSet());
+        Map<Long, UserAccount> users = userAccountRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(UserAccount::getId, Function.identity()));
+
+        String approver = securityUtils.currentUsername();
+        Instant now = Instant.now();
+        List<OvertimeRecord> toSave = new ArrayList<>();
+        List<BulkSkip> skipped = new ArrayList<>();
+
+        for (Long id : ids) {
+            UserAccount user = users.get(id);
+            if (user == null) {
+                skipped.add(new BulkSkip("ID " + id, "없는 계정"));
+                continue;
+            }
+            String name = displayNameOf(user);
+            // 탈퇴 계정의 기존 기록은 보존하지만 새 기록을 더하지는 않는다.
+            if (user.isWithdrawn()) {
+                skipped.add(new BulkSkip(name, "탈퇴한 계정"));
+                continue;
+            }
+            if (alreadyRegistered.contains(id)) {
+                skipped.add(new BulkSkip(name, "같은 날 같은 구분으로 이미 등록됨"));
+                continue;
+            }
+
+            OvertimeRecord record = new OvertimeRecord();
+            record.setUserId(user.getId());
+            record.setUsername(user.getUsername());
+            record.setDisplayName(name);
+            record.setWorkDate(workDate);
+            record.setType(type);
+            record.setStartTime(startTime);
+            record.setEndTime(endTime);
+            record.setTotalMinutes(minutes);
+            record.setReason(reason);
+            if (approveNow) {
+                record.setStatus(OvertimeRecord.Status.APPROVED);
+                record.setApproverUsername(approver);
+                record.setApprovedAt(now);
+            } else {
+                record.setStatus(OvertimeRecord.Status.PENDING);
+            }
+            toSave.add(record);
+        }
+
+        List<OvertimeRecord> saved = repository.saveAll(toSave);
+        return new BulkCreateResult(saved.size(), saved, skipped);
+    }
+
+    private String displayNameOf(UserAccount user) {
+        String name = user.getDisplayName();
+        return (name != null && !name.isBlank()) ? name : user.getUsername();
     }
 
     @Transactional(readOnly = true)
