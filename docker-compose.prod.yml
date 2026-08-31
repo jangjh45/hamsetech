@@ -50,6 +50,10 @@ services:
       ADMIN_BOOTSTRAP_ENABLED: ${ADMIN_BOOTSTRAP_ENABLED:-true}
       ADMIN_SEED_SAMPLE_DATA: "false"
       UPLOAD_DIR: /app/uploads
+      # 스키마는 Flyway가 만들고 Hibernate는 검증만 한다.
+      # Flyway를 처음 붙이는 배포에서 ddl-auto=update가 남긴 드리프트가 validate에
+      # 걸리면, 한 번만 none으로 띄워 마이그레이션을 적용한 뒤 되돌린다.
+      HIBERNATE_DDL_AUTO: ${HIBERNATE_DDL_AUTO:-validate}
       # Nginx가 앞단에서 X-Forwarded-*를 덮어쓰므로 이 배포에서는 헤더를 신뢰할 수 있다.
       # 감사 로그에 실제 클라이언트 IP가 남으려면 필요하다.
       FORWARD_HEADERS_STRATEGY: framework
