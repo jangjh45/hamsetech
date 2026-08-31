@@ -4,9 +4,11 @@
 
 ## 기술 스택
 
-- **백엔드**: Java 21, Spring Boot 3.5, Spring Security (JWT + OAuth2 Client), Spring Data JPA / JDBC, MyBatis, PostgreSQL, Redis
+- **백엔드**: Java 21, Spring Boot 3.5, Spring Security (JWT + OAuth2 Client), Spring Data JPA / JDBC, MyBatis, PostgreSQL, Flyway
 - **프론트엔드**: React 19, TypeScript, Vite, React Router
-- **인프라**: Docker / Docker Compose, GitHub Actions (CI, Docker 빌드)
+- **인프라**: Docker / Docker Compose, GitHub Actions (CI, Docker 빌드, Trivy 이미지 스캔)
+
+> Redis 의존성(`spring-boot-starter-data-redis`)이 빌드에 들어 있지만 아직 실제로 쓰지 않습니다. Compose에 컨테이너가 없고 Actuator 헬스체크에서도 제외돼 있으며, 로그인 시도 제한은 인메모리로 동작합니다. 백엔드를 여러 인스턴스로 늘릴 때 Redis 도입이 선결 과제입니다.
 
 ## 주요 기능
 
