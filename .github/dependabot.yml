@@ -1,0 +1,47 @@
+# 베이스 이미지를 digest로 고정하는 대신 major 태그를 유지하고
+# Dependabot이 갱신 PR을 올리게 한다. digest 고정은 갱신 수단 없이는
+# 이미지를 그대로 썩힌다.
+#
+# patch/minor는 그룹으로 묶어 PR이 쏟아지지 않게 한다.
+version: 2
+updates:
+  # 워크플로가 major 태그(@v5 등)로 떠 있어 major 이동만 잡으면 된다
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      gradle-minor-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  # 백엔드 Dockerfile: eclipse-temurin
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+
+  # 프론트엔드 Dockerfile: node, nginx
+  - package-ecosystem: docker
+    directory: /frontend
+    schedule:
+      interval: weekly

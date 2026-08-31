@@ -1,13 +1,20 @@
 name: Docker Build
 
-# 도커 빌드는 main 푸시에만 돌린다. PR은 ci.yml로 충분하고,
-# 이미지 빌드는 가장 느려서 PR을 붙잡아 두면 손해가 크다.
+# PR에서도 돌린다. main 푸시에만 돌리면 Dockerfile 회귀가 병합된 뒤에야 드러난다.
+# main 실행이 데워 둔 GHA 캐시를 PR이 그대로 쓰므로 실행 시간은 짧다.
+#
+# paths 필터는 일부러 넣지 않는다. 이 워크플로를 branch protection의 required check로
+# 지정하면 필터로 스킵된 실행은 체크를 보고하지 않아 PR이 영구히 병합 불가가 된다.
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
+  security-events: write   # Trivy SARIF 업로드
 
 # main 빌드는 캐시를 데워 두는 목적이 있어 이전 실행을 굳이 죽이지 않는다.
 concurrency:
@@ -26,9 +33,9 @@ jobs:
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
-      # push: false  -> 레지스트리 자격증명이 필요 없다
-      # load: false  -> 결과 이미지를 도커 데몬에 적재하지 않아 그만큼 빠르다.
-      #                 여기서 보는 것은 "Dockerfile이 끝까지 빌드되는가"뿐이다.
+      # push: false -> 레지스트리 자격증명이 필요 없다
+      # load: true  -> Trivy가 스캔하려면 이미지가 로컬 데몬에 있어야 한다.
+      #                적재 비용은 스캔의 전제 조건이라 감수한다.
       # Dockerfile에 ARG가 하나도 없어 build-args·secrets도 필요 없다.
       #
       # target: prod가 builder 스테이지에 의존하므로 builder도 함께 검증된다.
@@ -40,11 +47,30 @@ jobs:
           file: ./Dockerfile
           target: prod
           push: false
-          load: false
+          load: true
           tags: hamsetech-backend:ci
           # scope를 나누지 않으면 두 잡이 같은 캐시 키를 서로 덮어쓴다
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
+
+      # exit-code를 두지 않는다. 베이스 이미지의 미해결 CVE로 빌드가 빨간불이 되면
+      # 곧 무시하게 된다. 결과는 Security 탭에 쌓고 차단은 하지 않는다.
+      - name: Scan backend image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: hamsetech-backend:ci
+          format: sarif
+          output: trivy-backend.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+      # category를 잡별로 나눠야 두 SARIF가 서로 덮어쓰지 않는다
+      - name: Upload backend scan result
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-backend.sarif
+          category: trivy-backend
 
   frontend-image:
     name: frontend image
@@ -64,7 +90,23 @@ jobs:
           file: ./frontend/Dockerfile
           target: prod
           push: false
-          load: false
+          load: true
           tags: hamsetech-frontend:ci
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Scan frontend image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: hamsetech-frontend:ci
+          format: sarif
+          output: trivy-frontend.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+      - name: Upload frontend scan result
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-frontend.sarif
+          category: trivy-frontend
