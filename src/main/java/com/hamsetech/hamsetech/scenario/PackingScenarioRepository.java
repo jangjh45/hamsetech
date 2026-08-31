@@ -1,6 +1,7 @@
 package com.hamsetech.hamsetech.scenario;
 
 import com.hamsetech.hamsetech.user.UserAccount;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,10 +12,15 @@ import java.util.List;
 @Repository
 public interface PackingScenarioRepository extends JpaRepository<PackingScenario, Long> {
     
+    // 목록 응답에는 시나리오마다 items가 통째로 실린다. 그냥 두면 시나리오 수만큼
+    // 추가 SELECT가 나가므로(N+1) 세 목록 조회 모두 items를 함께 읽는다.
+    @EntityGraph(attributePaths = "items")
     List<PackingScenario> findByUserOrderByCreatedAtDesc(UserAccount user);
-    
+
+    @EntityGraph(attributePaths = "items")
     List<PackingScenario> findByUserAndIsFavoriteTrueOrderByUpdatedAtDesc(UserAccount user);
-    
+
+    @EntityGraph(attributePaths = "items")
     @Query("SELECT s FROM PackingScenario s WHERE s.user = :user AND " +
            "(LOWER(s.name) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(s.description) LIKE LOWER(CONCAT('%', :query, '%'))) " +

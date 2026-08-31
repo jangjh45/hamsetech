@@ -1,6 +1,7 @@
 package com.hamsetech.hamsetech.user;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
@@ -25,7 +26,16 @@ public class UserAccount {
     @Column(name = "display_name", length = 120, unique = true)
     private String displayName;
 
+    /**
+     * EAGER를 유지한다. 인증 필터와 UserDetailsService가 트랜잭션 밖에서 이 값을
+     * 읽으므로 LAZY로 바꾸면 인증 경로가 통째로 깨진다.
+     *
+     * 대신 @BatchSize로 N+1을 접는다. 사용자 목록처럼 여러 계정을 한 번에 읽을 때
+     * EAGER @ElementCollection은 계정마다 SELECT를 한 번씩 더 날리는데, 배치로 묶으면
+     * 50명당 한 번이 된다. 역할은 계정당 많아야 서너 개라 함께 읽어도 부담이 없다.
+     */
     @ElementCollection(fetch = FetchType.EAGER)
+    @BatchSize(size = 50)
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "role")

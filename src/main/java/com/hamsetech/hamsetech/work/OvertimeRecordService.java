@@ -272,32 +272,41 @@ public class OvertimeRecordService {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    /**
+     * 기간 집계. 직원 한 명이 한 줄이고, 잔업/특근을 각각 분과 일수로 나눠 담는다.
+     *
+     * 합계는 DB가 낸다. 응답 형태(Map)는 집계 화면과 엑셀 내보내기가 그대로 쓰므로
+     * 유지한다.
+     */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> monthlySummary(LocalDate monthStart, LocalDate monthEnd) {
-        List<OvertimeRecord> records = repository.findByStatusAndWorkDateBetween(
-                OvertimeRecord.Status.APPROVED, monthStart, monthEnd);
-
         Map<String, Map<String, Object>> byUser = new LinkedHashMap<>();
-        for (OvertimeRecord r : records) {
-            Map<String, Object> summary = byUser.computeIfAbsent(r.getUsername(), k -> {
-                Map<String, Object> m = new HashMap<>();
-                m.put("username", r.getUsername());
-                m.put("displayName", r.getDisplayName());
-                m.put("overtimeMinutes", 0);
-                m.put("specialMinutes", 0);
-                m.put("overtimeDays", 0);
-                m.put("specialDays", 0);
-                return m;
-            });
-            if (r.getType() == OvertimeType.OVERTIME) {
-                summary.put("overtimeMinutes", (int) summary.get("overtimeMinutes") + r.getTotalMinutes());
-                summary.put("overtimeDays", (int) summary.get("overtimeDays") + 1);
+
+        for (OvertimeTypeTotal total : repository.summarizeByUserAndType(
+                OvertimeRecord.Status.APPROVED, monthStart, monthEnd)) {
+            Map<String, Object> summary = byUser.computeIfAbsent(
+                    total.username(), k -> newSummaryRow(total.username(), total.displayName()));
+            if (total.type() == OvertimeType.OVERTIME) {
+                summary.put("overtimeMinutes", total.minutes().intValue());
+                summary.put("overtimeDays", total.days().intValue());
             } else {
-                summary.put("specialMinutes", (int) summary.get("specialMinutes") + r.getTotalMinutes());
-                summary.put("specialDays", (int) summary.get("specialDays") + 1);
+                summary.put("specialMinutes", total.minutes().intValue());
+                summary.put("specialDays", total.days().intValue());
             }
         }
         return new ArrayList<>(byUser.values());
+    }
+
+    /** 두 구분 중 한쪽만 있는 직원도 나머지 칸이 0으로 채워져야 화면이 깨지지 않는다. */
+    private Map<String, Object> newSummaryRow(String username, String displayName) {
+        Map<String, Object> row = new HashMap<>();
+        row.put("username", username);
+        row.put("displayName", displayName);
+        row.put("overtimeMinutes", 0);
+        row.put("specialMinutes", 0);
+        row.put("overtimeDays", 0);
+        row.put("specialDays", 0);
+        return row;
     }
 
     public OvertimeDefaultsDto getDefaults() {
