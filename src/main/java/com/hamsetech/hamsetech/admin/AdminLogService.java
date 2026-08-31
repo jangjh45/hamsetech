@@ -13,16 +13,16 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class AdminLogService {
 
     private final AdminLogRepository adminLogRepository;
-    private final AdminReadLogRepository adminReadLogRepository;
+    private final AdminReadLogWriter readLogWriter;
     private final UserAccountRepository userAccountRepository;
     private final SecurityUtils securityUtils;
 
     public AdminLogService(AdminLogRepository adminLogRepository,
-                           AdminReadLogRepository adminReadLogRepository,
+                           AdminReadLogWriter readLogWriter,
                            UserAccountRepository userAccountRepository,
                            SecurityUtils securityUtils) {
         this.adminLogRepository = adminLogRepository;
-        this.adminReadLogRepository = adminReadLogRepository;
+        this.readLogWriter = readLogWriter;
         this.userAccountRepository = userAccountRepository;
         this.securityUtils = securityUtils;
     }
@@ -72,18 +72,20 @@ public class AdminLogService {
 
     /**
      * 조회(READ)는 admin_read_logs, 나머지 변경 작업은 admin_logs에 저장한다.
+     *
+     * IP는 여기서 뽑는다. 조회 로그는 다른 스레드에서 저장되는데, 그쪽에는
+     * 요청 컨텍스트가 없어 IP를 알아낼 방법이 없다.
      */
     private void save(String adminUsername, AdminLog.Action action, AdminLog.EntityType entityType, Long entityId, String details) {
         String ipAddress = currentIpAddress();
 
         if (action == AdminLog.Action.READ) {
-            AdminReadLog readLog = new AdminReadLog(adminUsername, entityType, entityId);
-            readLog.setDetails(details);
-            readLog.setIpAddress(ipAddress);
-            adminReadLogRepository.save(readLog);
+            // 목록·상세 조회 전부가 이 경로다. 요청 하나마다 INSERT를 기다리게 하지 않는다.
+            readLogWriter.write(adminUsername, entityType, entityId, details, ipAddress);
             return;
         }
 
+        // 변경 로그는 동기로 남긴다. 양이 적고, 실패했다면 바로 드러나는 편이 낫다.
         AdminLog log = new AdminLog(adminUsername, action, entityType, entityId);
         log.setDetails(details);
         log.setIpAddress(ipAddress);
