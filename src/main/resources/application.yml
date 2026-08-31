@@ -45,6 +45,11 @@ security:
   jwt:
     secret: ${JWT_SECRET}
     expiration-seconds: ${JWT_EXPIRATION_SECONDS:86400}
+  # 로그인 시도 제한. 연속 실패가 max-attempts에 닿으면 lockout-minutes 동안 잠근다.
+  # 잠긴 뒤의 시도는 비밀번호 대조 전에 끊기므로 감사 로그도 더 쌓이지 않는다.
+  login:
+    max-attempts: ${LOGIN_MAX_ATTEMPTS:5}
+    lockout-minutes: ${LOGIN_LOCKOUT_MINUTES:15}
 
 # Default admin (dev only) - 운영 환경에서는 환경변수로 반드시 주입
 admin:
@@ -92,9 +97,23 @@ server:
     # 크기 초과로 413을 낼 때 남은 요청 본문을 읽어 버리지 않으면 커넥션이 리셋되고,
     # 브라우저는 에러 메시지 대신 "네트워크 오류"만 보게 된다.
     max-swallow-size: -1
+  # X-Forwarded-* 헤더 반영 여부. 기본은 none — 앱이 직접 노출된 상태에서 이 헤더를
+  # 믿으면 클라이언트가 감사 로그의 IP를 원하는 값으로 위조할 수 있다.
+  # 리버스 프록시(Nginx)가 앞단에서 헤더를 덮어쓰는 배포에서만 framework로 켠다.
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
 
 # Actuator: Redis 컨테이너가 아직 구성되지 않아 헬스체크 집계에서 제외
 management:
   health:
     redis:
       enabled: false
+  # 노출 범위를 기본값에 맡기지 않고 못 박는다. SecurityConfig가 /actuator/health만
+  # permitAll로 열어 두므로, 여기서 다른 엔드포인트가 늘면 그대로 인증 뒤에 놓이거나
+  # 의도치 않게 노출된다.
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

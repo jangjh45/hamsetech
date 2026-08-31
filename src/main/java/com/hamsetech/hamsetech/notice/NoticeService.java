@@ -164,7 +164,7 @@ public class NoticeService {
         n.setCategory(category == null ? NoticeCategory.GENERAL : category);
         n.setPinned(pinned);
         applyContent(n, content);
-        n.setAuthorUsername(securityUtils.currentUsername());
+        n.setAuthorUsername(securityUtils.currentUsernameOrThrow());
         n.setAuthorDisplayName(securityUtils.currentUserDisplayName());
 
         Notice saved = noticeRepository.save(n);

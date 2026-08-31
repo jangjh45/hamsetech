@@ -393,7 +393,7 @@ public class OvertimeRecordService {
     }
 
     private UserAccount currentUser() {
-        String username = securityUtils.currentUsername();
+        String username = securityUtils.currentUsernameOrThrow();
         return userAccountRepository.findByUsername(username)
                 .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다"));
     }
