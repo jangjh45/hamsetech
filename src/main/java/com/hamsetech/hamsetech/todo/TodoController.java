@@ -2,12 +2,12 @@ package com.hamsetech.hamsetech.todo;
 
 import com.hamsetech.hamsetech.admin.AdminLog;
 import com.hamsetech.hamsetech.admin.AdminLoggable;
-import com.hamsetech.hamsetech.user.UserAccount;
-import com.hamsetech.hamsetech.user.UserAccountRepository;
-import org.springframework.http.ResponseEntity;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.springframework.lang.NonNull;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -19,163 +19,63 @@ import java.util.Map;
 @PreAuthorize("isAuthenticated()")
 public class TodoController {
 
-    private final TodoRepository todoRepo;
-    private final UserAccountRepository userRepo;
+    /** 삭제 성공 응답. 빈 200보다 진단하기 쉽다. */
+    private static final Map<String, Object> DELETED = Map.of("deleted", true);
 
-    public TodoController(TodoRepository todoRepo, UserAccountRepository userRepo) {
-        this.todoRepo = todoRepo;
-        this.userRepo = userRepo;
+    private final TodoService service;
+
+    public TodoController(TodoService service) {
+        this.service = service;
     }
 
-    private UserAccount getCurrentUser(Authentication authentication) {
-        return userRepo.findByUsername(authentication.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-    }
+    /**
+     * 날짜와 제목은 필수다. 예전에는 자바빈 DTO에 수동 null 검사를 이어 붙였는데,
+     * 검증 어노테이션을 쓰면 GlobalExceptionHandler가 같은 400 응답을 만들어 준다.
+     */
+    public record CreateTodoRequest(
+            @NotNull(message = "날짜를 입력해주세요") LocalDate date,
+            @NotBlank(message = "할 일을 입력해주세요")
+            @Size(max = 255, message = "할 일은 255자 이하여야 합니다") String title,
+            String description,
+            Integer priority) {}
 
-    public static class CreateTodoRequest {
-        private String date;
-        private String title;
-        private String description;
-        private Integer priority = 0;
-
-        public String getDate() { return date; }
-        public void setDate(String date) { this.date = date; }
-
-        public String getTitle() { return title; }
-        public void setTitle(String title) { this.title = title; }
-
-        public String getDescription() { return description; }
-        public void setDescription(String description) { this.description = description; }
-
-        public Integer getPriority() { return priority; }
-        public void setPriority(Integer priority) { this.priority = priority; }
-    }
-
-    public static class UpdateTodoRequest {
-        private String date;
-        private String title;
-        private String description;
-        private Boolean completed;
-        private Integer priority;
-
-        public String getDate() { return date; }
-        public void setDate(String date) { this.date = date; }
-
-        public String getTitle() { return title; }
-        public void setTitle(String title) { this.title = title; }
-
-        public String getDescription() { return description; }
-        public void setDescription(String description) { this.description = description; }
-
-        public Boolean getCompleted() { return completed; }
-        public void setCompleted(Boolean completed) { this.completed = completed; }
-
-        public Integer getPriority() { return priority; }
-        public void setPriority(Integer priority) { this.priority = priority; }
-    }
+    /** 보낸 필드만 바뀐다. 전부 선택 항목인 것이 의도다. */
+    public record UpdateTodoRequest(
+            LocalDate date,
+            String title,
+            String description,
+            Boolean completed,
+            Integer priority) {}
 
     @AdminLoggable(action = AdminLog.Action.READ, entityType = AdminLog.EntityType.TODO, details = "할일 목록 조회")
     @GetMapping
-    public List<Todo> list(@RequestParam(name = "start") String start,
-                           @RequestParam(name = "end") String end,
-                           Authentication authentication) {
-        UserAccount user = getCurrentUser(authentication);
-        return todoRepo.findByUserAndDateRange(user, LocalDate.parse(start), LocalDate.parse(end));
+    public List<Todo> list(@RequestParam("start") LocalDate start,
+                           @RequestParam("end") LocalDate end) {
+        return service.listRange(start, end);
     }
 
     @AdminLoggable(action = AdminLog.Action.READ, entityType = AdminLog.EntityType.TODO, details = "특정 날짜 할일 조회")
     @GetMapping("/date/{date}")
-    public List<Todo> getByDate(@PathVariable String date,
-                                Authentication authentication) {
-        UserAccount user = getCurrentUser(authentication);
-        return todoRepo.findByUserAndDate(user, LocalDate.parse(date));
+    public List<Todo> getByDate(@PathVariable("date") LocalDate date) {
+        return service.listByDate(date);
     }
 
     @AdminLoggable(action = AdminLog.Action.CREATE, entityType = AdminLog.EntityType.TODO, details = "할일 생성")
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody CreateTodoRequest req,
-                                   Authentication authentication) {
-        if (req == null || req.getDate() == null || req.getDate().isBlank() ||
-            req.getTitle() == null || req.getTitle().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "date and title are required"));
-        }
-
-        UserAccount user = getCurrentUser(authentication);
-        Todo todo = new Todo();
-        todo.setUser(user);
-        todo.setDate(LocalDate.parse(req.getDate()));
-        todo.setTitle(req.getTitle().trim());
-        if (req.getDescription() != null) {
-            todo.setDescription(req.getDescription().trim());
-        }
-        if (req.getPriority() != null) {
-            todo.setPriority(req.getPriority());
-        }
-
-        Todo savedTodo = todoRepo.save(todo);
-        return ResponseEntity.ok(savedTodo);
+    public Todo create(@Valid @RequestBody CreateTodoRequest req) {
+        return service.create(req.date(), req.title(), req.description(), req.priority());
     }
 
     @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.TODO, details = "할일 수정")
     @PutMapping("/{id}")
-    public ResponseEntity<?> update(@PathVariable("id") @NonNull Long id,
-                                   @RequestBody UpdateTodoRequest req,
-                                   Authentication authentication) {
-        if (req == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "request body is required"));
-        }
-
-        UserAccount user = getCurrentUser(authentication);
-
-        return todoRepo.findById(id)
-                .map(todo -> {
-                    // 권한 확인: 본인의 할일만 수정 가능
-                    if (!todo.getUser().getId().equals(user.getId())) {
-                        return ResponseEntity.status(403).body(Map.of("code", "FORBIDDEN", "error", "본인의 할 일만 처리할 수 있습니다."));
-                    }
-
-                    if (req.getDate() != null && !req.getDate().isBlank()) {
-                        todo.setDate(LocalDate.parse(req.getDate()));
-                    }
-                    if (req.getTitle() != null && !req.getTitle().isBlank()) {
-                        todo.setTitle(req.getTitle().trim());
-                    }
-                    if (req.getDescription() != null) {
-                        todo.setDescription(req.getDescription().trim());
-                    }
-                    if (req.getCompleted() != null) {
-                        todo.setCompleted(req.getCompleted());
-                    }
-                    if (req.getPriority() != null) {
-                        todo.setPriority(req.getPriority());
-                    }
-
-                    Todo savedTodo = todoRepo.save(todo);
-                    return ResponseEntity.ok(savedTodo);
-                })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public Todo update(@PathVariable("id") @NonNull Long id, @RequestBody UpdateTodoRequest req) {
+        return service.update(id, req.date(), req.title(), req.description(), req.completed(), req.priority());
     }
 
     @AdminLoggable(action = AdminLog.Action.DELETE, entityType = AdminLog.EntityType.TODO, details = "할일 삭제")
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable("id") @NonNull Long id,
-                                   Authentication authentication) {
-        UserAccount user = getCurrentUser(authentication);
-
-        if (!todoRepo.existsById(id)) {
-            return ResponseEntity.notFound().build();
-        }
-
-        return todoRepo.findById(id)
-                .map(todo -> {
-                    // 권한 확인: 본인의 할일만 삭제 가능
-                    if (!todo.getUser().getId().equals(user.getId())) {
-                        return ResponseEntity.status(403).body(Map.of("code", "FORBIDDEN", "error", "본인의 할 일만 처리할 수 있습니다."));
-                    }
-
-                    todoRepo.deleteById(id);
-                    return ResponseEntity.ok(Map.of("deleted", true));
-                })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public Map<String, Object> delete(@PathVariable("id") @NonNull Long id) {
+        service.delete(id);
+        return DELETED;
     }
 }

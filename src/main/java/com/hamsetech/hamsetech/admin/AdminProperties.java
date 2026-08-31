@@ -6,11 +6,21 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "admin")
 public class AdminProperties {
-    private String username = "admin";
-    private String email = "admin@example.com";
-    private String password = "admin1234";
+    private Bootstrap bootstrap = new Bootstrap();
+    private String username;
+    private String email;
+    private String password;
     private String displayName = "관리자";
-    private boolean resetPasswordOnStart = true;
+    private boolean seedSampleData;
+
+    public static class Bootstrap {
+        private boolean enabled;
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    }
+
+    public Bootstrap getBootstrap() { return bootstrap; }
+    public void setBootstrap(Bootstrap bootstrap) { this.bootstrap = bootstrap; }
 
     public String getUsername() {
         return username;
@@ -44,12 +54,12 @@ public class AdminProperties {
         this.displayName = displayName;
     }
 
-    public boolean isResetPasswordOnStart() {
-        return resetPasswordOnStart;
+    public boolean isSeedSampleData() {
+        return seedSampleData;
     }
 
-    public void setResetPasswordOnStart(boolean resetPasswordOnStart) {
-        this.resetPasswordOnStart = resetPasswordOnStart;
+    public void setSeedSampleData(boolean seedSampleData) {
+        this.seedSampleData = seedSampleData;
     }
 }
 

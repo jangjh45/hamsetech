@@ -1,127 +1,43 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { apiFetch } from '../api/client'
+import { Link } from 'react-router-dom'
 import AuthShell from '../components/AuthShell'
-import PasswordStrength from '../components/PasswordStrength'
 
+/*
+ * 비밀번호 재설정 안내.
+ *
+ * 예전에는 이 화면에서 아이디와 가입 이메일만 맞으면 그 자리에서 새 비밀번호를
+ * 정할 수 있었다. 이메일을 실제로 받아보는 사람인지 확인하는 절차가 없어,
+ * 사번 규칙과 사내 이메일 형식을 아는 사람이면 남의 계정을 가져갈 수 있었다.
+ *
+ * 메일 발송 인프라가 없으므로 자가 재설정 대신 관리자가 임시 비밀번호를 발급하는
+ * 방식으로 바꿨다. 로그인 화면의 "비밀번호를 잊으셨나요?" 링크가 여기로 오므로
+ * 라우트는 그대로 두고 내용만 안내로 바꾼다.
+ */
 export default function ForgotPasswordPage() {
-  const navigate = useNavigate()
-  const [username, setUsername] = useState('')
-  const [email, setEmail] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const [msg, setMsg] = useState('')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setMsg(''); setError('')
-    if (!username || !email || !newPassword || !confirm) { setError('모든 항목을 입력해 주세요.'); return }
-    if (newPassword !== confirm) { setError('새 비밀번호가 일치하지 않습니다.'); return }
-    setBusy(true)
-    try {
-      await apiFetch('/api/auth/reset-by-identity', { method: 'POST', body: JSON.stringify({ username, email, newPassword }) })
-      setMsg('비밀번호가 재설정되었습니다. 로그인해 주세요.')
-      setTimeout(() => navigate('/login'), 1200)
-    } catch (e: any) {
-      setError(e.message || '요청 실패')
-      setBusy(false)
-    }
-  }
-
   return (
     <AuthShell>
       <div className="au-heading">
         <h2>비밀번호 재설정</h2>
-        <p>아이디와 가입 이메일이 일치하면 바로 바꿀 수 있습니다.</p>
+        <p>관리자에게 요청하면 임시 비밀번호를 받을 수 있습니다.</p>
       </div>
 
-      <form className="au-fields" onSubmit={onSubmit}>
-        <div className="fl-field">
-          <label className="fl-field-label" htmlFor="fp-username">
-            아이디
-          </label>
-          <input
-            id="fp-username"
-            className="fl-input"
-            placeholder="사번 또는 아이디"
-            autoComplete="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
+      <div className="au-fields">
+        <div className="au-alert is-info" role="status">
+          <span className="au-glyph">!</span>
+          본인 확인을 위해 비밀번호 재설정은 관리자를 통해서만 진행합니다.
         </div>
 
-        <div className="fl-field">
-          <label className="fl-field-label" htmlFor="fp-email">
-            이메일
-          </label>
-          <input
-            id="fp-email"
-            className="fl-input"
-            type="email"
-            placeholder="가입할 때 쓴 이메일"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-
-        <div className="fl-field">
-          <label className="fl-field-label" htmlFor="fp-new">
-            새 비밀번호
-          </label>
-          <input
-            id="fp-new"
-            className="fl-input"
-            type="password"
-            placeholder="8자 이상"
-            autoComplete="new-password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
-          <PasswordStrength password={newPassword} />
-        </div>
-
-        <div className="fl-field">
-          <label className="fl-field-label" htmlFor="fp-confirm">
-            새 비밀번호 확인
-          </label>
-          <input
-            id="fp-confirm"
-            className="fl-input"
-            type="password"
-            placeholder="한 번 더 입력"
-            autoComplete="new-password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-          />
-        </div>
-
-        {error && (
-          <div className="au-alert" role="alert">
-            <span className="au-glyph">!</span>
-            {error}
-          </div>
-        )}
-        {msg && (
-          <div className="au-alert is-ok" role="status">
-            <span className="au-glyph">✓</span>
-            {msg}
-          </div>
-        )}
-
-        <button className="fl-btn fl-btn-primary au-submit" type="submit" disabled={busy}>
-          {busy && <span className="au-spinner" />}
-          <span>{busy ? '재설정 중…' : '비밀번호 재설정'}</span>
-        </button>
+        <ol className="au-guide">
+          <li>관리자에게 사번(아이디)을 알려주고 비밀번호 초기화를 요청하세요.</li>
+          <li>전달받은 임시 비밀번호로 로그인합니다.</li>
+          <li>로그인한 뒤 프로필 화면에서 새 비밀번호로 바꿔주세요.</li>
+        </ol>
 
         <div className="au-alt">
           <Link className="fl-link" to="/login">
             로그인으로 돌아가기
           </Link>
         </div>
-      </form>
+      </div>
     </AuthShell>
   )
 }

@@ -1,6 +1,7 @@
 package com.hamsetech.hamsetech.user;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.BatchSize;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
@@ -25,7 +26,16 @@ public class UserAccount {
     @Column(name = "display_name", length = 120, unique = true)
     private String displayName;
 
+    /**
+     * EAGER를 유지한다. 인증 필터와 UserDetailsService가 트랜잭션 밖에서 이 값을
+     * 읽으므로 LAZY로 바꾸면 인증 경로가 통째로 깨진다.
+     *
+     * 대신 @BatchSize로 N+1을 접는다. 사용자 목록처럼 여러 계정을 한 번에 읽을 때
+     * EAGER @ElementCollection은 계정마다 SELECT를 한 번씩 더 날리는데, 배치로 묶으면
+     * 50명당 한 번이 된다. 역할은 계정당 많아야 서너 개라 함께 읽어도 부담이 없다.
+     */
     @ElementCollection(fetch = FetchType.EAGER)
+    @BatchSize(size = 50)
     @Enumerated(EnumType.STRING)
     @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "role")
@@ -52,6 +62,19 @@ public class UserAccount {
     @Column(name = "withdrawn_by", length = 100)
     private String withdrawnBy;
 
+    /**
+     * 발급된 토큰의 세대. 비밀번호가 바뀌거나 탈퇴가 확정되면 1 올린다.
+     *
+     * JWT는 서버가 회수할 수 없어, 만료(기본 24시간) 전까지는 비밀번호를 바꿔도
+     * 옛 토큰이 그대로 통했다. 인증 필터가 요청마다 이 값과 토큰의 tv 클레임을
+     * 대조하므로, 값을 올리는 순간 그 계정의 기존 토큰이 전부 무효가 된다.
+     *
+     * 기존 행을 위해 nullable로 둔다. ddl-auto=update는 NOT NULL 컬럼을 기존
+     * 테이블에 붙이지 못한다. 게터에서 NULL을 0으로 흡수한다.
+     */
+    @Column(name = "token_version")
+    private Integer tokenVersion = 0;
+
     public Long getId() { return id; }
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
@@ -73,6 +96,12 @@ public class UserAccount {
     public void setWithdrawReason(String withdrawReason) { this.withdrawReason = withdrawReason; }
     public String getWithdrawnBy() { return withdrawnBy; }
     public void setWithdrawnBy(String withdrawnBy) { this.withdrawnBy = withdrawnBy; }
+
+    /** 백필 전 NULL을 0으로 읽는다. */
+    public int getTokenVersion() { return tokenVersion == null ? 0 : tokenVersion; }
+
+    /** 이 계정으로 이미 발급된 토큰을 전부 무효화한다. */
+    public void bumpTokenVersion() { this.tokenVersion = getTokenVersion() + 1; }
 
     /** 백필 전 행은 status가 null로 읽힌다. 승인되지 않은 것으로 본다. */
     public boolean isApproved() { return status == UserStatus.APPROVED; }

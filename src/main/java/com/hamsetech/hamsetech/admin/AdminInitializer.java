@@ -9,8 +9,8 @@ import com.hamsetech.hamsetech.notice.NoticeRepository;
 import com.hamsetech.hamsetech.scenario.PackingScenario;
 import com.hamsetech.hamsetech.scenario.PackingScenarioRepository;
 import com.hamsetech.hamsetech.scenario.PackingItem;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,16 +22,17 @@ import java.util.List;
 public class AdminInitializer {
 
     @Bean
-    CommandLineRunner seedAdmin(@Value("${admin.username:admin}") String adminUsername,
-                                @Value("${admin.email:admin@example.com}") String adminEmail,
-                                @Value("${admin.password:admin1234}") String adminPassword,
-                                @Value("${admin.display-name:관리자}") String adminDisplayName,
-                                @Value("${admin.reset-password-on-start:true}") boolean resetPasswordOnStart,
+    @ConditionalOnProperty(prefix = "admin.bootstrap", name = "enabled", havingValue = "true")
+    CommandLineRunner seedAdmin(AdminProperties properties,
                                 UserAccountRepository userRepository,
                                 PasswordEncoder passwordEncoder,
                                 NoticeRepository noticeRepository,
                                 PackingScenarioRepository scenarioRepository) {
         return args -> {
+            String adminUsername = required(properties.getUsername(), "ADMIN_USERNAME");
+            String adminEmail = required(properties.getEmail(), "ADMIN_EMAIL");
+            String adminPassword = required(properties.getPassword(), "ADMIN_PASSWORD");
+            String adminDisplayName = properties.getDisplayName();
             var existing = userRepository.findByUsername(adminUsername).orElse(null);
             if (existing == null) {
                 UserAccount admin = new UserAccount();
@@ -44,57 +45,32 @@ public class AdminInitializer {
                 userRepository.save(admin);
                 System.out.println("[ADMIN INIT] default admin created: " + adminUsername);
             } else {
-                // Ensure ADMIN role exists
-                var roles = existing.getRoles();
-                if (!roles.contains(UserRole.ADMIN)) {
-                    roles.add(UserRole.ADMIN);
-                    existing.setRoles(roles);
-                    System.out.println("[ADMIN INIT] added ADMIN role to existing user: " + adminUsername);
-                }
-                if (!roles.contains(UserRole.SUPER_ADMIN)) {
-                    roles.add(UserRole.SUPER_ADMIN);
-                    existing.setRoles(roles);
-                    System.out.println("[ADMIN INIT] added SUPER_ADMIN role to existing user: " + adminUsername);
-                }
-                // Optionally reset password from properties (dev convenience)
-                if (resetPasswordOnStart) {
-                    existing.setPasswordHash(passwordEncoder.encode(adminPassword));
-                    System.out.println("[ADMIN INIT] reset admin password on start for user: " + adminUsername);
-                }
-                // Ensure email populated
-                if (existing.getEmail() == null || existing.getEmail().isBlank()) {
-                    existing.setEmail(adminEmail);
-                }
-                // Ensure display name populated
-                if (existing.getDisplayName() == null || existing.getDisplayName().isBlank()) {
-                    existing.setDisplayName(adminDisplayName != null && !adminDisplayName.isBlank() ? adminDisplayName : adminUsername);
-                    System.out.println("[ADMIN INIT] set display name for admin: " + existing.getDisplayName());
-                }
-                // 승인 상태 보정. 백필이 실패하더라도 관리자만은 로그인할 수 있어야
-                // 관리자 화면에서 나머지 계정을 수동으로 승인할 수 있다.
-                if (!existing.isApproved()) {
-                    existing.setStatus(UserStatus.APPROVED);
-                    System.out.println("[ADMIN INIT] approved admin account: " + adminUsername);
-                }
-                userRepository.save(existing);
+                // 부트스트랩은 최초 1회만 생성한다. 설정 파일의 username이 기존 계정과
+                // 같다는 이유로 역할·비밀번호·승인 상태를 바꾸면 권한 상승이 된다.
+                System.out.println("[ADMIN INIT] existing account left unchanged: " + adminUsername);
             }
 
-            // 샘플 공시사항 추가
-            if (noticeRepository.count() == 0) {
+            if (properties.isSeedSampleData() && noticeRepository.count() == 0) {
                 UserAccount admin = userRepository.findByUsername(adminUsername).orElse(null);
                 if (admin != null) {
                     createSampleNotices(noticeRepository, admin);
                 }
             }
 
-            // 샘플 시뮬레이션 데이터 추가
-            if (scenarioRepository.count() == 0) {
+            if (properties.isSeedSampleData() && scenarioRepository.count() == 0) {
                 UserAccount admin = userRepository.findByUsername(adminUsername).orElse(null);
                 if (admin != null) {
                     createSampleScenarios(scenarioRepository, admin);
                 }
             }
         };
+    }
+
+    private String required(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException(name + " must be set when admin bootstrap is enabled");
+        }
+        return value;
     }
 
     private void createSampleNotices(NoticeRepository noticeRepository, UserAccount admin) {

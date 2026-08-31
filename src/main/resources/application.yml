@@ -7,7 +7,7 @@ spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:hamsetech}
     username: ${DB_USERNAME:hamsetech}
-    password: ${DB_PASSWORD:hamsetech}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   # 공지 첨부파일 업로드
@@ -19,10 +19,21 @@ spring:
       # 이 크기를 넘으면 메모리 대신 임시파일로 받는다
       file-size-threshold: 1MB
 
-  # JPA 설정
+  # 스키마 관리. 테이블을 만들고 고치는 일은 Flyway가 하고, Hibernate는 엔티티와
+  # 실제 스키마가 맞는지 확인만 한다(validate). 어긋나면 기동이 멈춘다 — 예전처럼
+  # 반쯤 마이그레이션된 채로 서비스가 뜨는 일이 없다.
+  #
+  # 기존 데이터베이스를 처음 붙일 때만 임시로 none으로 낮출 수 있다. ddl-auto=update가
+  # 남긴 드리프트(엔티티에 없는 길이·타입 차이)가 validate에 걸릴 수 있기 때문이다.
+  flyway:
+    enabled: true
+    # 이미 테이블이 있는 데이터베이스에서는 V1을 실행하지 않고 적용된 것으로 표시만 한다.
+    baseline-on-migrate: true
+    baseline-version: 1
+    baseline-description: baseline (pre-Flyway schema)
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${HIBERNATE_DDL_AUTO:validate}
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -36,22 +47,32 @@ logging:
   level:
     org:
       hibernate:
-        SQL: DEBUG
+        SQL: WARN
       springframework:
         security: WARN
 
 # JWT
 security:
   jwt:
-    secret: ${JWT_SECRET:ChangeThisSecretKeyToAStrongLongRandomString1234567890}
-    expiration-seconds: 86400
+    secret: ${JWT_SECRET}
+    expiration-seconds: ${JWT_EXPIRATION_SECONDS:86400}
+  # 로그인 시도 제한. 연속 실패가 max-attempts에 닿으면 lockout-minutes 동안 잠근다.
+  # 잠긴 뒤의 시도는 비밀번호 대조 전에 끊기므로 감사 로그도 더 쌓이지 않는다.
+  login:
+    max-attempts: ${LOGIN_MAX_ATTEMPTS:5}
+    lockout-minutes: ${LOGIN_LOCKOUT_MINUTES:15}
 
 # Default admin (dev only) - 운영 환경에서는 환경변수로 반드시 주입
 admin:
-  username: ${ADMIN_USERNAME:admin}
-  email: ${ADMIN_EMAIL:admin@example.com}
-  password: ${ADMIN_PASSWORD:admin1234}
-  reset-password-on-start: true
+  # 초기 관리자 생성은 명시적으로 활성화한 경우에만 수행한다.
+  # 기존 사용자의 역할·비밀번호·승인 상태는 절대 변경하지 않는다.
+  bootstrap:
+    enabled: ${ADMIN_BOOTSTRAP_ENABLED:false}
+  username: ${ADMIN_USERNAME:}
+  email: ${ADMIN_EMAIL:}
+  password: ${ADMIN_PASSWORD:}
+  display-name: ${ADMIN_DISPLAY_NAME:관리자}
+  seed-sample-data: ${ADMIN_SEED_SAMPLE_DATA:false}
   # 조회(READ) 로그는 별도 테이블에 쌓고 보존기간이 지나면 매일 새벽 정리 (0 이하면 정리 안 함)
   read-log:
     retention-days: ${READ_LOG_RETENTION_DAYS:90}
@@ -59,6 +80,9 @@ admin:
 
 # 공지
 app:
+  cors:
+    # 사설망에서 개발할 경우 필요한 정확한 origin만 CORS_ALLOWED_ORIGINS로 추가한다.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*}
   notice:
     # 같은 사람이 같은 글을 다시 열어도 이 시간 안에는 조회수를 올리지 않는다.
     # 새로고침 연타와 React StrictMode의 이펙트 2회 실행을 함께 흡수한다.
@@ -84,9 +108,23 @@ server:
     # 크기 초과로 413을 낼 때 남은 요청 본문을 읽어 버리지 않으면 커넥션이 리셋되고,
     # 브라우저는 에러 메시지 대신 "네트워크 오류"만 보게 된다.
     max-swallow-size: -1
+  # X-Forwarded-* 헤더 반영 여부. 기본은 none — 앱이 직접 노출된 상태에서 이 헤더를
+  # 믿으면 클라이언트가 감사 로그의 IP를 원하는 값으로 위조할 수 있다.
+  # 리버스 프록시(Nginx)가 앞단에서 헤더를 덮어쓰는 배포에서만 framework로 켠다.
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
 
 # Actuator: Redis 컨테이너가 아직 구성되지 않아 헬스체크 집계에서 제외
 management:
   health:
     redis:
       enabled: false
+  # 노출 범위를 기본값에 맡기지 않고 못 박는다. SecurityConfig가 /actuator/health만
+  # permitAll로 열어 두므로, 여기서 다른 엔드포인트가 늘면 그대로 인증 뒤에 놓이거나
+  # 의도치 않게 노출된다.
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never

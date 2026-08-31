@@ -35,7 +35,27 @@
 cp .env.example .env
 ```
 
-`.env` 파일을 열어 DB 접속 정보, JWT 시크릿, 관리자 초기 계정 등을 채워주세요. `.env` 파일은 Git에 커밋하지 않습니다.
+`.env` 파일을 열어 DB 접속 정보, 32자 이상의 JWT 시크릿, 관리자 초기 계정 등을 채워주세요. `.env` 파일은 Git에 커밋하지 않습니다. 운영 환경에서는 `ADMIN_BOOTSTRAP_ENABLED=true`을 최초 기동 때만 사용하고, 계정 생성 뒤에는 `false`로 바꾸세요.
+
+비밀번호를 잊은 사용자는 관리자 화면에서 초기화합니다. 관리자 → 사용자 목록 → **비밀번호 초기화**를 누르면 임시 비밀번호가 한 번 표시되며, 그 계정의 기존 로그인은 모두 해제됩니다. 임시 비밀번호는 다시 볼 수 없으므로 그 자리에서 본인에게 전달하세요.
+
+### 데이터베이스 스키마
+
+스키마는 Flyway가 관리합니다. `src/main/resources/db/migration/` 아래의 `V*.sql`이
+버전 순서대로 적용되고, 적용 이력은 `flyway_schema_history` 테이블에 남습니다.
+Hibernate는 스키마를 건드리지 않고 엔티티와 맞는지 확인만 합니다(`ddl-auto=validate`).
+어긋나면 기동이 멈추므로, 반쯤 마이그레이션된 채로 서비스가 뜨는 일이 없습니다.
+
+- **기존 데이터베이스**: `baseline-on-migrate`가 켜져 있어 `V1__baseline.sql`은
+  실행되지 않고 적용된 것으로 표시만 됩니다. V2부터 실제로 돕니다.
+- **새 데이터베이스**: V1이 스키마를 만들고 이후 버전이 차례로 적용됩니다.
+
+스키마를 바꿀 때는 **기존 파일을 고치지 말고** 새 번호의 파일을 더하세요.
+이미 적용된 파일을 고치면 checksum이 어긋나 기동이 막힙니다.
+
+운영에 처음 배포할 때, `ddl-auto=update`가 남긴 드리프트 때문에 `validate`가
+걸릴 수 있습니다. 그럴 때는 `HIBERNATE_DDL_AUTO=none`으로 한 번 띄워 마이그레이션만
+적용한 뒤, 로그에 찍힌 차이를 새 마이그레이션으로 정리하고 `validate`로 되돌리세요.
 
 ### Docker로 실행 (권장)
 
@@ -54,7 +74,8 @@ docker compose up --build
 **백엔드**
 
 ```bash
-./gradlew bootRun
+# 개발 전용 기본값을 사용
+SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun
 ```
 
 **프론트엔드**

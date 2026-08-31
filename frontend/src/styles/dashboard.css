@@ -1469,3 +1469,35 @@ button.fl-link {
 @media (prefers-reduced-motion: reduce) {
   .fl-page > * { animation: none; }
 }
+
+/* ── 임시 비밀번호 모달 ─────────────────────────────────────────────
+   한 번만 보여주는 값이라 옮겨 적기 쉬운 크기와 간격을 준다. */
+.ad-temp-modal {
+  max-width: 420px;
+}
+
+.ad-temp-value {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--fl-neutral-soft);
+  border: 1px solid var(--fl-divider);
+}
+
+.ad-temp-value code {
+  flex: 1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  color: var(--fl-text);
+  /* 관리자가 옮겨 적는 값이다. 드래그로 한 번에 잡히게 둔다. */
+  user-select: all;
+  word-break: break-all;
+}
+
+.ad-temp-warn {
+  margin-top: 12px;
+  line-height: 1.55;
+}

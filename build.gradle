@@ -34,6 +34,10 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	// 스키마는 이제 Flyway가 관리한다. ddl-auto=update + 손으로 쓴 SchemaFixer는
+	// 실패해도 조용히 넘어갔고, 무엇이 적용됐는지 기록도 남지 않았다.
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-database-postgresql'
 	implementation 'org.springframework.boot:spring-boot-starter-aop'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.5'
@@ -54,9 +58,21 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter-test:3.0.5'
 	testImplementation 'org.springframework.security:spring-security-test'
+	// H2는 빠른 배선 확인(HamsetechApplicationTests)에만 쓴다.
+	// 스키마·마이그레이션 검증은 Testcontainers가 실제 PostgreSQL로 한다.
+	testRuntimeOnly 'com.h2database:h2'
+	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+	testImplementation 'org.testcontainers:junit-jupiter'
+	testImplementation 'org.testcontainers:postgresql'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// 실패 원인을 바로 볼 수 있게 한다. 기본 출력은 "몇 개 실패"만 알려줘서
+	// 매번 HTML 리포트를 열어야 했다.
+	testLogging {
+		events 'failed', 'skipped'
+		exceptionFormat 'full'
+	}
 }

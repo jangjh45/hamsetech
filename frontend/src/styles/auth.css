@@ -321,6 +321,37 @@ body:has(.au-shell) {
   background: var(--fl-success);
 }
 
+/*
+ * 안내용 변형. 기본 .au-alert는 오류를 알리는 빨강 + 흔들림이라, 아무 문제도
+ * 없는 안내에 쓰면 사용자가 뭔가 잘못한 줄 안다.
+ */
+.au-alert.is-info {
+  background: var(--fl-neutral-soft);
+  color: var(--fl-text);
+  align-items: flex-start;
+  line-height: 1.5;
+  animation: au-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.au-alert.is-info .au-glyph {
+  background: var(--fl-muted);
+  margin-top: 1px;
+}
+
+/* 절차 안내. 번호가 곧 순서라 ol을 쓴다. */
+.au-guide {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--fl-muted);
+  animation: au-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.16s;
+}
+
 .au-alt {
   text-align: center;
   font-size: 13.5px;

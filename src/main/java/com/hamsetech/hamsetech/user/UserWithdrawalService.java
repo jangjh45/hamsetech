@@ -84,6 +84,9 @@ public class UserWithdrawalService {
         user.setDisplayName("탈퇴한 사용자(" + id + ")");
         // status 판정에 구멍이 생기더라도 로그인은 불가능하게 만든다
         user.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
+        // 탈퇴 직전에 발급된 토큰이 만료(기본 24시간)까지 남아 있으면 그동안 API를
+        // 계속 쓸 수 있다. canAccess 검사와 별개로 토큰 자체를 무효화한다.
+        user.bumpTokenVersion();
         // 관리자 권한을 회수한다. @ElementCollection은 컬렉션 인스턴스를 갈아끼우는 것보다
         // 제자리에서 고치는 편이 안전하다.
         user.getRoles().clear();

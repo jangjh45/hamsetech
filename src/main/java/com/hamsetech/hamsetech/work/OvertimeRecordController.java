@@ -27,6 +27,9 @@ import java.util.Map;
 @RequestMapping("/api/overtime-records")
 public class OvertimeRecordController {
 
+    /** 삭제 성공 응답. 빈 200보다 진단하기 쉽다. */
+    private static final Map<String, Object> DELETED = Map.of("deleted", true);
+
     private static final String XLSX_CONTENT_TYPE =
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
@@ -87,7 +90,7 @@ public class OvertimeRecordController {
             details = "잔업/특근 수정", adminOnly = false)
     @PreAuthorize("isAuthenticated()")
     @PutMapping("/{id}")
-    public ResponseEntity<?> update(@PathVariable @NonNull Long id, @Valid @RequestBody OvertimeRecordReq req) {
+    public OvertimeRecord update(@PathVariable @NonNull Long id, @Valid @RequestBody OvertimeRecordReq req) {
         return service.update(id, req.workDate(), req.type(), req.startTime(), req.endTime(),
                 req.totalMinutes(), req.reason());
     }
@@ -96,8 +99,9 @@ public class OvertimeRecordController {
             details = "잔업/특근 삭제", adminOnly = false)
     @PreAuthorize("isAuthenticated()")
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable @NonNull Long id) {
-        return service.delete(id);
+    public Map<String, Object> delete(@PathVariable @NonNull Long id) {
+        service.delete(id);
+        return DELETED;
     }
 
     @AdminLoggable(action = AdminLog.Action.READ, entityType = AdminLog.EntityType.OVERTIME_RECORD, details = "잔업/특근 전체 목록 조회")
@@ -117,14 +121,14 @@ public class OvertimeRecordController {
     @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.OVERTIME_RECORD, details = "잔업/특근 승인")
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PutMapping("/{id}/approve")
-    public ResponseEntity<?> approve(@PathVariable @NonNull Long id) {
+    public OvertimeRecord approve(@PathVariable @NonNull Long id) {
         return service.approve(id);
     }
 
     @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.OVERTIME_RECORD, details = "잔업/특근 반려")
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @PutMapping("/{id}/reject")
-    public ResponseEntity<?> reject(@PathVariable @NonNull Long id, @RequestBody RejectReq req) {
+    public OvertimeRecord reject(@PathVariable @NonNull Long id, @RequestBody RejectReq req) {
         return service.reject(id, req.reason());
     }
 
@@ -132,20 +136,14 @@ public class OvertimeRecordController {
             details = "잔업/특근 엑셀 다운로드")
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     @GetMapping("/export")
-    public ResponseEntity<?> export(@RequestParam LocalDate from, @RequestParam LocalDate to) {
-        byte[] workbook;
-        try {
-            workbook = service.exportRange(from, to);
-        } catch (IllegalArgumentException e) {
-            // 이 컨트롤러에는 IllegalArgumentException 전역 핸들러가 없어 그대로 두면 500이 된다.
-            // 프론트가 메시지를 그대로 띄울 수 있도록 여기서 400 + {"error": ...}로 바꾼다.
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-
+    public ResponseEntity<byte[]> export(@RequestParam LocalDate from, @RequestParam LocalDate to) {
+        // 기간 검증 실패(IllegalArgumentException)는 GlobalExceptionHandler가 400 + {"error"}로
+        // 바꾼다. 예전에는 "이 컨트롤러에는 전역 핸들러가 없다"고 보고 여기서 직접
+        // try/catch를 했는데, 사실 그때도 auth 패키지에 전역 핸들러가 있었다.
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_TYPE, XLSX_CONTENT_TYPE)
                 .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition(from, to))
-                .body(workbook);
+                .body(service.exportRange(from, to));
     }
 
     /**
