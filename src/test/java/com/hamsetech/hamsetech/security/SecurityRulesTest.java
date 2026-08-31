@@ -4,7 +4,7 @@ import com.hamsetech.hamsetech.admin.AdminLogRepository;
 import com.hamsetech.hamsetech.admin.AdminLogService;
 import com.hamsetech.hamsetech.admin.AdminPasswordResetService;
 import com.hamsetech.hamsetech.admin.AdminReadLogRepository;
-import com.hamsetech.hamsetech.api.AdminController;
+import com.hamsetech.hamsetech.admin.AdminController;
 import com.hamsetech.hamsetech.auth.AuthController;
 import com.hamsetech.hamsetech.config.SecurityConfig;
 import com.hamsetech.hamsetech.notice.NoticeController;

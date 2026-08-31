@@ -1,5 +1,6 @@
 package com.hamsetech.hamsetech.security;
 
+import com.hamsetech.hamsetech.user.UserAccount;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -53,6 +54,19 @@ public class SecurityUtils {
             throw new UsernameNotFoundException("인증 정보가 없습니다.");
         }
         return auth.getName();
+    }
+
+    /**
+     * 현재 로그인한 계정. 인증이 없거나 계정이 사라졌으면 예외.
+     *
+     * TodoController·UserController·PackingScenarioController가 각자
+     * getCurrentUser(Authentication)를 두고 같은 조회를 반복하고 있었다. 셋의 실패
+     * 동작이 제각각(RuntimeException, 401 응답)이라 같은 상황에서 다른 응답이 나갔다.
+     */
+    public UserAccount currentUser() {
+        String username = currentUsernameOrThrow();
+        return userAccountRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다."));
     }
 
     public String currentUserDisplayName() {

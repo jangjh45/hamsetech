@@ -2,9 +2,9 @@ package com.hamsetech.hamsetech.user;
 
 import com.hamsetech.hamsetech.admin.AdminLog;
 import com.hamsetech.hamsetech.admin.AdminLoggable;
+import com.hamsetech.hamsetech.security.SecurityUtils;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,18 +20,16 @@ public class UserController {
     private final UserAccountRepository userRepo;
     private final PasswordEncoder passwordEncoder;
     private final UserWithdrawalService withdrawalService;
+    private final SecurityUtils securityUtils;
 
     public UserController(UserAccountRepository userRepo,
                           PasswordEncoder passwordEncoder,
-                          UserWithdrawalService withdrawalService) {
+                          UserWithdrawalService withdrawalService,
+                          SecurityUtils securityUtils) {
         this.userRepo = userRepo;
         this.passwordEncoder = passwordEncoder;
         this.withdrawalService = withdrawalService;
-    }
-
-    private UserAccount getCurrentUser(Authentication authentication) {
-        return userRepo.findByUsername(authentication.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        this.securityUtils = securityUtils;
     }
 
     public record UpdateProfileRequest(String displayName) {}
@@ -53,16 +51,16 @@ public class UserController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<?> getMyProfile(Authentication authentication) {
-        UserAccount user = getCurrentUser(authentication);
+    public ResponseEntity<?> getMyProfile() {
+        UserAccount user = securityUtils.currentUser();
         return ResponseEntity.ok(toProfileResponse(user));
     }
 
     @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.USER,
             details = "내 프로필 수정", adminOnly = false)
     @PutMapping("/me")
-    public ResponseEntity<?> updateMyProfile(@RequestBody UpdateProfileRequest req, Authentication authentication) {
-        UserAccount user = getCurrentUser(authentication);
+    public ResponseEntity<?> updateMyProfile(@RequestBody UpdateProfileRequest req) {
+        UserAccount user = securityUtils.currentUser();
 
         if (req.displayName() != null) {
             // Check if display name is taken by another user
@@ -86,8 +84,8 @@ public class UserController {
     @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.USER,
             details = "회원 탈퇴 신청", adminOnly = false)
     @PostMapping("/me/withdraw")
-    public ResponseEntity<?> requestWithdraw(@RequestBody WithdrawRequest req, Authentication authentication) {
-        UserAccount user = getCurrentUser(authentication);
+    public ResponseEntity<?> requestWithdraw(@RequestBody WithdrawRequest req) {
+        UserAccount user = securityUtils.currentUser();
 
         if (user.isSuperAdmin()) {
             return ResponseEntity.badRequest().body(Map.of("error", "SUPER_ADMIN 계정은 탈퇴할 수 없습니다."));
@@ -113,8 +111,8 @@ public class UserController {
     @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.USER,
             details = "회원 탈퇴 신청 취소", adminOnly = false)
     @DeleteMapping("/me/withdraw")
-    public ResponseEntity<?> cancelWithdraw(Authentication authentication) {
-        UserAccount user = getCurrentUser(authentication);
+    public ResponseEntity<?> cancelWithdraw() {
+        UserAccount user = securityUtils.currentUser();
         try {
             withdrawalService.cancelWithdrawRequest(user);
         } catch (UserWithdrawalService.WithdrawalNotAllowedException e) {
