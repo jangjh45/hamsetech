@@ -39,7 +39,10 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-hamsetech}
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-hamsetech}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-hamsetech}
-      JWT_SECRET: ${JWT_SECRET}
+      # 기본값 없는 ${JWT_SECRET}는 빈 문자열을 주입해
+      # application-dev.yml의 ${JWT_SECRET:...} 폴백을 무력화한다.
+      # .env 없이도 개발 스택이 뜨도록 같은 값을 여기서도 기본값으로 준다.
+      JWT_SECRET: ${JWT_SECRET:-development-only-secret-must-never-be-used-in-production}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin1234}
@@ -62,6 +65,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      # Flyway 마이그레이션이 도는 첫 기동에서 retries를 다 태우지 않도록 유예를 준다.
+      start_period: 60s
 
   # ── Frontend (Vite Dev Server + HMR) ────────
   frontend:
