@@ -33,18 +33,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       # build-mode: none은 소스만 훑는다.
       # Java에 autobuild를 붙이면 ci.yml과 별개로 Gradle 빌드를 한 번 더 하게 되고
       # 실패 지점만 늘어난다. 빌드 검증은 ci.yml의 몫이다.
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           build-mode: none
 
       - name: Analyze
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: /language:${{ matrix.language }}

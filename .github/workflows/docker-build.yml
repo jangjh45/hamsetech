@@ -28,10 +28,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # push: false -> 레지스트리 자격증명이 필요 없다
       # load: true  -> Trivy가 스캔하려면 이미지가 로컬 데몬에 있어야 한다.
@@ -41,7 +41,7 @@ jobs:
       # target: prod가 builder 스테이지에 의존하므로 builder도 함께 검증된다.
       # dev 스테이지는 볼륨 마운트를 전제로 해서 CI에서 빌드해도 의미가 없다.
       - name: Build backend prod image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
@@ -67,7 +67,7 @@ jobs:
       # category를 잡별로 나눠야 두 SARIF가 서로 덮어쓰지 않는다
       - name: Upload backend scan result
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-backend.sarif
           category: trivy-backend
@@ -78,13 +78,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build frontend prod image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
@@ -106,7 +106,7 @@ jobs:
 
       - name: Upload frontend scan result
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-frontend.sarif
           category: trivy-frontend
