@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
  * 기존 admin_logs에 섞여 있던 READ 행을 admin_read_logs로 옮기는 1회성 이관.
  * 옮길 행이 없으면 아무 것도 하지 않으므로 매 기동마다 실행돼도 안전하다.
  */
+// 손으로 쓴 PostgreSQL 전용 DDL이라 H2 테스트에서는 전부 실패한다.
+// 실패를 삼키고 넘어가므로 테스트가 초록불로 통과해 문제를 가린다.
+@Profile("!test")
 @Configuration
 public class AdminReadLogMigration {
 

@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -19,6 +20,9 @@ import java.util.stream.Collectors;
  * NOT NULL이나 DEFAULT도 걸어 주지 않는다. UserStatusMigration과 같은 방식으로
  * 백필한 뒤 제약을 세운다. 백필할 것이 없으면 아무 일도 하지 않아 매 기동 반복돼도 안전하다.
  */
+// 손으로 쓴 PostgreSQL 전용 DDL이라 H2 테스트에서는 전부 실패한다.
+// 실패를 삼키고 넘어가므로 테스트가 초록불로 통과해 문제를 가린다.
+@Profile("!test")
 @Configuration
 public class NoticeSchemaFixer {
 
