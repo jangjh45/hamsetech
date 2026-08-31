@@ -60,4 +60,10 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// 실패 원인을 바로 볼 수 있게 한다. 기본 출력은 "몇 개 실패"만 알려줘서
+	// 매번 HTML 리포트를 열어야 했다.
+	testLogging {
+		events 'failed', 'skipped'
+		exceptionFormat 'full'
+	}
 }
