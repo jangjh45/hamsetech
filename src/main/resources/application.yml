@@ -19,10 +19,21 @@ spring:
       # 이 크기를 넘으면 메모리 대신 임시파일로 받는다
       file-size-threshold: 1MB
 
-  # JPA 설정
+  # 스키마 관리. 테이블을 만들고 고치는 일은 Flyway가 하고, Hibernate는 엔티티와
+  # 실제 스키마가 맞는지 확인만 한다(validate). 어긋나면 기동이 멈춘다 — 예전처럼
+  # 반쯤 마이그레이션된 채로 서비스가 뜨는 일이 없다.
+  #
+  # 기존 데이터베이스를 처음 붙일 때만 임시로 none으로 낮출 수 있다. ddl-auto=update가
+  # 남긴 드리프트(엔티티에 없는 길이·타입 차이)가 validate에 걸릴 수 있기 때문이다.
+  flyway:
+    enabled: true
+    # 이미 테이블이 있는 데이터베이스에서는 V1을 실행하지 않고 적용된 것으로 표시만 한다.
+    baseline-on-migrate: true
+    baseline-version: 1
+    baseline-description: baseline (pre-Flyway schema)
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${HIBERNATE_DDL_AUTO:validate}
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect

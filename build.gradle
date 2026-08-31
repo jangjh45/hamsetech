@@ -34,6 +34,10 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
+	// 스키마는 이제 Flyway가 관리한다. ddl-auto=update + 손으로 쓴 SchemaFixer는
+	// 실패해도 조용히 넘어갔고, 무엇이 적용됐는지 기록도 남지 않았다.
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-database-postgresql'
 	implementation 'org.springframework.boot:spring-boot-starter-aop'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.5'
