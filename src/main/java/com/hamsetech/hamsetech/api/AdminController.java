@@ -10,6 +10,7 @@ import com.hamsetech.hamsetech.admin.AdminPasswordResetService;
 import com.hamsetech.hamsetech.admin.AdminReadLogSpecification;
 import com.hamsetech.hamsetech.user.UserAccount;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
+import com.hamsetech.hamsetech.user.UserAccountSpecification;
 import com.hamsetech.hamsetech.user.UserRole;
 import com.hamsetech.hamsetech.user.UserStatus;
 import com.hamsetech.hamsetech.user.UserWithdrawalService;
@@ -80,15 +81,13 @@ public class AdminController {
 	@GetMapping("/users")
 	public List<UserDto> listUsers(@RequestParam(name = "q", defaultValue = "") String q,
 			@RequestParam(name = "status", required = false) String status) {
-		List<UserAccount> all = userRepo.findAll(Sort.by(Sort.Direction.DESC, "id"));
-		String qq = q == null ? "" : q.toLowerCase();
+		// 검색·필터를 DB로 내린다. 예전에는 전체 사용자를 메모리에 올린 뒤 스트림으로
+		// 걸렀는데, 계정 수가 늘수록 목록 화면 한 번이 테이블 전체 스캔이 된다.
 		// 알 수 없는 status 값이면 필터를 적용하지 않는다(=전체 조회)
-		UserStatus wanted = parseStatus(status);
-		return all.stream()
-				.filter(u -> qq.isBlank()
-					|| (u.getUsername() != null && u.getUsername().toLowerCase().contains(qq))
-					|| (u.getDisplayName() != null && u.getDisplayName().toLowerCase().contains(qq)))
-				.filter(u -> wanted == null || u.getStatus() == wanted)
+		return userRepo.findAll(
+					UserAccountSpecification.withFilters(q, parseStatus(status)),
+					Sort.by(Sort.Direction.DESC, "id"))
+				.stream()
 				.map(AdminController::toDto)
 				.collect(Collectors.toList());
 	}
