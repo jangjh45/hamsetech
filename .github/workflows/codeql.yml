@@ -1,0 +1,50 @@
+name: CodeQL
+
+# 저장소가 public이라 CodeQL을 무료로 쓴다.
+# 주 1회 스케줄은 코드가 그대로여도 새로 공개된 취약점 룰로 다시 훑기 위한 것이다.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 3 * * 1'   # 매주 월요일 03:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [java-kotlin, javascript-typescript]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # build-mode: none은 소스만 훑는다.
+      # Java에 autobuild를 붙이면 ci.yml과 별개로 Gradle 빌드를 한 번 더 하게 되고
+      # 실패 지점만 늘어난다. 빌드 검증은 ci.yml의 몫이다.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}

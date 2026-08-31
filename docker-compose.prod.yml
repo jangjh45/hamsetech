@@ -15,7 +15,9 @@ services:
     environment:
       POSTGRES_DB: ${DB_NAME:-hamsetech}
       POSTGRES_USER: ${DB_USERNAME:-hamsetech}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}    # prod에서는 반드시 .env로 주입
+      # :? 는 값이 비면 컨테이너를 만들기 전에 compose를 중단시킨다.
+      # 기본값 없는 ${DB_PASSWORD}는 경고만 내고 빈 문자열을 주입해 버린다.
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?.env에 DB_PASSWORD를 설정하세요}
     expose:
       - "5432"                             # 외부 포트 미노출 (내부 통신만)
     volumes:
@@ -25,6 +27,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1g
     networks:
       - backend-net
 
@@ -41,8 +47,10 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-hamsetech}
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-hamsetech}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?.env에 DB_PASSWORD를 설정하세요}
+      JWT_SECRET: ${JWT_SECRET:?.env에 JWT_SECRET을 설정하세요}
+      # ADMIN_*은 일부러 :? 를 걸지 않는다. 최초 기동 뒤
+      # ADMIN_BOOTSTRAP_ENABLED=false로 내리면 정당하게 비어 있어도 되기 때문이다.
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
@@ -64,6 +72,23 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # wget은 alpine busybox 내장이라 jre-alpine에도 있다.
+    # /actuator/health는 application.yml에서 노출 범위에 못 박혀 있다.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # Flyway 마이그레이션이 도는 첫 기동에서 retries를 다 태우고
+      # unhealthy로 떨어지지 않도록 유예를 준다.
+      start_period: 60s
+    # Dockerfile의 MaxRAMPercentage=75.0이 의미를 가지려면 한도가 있어야 한다.
+    # 한도가 없으면 컨테이너가 아니라 호스트 RAM의 75%를 잡는다.
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "2.0"
     networks:
       - backend-net
       - frontend-net
@@ -79,7 +104,21 @@ services:
     ports:
       - "${FRONTEND_HOST_PORT:-8080}:80"   # 호스트 80(NAS 등) 충돌 회피, .env로 변경 가능
     depends_on:
-      - backend
+      backend:
+        # 조건 없는 depends_on이면 Nginx가 먼저 떠서 초기 요청이 502가 된다.
+        condition: service_healthy
+    # localhost가 아니라 127.0.0.1이어야 한다. 컨테이너 안에서 localhost는
+    # ::1로 먼저 풀리는데 nginx.conf의 "listen 80;"은 IPv4만 듣는다.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 256m
     networks:
       - frontend-net
 
