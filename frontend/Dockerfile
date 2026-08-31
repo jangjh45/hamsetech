@@ -29,7 +29,7 @@ CMD ["npm", "run", "dev"]
 # ─────────────────────────────────────────────
 # Stage 3: Prod (Nginx 정적 서빙)
 # ─────────────────────────────────────────────
-FROM nginx:1.27-alpine AS prod
+FROM nginx:1.31-alpine AS prod
 
 # 빌드 결과물 복사
 COPY --from=builder /app/dist /usr/share/nginx/html
