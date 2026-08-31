@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────
 # Stage 1: Build
 # ─────────────────────────────────────────────
-FROM node:22-alpine AS builder
+FROM node:26-alpine AS builder
 
 WORKDIR /app
 
@@ -14,7 +14,7 @@ RUN npm run build
 # ─────────────────────────────────────────────
 # Stage 2: Dev (Vite 개발 서버, HMR 지원)
 # ─────────────────────────────────────────────
-FROM node:22-alpine AS dev
+FROM node:26-alpine AS dev
 
 WORKDIR /app
 
