@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────
 # Stage 1: Build (Gradle + Java 21)
 # ─────────────────────────────────────────────
-FROM eclipse-temurin:21-jdk-alpine AS builder
+FROM eclipse-temurin:25-jdk-alpine AS builder
 
 WORKDIR /app
 
@@ -29,7 +29,7 @@ RUN ./gradlew bootJar --no-daemon -x test \
 # ─────────────────────────────────────────────
 # Stage 2: Dev (Gradle bootRun + DevTools 자동 재시작)
 # ─────────────────────────────────────────────
-FROM eclipse-temurin:21-jdk-alpine AS dev
+FROM eclipse-temurin:25-jdk-alpine AS dev
 
 WORKDIR /app
 
@@ -54,7 +54,7 @@ ENTRYPOINT ["./docker/backend-dev-entrypoint.sh"]
 # ─────────────────────────────────────────────
 # Stage 3: Prod (최적화된 경량 이미지)
 # ─────────────────────────────────────────────
-FROM eclipse-temurin:21-jre-alpine AS prod
+FROM eclipse-temurin:25-jre-alpine AS prod
 
 WORKDIR /app
 
