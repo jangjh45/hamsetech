@@ -46,7 +46,7 @@ dependencies {
 	implementation 'org.apache.poi:poi-ooxml:5.4.1'
 	// 공지 본문이 리치 텍스트(HTML)가 되면서 저장 전 새니타이징이 필요해졌다.
 	// 브라우저에서 거르는 것만으로는 API를 직접 호출하면 그대로 뚫린다.
-	implementation 'com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20240325.1'
+	implementation 'com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20260313.1'
   	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
 	compileOnly 'org.projectlombok:lombok'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
