@@ -46,6 +46,9 @@ services:
       ADMIN_USERNAME: ${ADMIN_USERNAME}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      # 첫 기동에서만 관리자 계정을 만든다. 기존 계정은 절대 변경하지 않는다.
+      ADMIN_BOOTSTRAP_ENABLED: ${ADMIN_BOOTSTRAP_ENABLED:-true}
+      ADMIN_SEED_SAMPLE_DATA: "false"
       UPLOAD_DIR: /app/uploads
     expose:
       - "8080"                             # 외부 포트 미노출 (Nginx가 내부 연결)

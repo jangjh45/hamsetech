@@ -35,7 +35,7 @@
 cp .env.example .env
 ```
 
-`.env` 파일을 열어 DB 접속 정보, JWT 시크릿, 관리자 초기 계정 등을 채워주세요. `.env` 파일은 Git에 커밋하지 않습니다.
+`.env` 파일을 열어 DB 접속 정보, 32자 이상의 JWT 시크릿, 관리자 초기 계정 등을 채워주세요. `.env` 파일은 Git에 커밋하지 않습니다. 운영 환경에서는 `ADMIN_BOOTSTRAP_ENABLED=true`을 최초 기동 때만 사용하고, 계정 생성 뒤에는 `false`로 바꾸세요.
 
 ### Docker로 실행 (권장)
 
@@ -54,7 +54,8 @@ docker compose up --build
 **백엔드**
 
 ```bash
-./gradlew bootRun
+# 개발 전용 기본값을 사용
+SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun
 ```
 
 **프론트엔드**

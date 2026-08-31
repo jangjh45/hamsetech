@@ -2,26 +2,32 @@ package com.hamsetech.hamsetech.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.NonNull;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class CorsConfig {
+
+    private final String[] allowedOriginPatterns;
+
+    public CorsConfig(@Value("${app.cors.allowed-origins:http://localhost:*,http://127.0.0.1:*}") String allowedOrigins) {
+        this.allowedOriginPatterns = java.util.Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toArray(String[]::new);
+    }
+
     @Bean
     public WebMvcConfigurer corsConfigurer() {
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(@NonNull CorsRegistry registry) {
                 registry.addMapping("/api/**")
-                        .allowedOriginPatterns(
-                                "http://localhost:*",
-                                "http://127.0.0.1:*",
-                                "http://192.168.*:*",  // 192.168.x.x 대역 허용
-                                "http://10.*:*",       // 10.x.x.x 대역 허용 (일반적인 로컬 네트워크)
-                                "http://172.16.*:*",   // 172.16.x.x - 172.31.x.x 대역 허용
-                                "http://169.254.*:*"   // 169.254.x.x 대역 허용 (링크-로컬)
-                        )
+                        // 로컬 개발 서버의 포트는 매번 달라질 수 있으므로 localhost만
+                        // 포트 와일드카드를 허용한다. LAN 주소는 설정에 정확히 추가해야 한다.
+                        .allowedOriginPatterns(allowedOriginPatterns)
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true);

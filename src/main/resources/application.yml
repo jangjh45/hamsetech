@@ -7,7 +7,7 @@ spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:hamsetech}
     username: ${DB_USERNAME:hamsetech}
-    password: ${DB_PASSWORD:hamsetech}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   # 공지 첨부파일 업로드
@@ -36,22 +36,27 @@ logging:
   level:
     org:
       hibernate:
-        SQL: DEBUG
+        SQL: WARN
       springframework:
         security: WARN
 
 # JWT
 security:
   jwt:
-    secret: ${JWT_SECRET:ChangeThisSecretKeyToAStrongLongRandomString1234567890}
-    expiration-seconds: 86400
+    secret: ${JWT_SECRET}
+    expiration-seconds: ${JWT_EXPIRATION_SECONDS:86400}
 
 # Default admin (dev only) - 운영 환경에서는 환경변수로 반드시 주입
 admin:
-  username: ${ADMIN_USERNAME:admin}
-  email: ${ADMIN_EMAIL:admin@example.com}
-  password: ${ADMIN_PASSWORD:admin1234}
-  reset-password-on-start: true
+  # 초기 관리자 생성은 명시적으로 활성화한 경우에만 수행한다.
+  # 기존 사용자의 역할·비밀번호·승인 상태는 절대 변경하지 않는다.
+  bootstrap:
+    enabled: ${ADMIN_BOOTSTRAP_ENABLED:false}
+  username: ${ADMIN_USERNAME:}
+  email: ${ADMIN_EMAIL:}
+  password: ${ADMIN_PASSWORD:}
+  display-name: ${ADMIN_DISPLAY_NAME:관리자}
+  seed-sample-data: ${ADMIN_SEED_SAMPLE_DATA:false}
   # 조회(READ) 로그는 별도 테이블에 쌓고 보존기간이 지나면 매일 새벽 정리 (0 이하면 정리 안 함)
   read-log:
     retention-days: ${READ_LOG_RETENTION_DAYS:90}
@@ -59,6 +64,9 @@ admin:
 
 # 공지
 app:
+  cors:
+    # 사설망에서 개발할 경우 필요한 정확한 origin만 CORS_ALLOWED_ORIGINS로 추가한다.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*}
   notice:
     # 같은 사람이 같은 글을 다시 열어도 이 시간 안에는 조회수를 올리지 않는다.
     # 새로고침 연타와 React StrictMode의 이펙트 2회 실행을 함께 흡수한다.

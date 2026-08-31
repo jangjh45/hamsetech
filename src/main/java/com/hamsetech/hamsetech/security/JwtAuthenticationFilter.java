@@ -34,8 +34,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String authHeader = request.getHeader("Authorization");
         if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
-            if (jwtService.isValid(token)) {
-                String username = jwtService.extractUsername(token);
+            jwtService.extractValidUsername(token).ifPresent(username -> {
                 var user = userRepository.findByUsername(username).orElse(null);
                 // 승인이 취소되거나 탈퇴 처리된 계정은 이미 발급된 토큰이 남아 있어도 통과시키지 않는다
                 if (user != null && user.canAccess()) {
@@ -46,7 +45,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 }
-            }
+            });
         }
         filterChain.doFilter(request, response);
     }
