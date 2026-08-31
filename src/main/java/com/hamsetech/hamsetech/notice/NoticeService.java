@@ -1,17 +1,19 @@
 package com.hamsetech.hamsetech.notice;
 
 import com.hamsetech.hamsetech.security.SecurityUtils;
+import com.hamsetech.hamsetech.web.ApiExceptions.ForbiddenException;
+import com.hamsetech.hamsetech.web.ApiExceptions.NotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.lang.NonNull;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,16 +21,6 @@ import java.util.Map;
 @Service
 @Transactional
 public class NoticeService {
-
-    /**
-     * 권한 거부 응답 본문.
-     *
-     * client.ts는 401/403을 받았을 때 body의 code가 FORBIDDEN인지로
-     * "권한 거부"와 "토큰 만료"를 구분한다. code를 빼먹으면 프론트가 만료로 오인해
-     * 멀쩡히 로그인한 사용자를 로그아웃시킨다.
-     */
-    private static final Map<String, String> FORBIDDEN_BODY =
-            Map.of("code", "FORBIDDEN", "error", "권한이 없습니다.");
 
     /** 상단에 고정할 수 있는 공지 수. 이 이상은 고정해도 목록이 고정글로만 채워진다. */
     private static final int MAX_PINNED = 20;
@@ -79,7 +71,7 @@ public class NoticeService {
                 : List.of();
 
         // 댓글·첨부 수는 두 묶음을 합쳐 한 번씩만 센다
-        List<Notice> all = new java.util.ArrayList<>(pinned);
+        List<Notice> all = new ArrayList<>(pinned);
         all.addAll(page.getContent());
         List<Long> ids = all.stream().map(Notice::getId).toList();
         Map<Long, Integer> commentCounts = toCountMap(
@@ -143,13 +135,10 @@ public class NoticeService {
     }
 
     /** 상단 고정 토글. 컨트롤러에서 관리자만 들어온다. */
-    public ResponseEntity<?> setPinned(@NonNull Long id, boolean pinned) {
-        return noticeRepository.findById(id)
-                .map((@NonNull Notice n) -> {
-                    n.setPinned(pinned);
-                    return ResponseEntity.ok(Map.of("pinned", noticeRepository.save(n).isPinned()));
-                })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public boolean setPinned(@NonNull Long id, boolean pinned) {
+        Notice n = requireNotice(id);
+        n.setPinned(pinned);
+        return noticeRepository.save(n).isPinned();
     }
 
     public NoticeDetailDto createNotice(String title, String content, NoticeCategory category, boolean pinned,
@@ -173,26 +162,20 @@ public class NoticeService {
         return NoticeDetailDto.of(saved, attachmentService.listFor(saved.getId()));
     }
 
-    public ResponseEntity<?> updateNotice(@NonNull Long id, String title, String content,
-                                          NoticeCategory category, boolean pinned,
-                                          List<Long> attachmentIds) {
-        String me = securityUtils.currentUsername();
-        boolean admin = securityUtils.isAdmin();
-        return noticeRepository.findById(id)
-                .map((@NonNull Notice n) -> {
-                    if (!admin && !n.getAuthorUsername().equals(me)) {
-                        return ResponseEntity.status(403).body(FORBIDDEN_BODY);
-                    }
-                    n.setTitle(title);
-                    n.setCategory(category == null ? NoticeCategory.GENERAL : category);
-                    n.setPinned(pinned);
-                    applyContent(n, content);
+    public NoticeDetailDto updateNotice(@NonNull Long id, String title, String content,
+                                        NoticeCategory category, boolean pinned,
+                                        List<Long> attachmentIds) {
+        Notice n = requireNotice(id);
+        requireCanEdit(n.getAuthorUsername());
 
-                    Notice saved = noticeRepository.save(n);
-                    attachmentService.claim(saved, attachmentIds, saved.getContent());
-                    return ResponseEntity.ok(NoticeDetailDto.of(saved, attachmentService.listFor(saved.getId())));
-                })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        n.setTitle(title);
+        n.setCategory(category == null ? NoticeCategory.GENERAL : category);
+        n.setPinned(pinned);
+        applyContent(n, content);
+
+        Notice saved = noticeRepository.save(n);
+        attachmentService.claim(saved, attachmentIds, saved.getContent());
+        return NoticeDetailDto.of(saved, attachmentService.listFor(saved.getId()));
     }
 
     /**
@@ -220,20 +203,13 @@ public class NoticeService {
         n.setContentFormat(NoticeContentFormat.HTML);
     }
 
-    public ResponseEntity<?> deleteNotice(@NonNull Long id) {
-        String me = securityUtils.currentUsername();
-        boolean admin = securityUtils.isAdmin();
-        return noticeRepository.findById(id)
-                .map((@NonNull Notice n) -> {
-                    if (!admin && !n.getAuthorUsername().equals(me)) {
-                        return ResponseEntity.status(403).body(FORBIDDEN_BODY);
-                    }
-                    // DB 행은 CASCADE가 정리하지만 디스크 파일은 우리가 치워야 한다
-                    attachmentService.deleteFilesOf(id);
-                    noticeRepository.delete(n);
-                    return ResponseEntity.ok(Map.of("deleted", true));
-                })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public void deleteNotice(@NonNull Long id) {
+        Notice n = requireNotice(id);
+        requireCanEdit(n.getAuthorUsername());
+
+        // DB 행은 CASCADE가 정리하지만 디스크 파일은 우리가 치워야 한다
+        attachmentService.deleteFilesOf(id);
+        noticeRepository.delete(n);
     }
 
     @Transactional(readOnly = true)
@@ -248,14 +224,13 @@ public class NoticeService {
                 .toList();
     }
 
-    public ResponseEntity<?> addComment(@NonNull Long noticeId, String content, Long parentId) {
-        Notice notice = noticeRepository.findById(noticeId).orElse(null);
-        if (notice == null) return ResponseEntity.notFound().build();
+    public NoticeCommentDto addComment(@NonNull Long noticeId, String content, Long parentId) {
+        Notice notice = requireNotice(noticeId);
 
         NoticeComment c = new NoticeComment();
         c.setNotice(notice);
         c.setContent(content);
-        c.setAuthorUsername(securityUtils.currentUsername());
+        c.setAuthorUsername(securityUtils.currentUsernameOrThrow());
 
         if (parentId != null) {
             commentRepository.findById(parentId).ifPresent((@NonNull NoticeComment parent) -> {
@@ -266,28 +241,34 @@ public class NoticeService {
         }
 
         NoticeComment saved = commentRepository.save(c);
-        return ResponseEntity.ok(new NoticeCommentDto(
+        return new NoticeCommentDto(
                 saved.getId(),
                 saved.getContent(),
                 saved.getAuthorUsername(),
                 saved.getParent() == null ? null : saved.getParent().getId(),
-                saved.getCreatedAt()));
+                saved.getCreatedAt());
     }
 
-    public ResponseEntity<?> deleteComment(@NonNull Long noticeId, @NonNull Long commentId) {
-        String me = securityUtils.currentUsername();
-        boolean admin = securityUtils.isAdmin();
-        return commentRepository.findById(commentId)
-                .map((@NonNull NoticeComment c) -> {
-                    if (!c.getNotice().getId().equals(noticeId)) {
-                        return ResponseEntity.notFound().build();
-                    }
-                    if (!admin && !c.getAuthorUsername().equals(me)) {
-                        return ResponseEntity.status(403).body(FORBIDDEN_BODY);
-                    }
-                    commentRepository.delete(c);
-                    return ResponseEntity.ok(Map.of("deleted", true));
-                })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public void deleteComment(@NonNull Long noticeId, @NonNull Long commentId) {
+        NoticeComment c = commentRepository.findById(commentId)
+                .orElseThrow(() -> new NotFoundException("댓글을 찾을 수 없습니다."));
+        // 다른 공지의 댓글 id로 들어온 경우. 예전에도 404였다.
+        if (!c.getNotice().getId().equals(noticeId)) {
+            throw new NotFoundException("댓글을 찾을 수 없습니다.");
+        }
+        requireCanEdit(c.getAuthorUsername());
+        commentRepository.delete(c);
+    }
+
+    private Notice requireNotice(@NonNull Long id) {
+        return noticeRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("공지를 찾을 수 없습니다."));
+    }
+
+    /** 관리자이거나 작성자 본인이어야 한다. */
+    private void requireCanEdit(String authorUsername) {
+        if (!securityUtils.isAdmin() && !authorUsername.equals(securityUtils.currentUsername())) {
+            throw new ForbiddenException("권한이 없습니다.");
+        }
     }
 }

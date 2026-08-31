@@ -1,11 +1,13 @@
 package com.hamsetech.hamsetech.work;
 
 import com.hamsetech.hamsetech.security.SecurityUtils;
+import com.hamsetech.hamsetech.web.ApiExceptions.ConflictException;
+import com.hamsetech.hamsetech.web.ApiExceptions.ForbiddenException;
+import com.hamsetech.hamsetech.web.ApiExceptions.NotFoundException;
 import com.hamsetech.hamsetech.user.UserAccount;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -189,49 +191,36 @@ public class OvertimeRecordService {
         return repository.findByUserIdOrderByWorkDateDesc(user.getId());
     }
 
-    public ResponseEntity<?> update(@NonNull Long id, LocalDate workDate, OvertimeType type, LocalTime startTime,
-                                     LocalTime endTime, Integer totalMinutes, String reason) {
-        String me = securityUtils.currentUsername();
-        boolean admin = securityUtils.isAdmin();
-        return repository.findById(id)
-                .map((@NonNull OvertimeRecord record) -> {
-                    if (!admin && !record.getUsername().equals(me)) {
-                        return ResponseEntity.status(403).body(Map.of("error", "forbidden"));
-                    }
-                    record.setWorkDate(workDate);
-                    record.setType(type);
-                    record.setStartTime(startTime);
-                    record.setEndTime(endTime);
-                    record.setTotalMinutes(resolveTotalMinutes(type, startTime, endTime, totalMinutes));
-                    record.setReason(reason);
-                    // 이미 처리된 기록을 수정하면 다시 승인 대기로 되돌려 재승인을 받게 한다.
-                    if (record.getStatus() != OvertimeRecord.Status.PENDING) {
-                        record.setStatus(OvertimeRecord.Status.PENDING);
-                        record.setApproverUsername(null);
-                        record.setApprovedAt(null);
-                        record.setRejectReason(null);
-                    }
-                    return ResponseEntity.ok(repository.save(record));
-                })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public OvertimeRecord update(@NonNull Long id, LocalDate workDate, OvertimeType type, LocalTime startTime,
+                                  LocalTime endTime, Integer totalMinutes, String reason) {
+        OvertimeRecord record = requireRecord(id);
+        requireOwnerOrAdmin(record);
+
+        record.setWorkDate(workDate);
+        record.setType(type);
+        record.setStartTime(startTime);
+        record.setEndTime(endTime);
+        record.setTotalMinutes(resolveTotalMinutes(type, startTime, endTime, totalMinutes));
+        record.setReason(reason);
+        // 이미 처리된 기록을 수정하면 다시 승인 대기로 되돌려 재승인을 받게 한다.
+        if (record.getStatus() != OvertimeRecord.Status.PENDING) {
+            record.setStatus(OvertimeRecord.Status.PENDING);
+            record.setApproverUsername(null);
+            record.setApprovedAt(null);
+            record.setRejectReason(null);
+        }
+        return repository.save(record);
     }
 
-    public ResponseEntity<?> delete(@NonNull Long id) {
-        String me = securityUtils.currentUsername();
-        boolean admin = securityUtils.isAdmin();
-        return repository.findById(id)
-                .map((@NonNull OvertimeRecord record) -> {
-                    if (!admin && !record.getUsername().equals(me)) {
-                        return ResponseEntity.status(403).body(Map.of("error", "forbidden"));
-                    }
-                    // 승인된 기록은 급여/집계에 반영되므로 관리자만 삭제할 수 있다. (대기/반려는 본인 삭제 허용)
-                    if (!admin && record.getStatus() == OvertimeRecord.Status.APPROVED) {
-                        return ResponseEntity.status(409).body(Map.of("error", "승인된 기록은 관리자만 삭제할 수 있습니다"));
-                    }
-                    repository.delete(record);
-                    return ResponseEntity.ok(Map.of("deleted", true));
-                })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public void delete(@NonNull Long id) {
+        OvertimeRecord record = requireRecord(id);
+        requireOwnerOrAdmin(record);
+
+        // 승인된 기록은 급여/집계에 반영되므로 관리자만 삭제할 수 있다. (대기/반려는 본인 삭제 허용)
+        if (!securityUtils.isAdmin() && record.getStatus() == OvertimeRecord.Status.APPROVED) {
+            throw new ConflictException("승인된 기록은 관리자만 삭제할 수 있습니다");
+        }
+        repository.delete(record);
     }
 
     @Transactional(readOnly = true)
@@ -242,34 +231,49 @@ public class OvertimeRecordService {
                 pageable);
     }
 
-    public ResponseEntity<?> approve(@NonNull Long id) {
-        return repository.findById(id)
-                .map((@NonNull OvertimeRecord record) -> {
-                    if (record.getStatus() != OvertimeRecord.Status.PENDING) {
-                        return ResponseEntity.status(409).body(Map.of("error", "이미 처리된 기록입니다"));
-                    }
-                    record.setStatus(OvertimeRecord.Status.APPROVED);
-                    record.setApproverUsername(securityUtils.currentUsername());
-                    record.setApprovedAt(Instant.now());
-                    record.setRejectReason(null);
-                    return ResponseEntity.ok(repository.save(record));
-                })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public OvertimeRecord approve(@NonNull Long id) {
+        OvertimeRecord record = requirePending(id);
+        record.setStatus(OvertimeRecord.Status.APPROVED);
+        record.setApproverUsername(securityUtils.currentUsername());
+        record.setApprovedAt(Instant.now());
+        record.setRejectReason(null);
+        return repository.save(record);
     }
 
-    public ResponseEntity<?> reject(@NonNull Long id, String reason) {
+    public OvertimeRecord reject(@NonNull Long id, String reason) {
+        OvertimeRecord record = requirePending(id);
+        record.setStatus(OvertimeRecord.Status.REJECTED);
+        record.setApproverUsername(securityUtils.currentUsername());
+        record.setApprovedAt(Instant.now());
+        record.setRejectReason(reason);
+        return repository.save(record);
+    }
+
+    private OvertimeRecord requireRecord(@NonNull Long id) {
         return repository.findById(id)
-                .map((@NonNull OvertimeRecord record) -> {
-                    if (record.getStatus() != OvertimeRecord.Status.PENDING) {
-                        return ResponseEntity.status(409).body(Map.of("error", "이미 처리된 기록입니다"));
-                    }
-                    record.setStatus(OvertimeRecord.Status.REJECTED);
-                    record.setApproverUsername(securityUtils.currentUsername());
-                    record.setApprovedAt(Instant.now());
-                    record.setRejectReason(reason);
-                    return ResponseEntity.ok(repository.save(record));
-                })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+                .orElseThrow(() -> new NotFoundException("기록을 찾을 수 없습니다."));
+    }
+
+    /**
+     * 본인 기록이거나 관리자여야 한다.
+     *
+     * 예전에는 code 없는 403을 직접 만들어 돌려줬다. client.ts는 code 없는 403을
+     * 토큰 만료로 보고 자동 로그아웃하므로, 남의 기록을 건드린 사용자가 "권한 없음"
+     * 대신 로그아웃당했다. 이제 전역 핸들러가 code=FORBIDDEN을 붙인다.
+     */
+    private void requireOwnerOrAdmin(OvertimeRecord record) {
+        if (!securityUtils.isAdmin() && !record.getUsername().equals(securityUtils.currentUsername())) {
+            throw new ForbiddenException("본인의 기록만 처리할 수 있습니다.");
+        }
+    }
+
+    /** 승인·반려는 대기 상태에서만 할 수 있다. 두 번 눌러도 앞의 결정이 덮이지 않는다. */
+    private OvertimeRecord requirePending(@NonNull Long id) {
+        OvertimeRecord record = requireRecord(id);
+        if (record.getStatus() != OvertimeRecord.Status.PENDING) {
+            throw new ConflictException("이미 처리된 기록입니다");
+        }
+        return record;
     }
 
     /**

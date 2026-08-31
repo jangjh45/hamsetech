@@ -155,9 +155,7 @@ class SecurityRulesTest {
     void userCanReachCommentDeletion() throws Exception {
         // SecurityConfig의 "/api/notices/*"는 한 세그먼트만 매치해야 한다.
         // 이게 "/**"로 바뀌면 일반 사용자가 자기 댓글도 못 지운다.
-        // 반환 타입이 ResponseEntity<?>라 when(...).thenReturn(...)은 와일드카드 캡처에 걸린다
-        org.mockito.Mockito.doReturn(org.springframework.http.ResponseEntity.ok(java.util.Map.of("deleted", true)))
-                .when(noticeService).deleteComment(1L, 2L);
+        org.mockito.Mockito.doNothing().when(noticeService).deleteComment(1L, 2L);
 
         mvc.perform(delete("/api/notices/1/comments/2"))
                 .andExpect(status().isOk())
