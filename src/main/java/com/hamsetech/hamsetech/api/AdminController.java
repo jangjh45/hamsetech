@@ -6,6 +6,7 @@ import com.hamsetech.hamsetech.admin.AdminLoggable;
 import com.hamsetech.hamsetech.admin.AdminLogSpecification;
 import com.hamsetech.hamsetech.admin.AdminReadLog;
 import com.hamsetech.hamsetech.admin.AdminReadLogRepository;
+import com.hamsetech.hamsetech.admin.AdminPasswordResetService;
 import com.hamsetech.hamsetech.admin.AdminReadLogSpecification;
 import com.hamsetech.hamsetech.user.UserAccount;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
@@ -44,13 +45,16 @@ public class AdminController {
 	private final AdminLogRepository adminLogRepo;
 	private final AdminReadLogRepository adminReadLogRepo;
 	private final UserWithdrawalService withdrawalService;
+	private final AdminPasswordResetService passwordResetService;
 
 	public AdminController(UserAccountRepository userRepo, AdminLogRepository adminLogRepo,
-			AdminReadLogRepository adminReadLogRepo, UserWithdrawalService withdrawalService) {
+			AdminReadLogRepository adminReadLogRepo, UserWithdrawalService withdrawalService,
+			AdminPasswordResetService passwordResetService) {
 		this.userRepo = userRepo;
 		this.adminLogRepo = adminLogRepo;
 		this.adminReadLogRepo = adminReadLogRepo;
 		this.withdrawalService = withdrawalService;
+		this.passwordResetService = passwordResetService;
 	}
 
 	@GetMapping("/ping")
@@ -214,6 +218,35 @@ public class AdminController {
 					u.setDisplayName(req.displayName().trim());
 					userRepo.save(u);
 					return ResponseEntity.ok(toDto(u));
+				})
+				.orElseGet(() -> ResponseEntity.notFound().build());
+	}
+
+	/** 임시 비밀번호. getId()를 노출하지 않아 감사 로그가 이 객체에서 값을 읽지 않는다. */
+	public record TempPasswordDto(String username, String temporaryPassword) {}
+
+	/**
+	 * 비밀번호 초기화.
+	 *
+	 * 자가 재설정(/api/auth/reset-by-identity)을 대체한다. 그쪽은 아이디와 가입
+	 * 이메일만 맞으면 인증 없이 비밀번호를 바꿔 줬는데, 이메일 소유를 확인하지
+	 * 않아 계정 탈취 경로였다.
+	 *
+	 * 임시 비밀번호는 이 응답에만 실린다. details는 고정 문자열이라 감사 로그에
+	 * 평문이 닿지 않는다.
+	 */
+	@AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.USER, details = "비밀번호 초기화")
+	@PostMapping("/users/{id}/reset-password")
+	public ResponseEntity<?> resetPassword(@PathVariable(name = "id") @NonNull Long id) {
+		return userRepo.findById(id)
+				.<ResponseEntity<?>>map(u -> {
+					try {
+						String temporary = passwordResetService.resetPassword(u);
+						logger.info("Reset password for user account: {}", u.getUsername());
+						return ResponseEntity.ok(new TempPasswordDto(u.getUsername(), temporary));
+					} catch (AdminPasswordResetService.ResetNotAllowedException e) {
+						return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+					}
 				})
 				.orElseGet(() -> ResponseEntity.notFound().build());
 	}
