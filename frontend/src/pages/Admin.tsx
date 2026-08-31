@@ -21,6 +21,7 @@ import {
 import { formatMinutes, formatTime, payrollCycle, toYmd } from '../utils/formatDate'
 import { defaultTimesFor, durationOf } from '../utils/overtime'
 import Pager from '../components/Pager'
+import { KeyIcon, UserMinusIcon } from '../components/AdminIcons'
 import '../styles/admin.css'
 import '../styles/overtime.css'
 
@@ -603,7 +604,7 @@ export default function AdminPage() {
               <div>사용자</div>
               <div>역할</div>
               <div>이름/닉네임</div>
-              <div style={{ textAlign: 'right' }}>권한</div>
+              <div style={{ textAlign: 'right' }}>관리</div>
             </div>
 
             {users.length === 0 ? (
@@ -613,6 +614,7 @@ export default function AdminPage() {
                 const roles: string[] = u.roles || []
                 const isAdmin = roles.includes('ADMIN')
                 const isSuperAdmin = roles.includes('SUPER_ADMIN')
+                const isWithdrawn = u.status === 'WITHDRAWN'
                 const statusBadge = USER_STATUS_BADGE[u.status as string]
                 // 본인 계정을 잠그면 관리자 자신이 락아웃된다(서버에서도 막지만 버튼부터 감춘다)
                 const canWithdraw =
@@ -665,8 +667,17 @@ export default function AdminPage() {
                       />
                     </span>
 
-                    <span className="fl-cell-actions">
-                      {isSuperAdmin ? (
+                    <span className="fl-cell-actions ad-user-actions">
+                      {/*
+                        역할은 상태를 겸해 보여 주므로 글자로 남긴다.
+                        탈퇴 계정에는 아예 띄우지 않는다 — 탈퇴 처리가 역할을 USER로
+                        되돌려 놓았는데 여기서 다시 ADMIN을 줄 수 있으면 죽은 계정에
+                        권한이 되살아난다.
+                      */}
+                      {isWithdrawn ? (
+                        // 역할 칸에 이미 "탈퇴" 배지가 있으므로 여기서는 비워 둔다
+                        <span className="ad-row-none" aria-label="처리할 동작 없음">—</span>
+                      ) : isSuperAdmin ? (
                         <span className="fl-badge fl-tone-primary">SUPER</span>
                       ) : isAdmin ? (
                         <button className="fl-btn fl-btn-sm" onClick={() => revoke(u.id)}>
@@ -677,19 +688,34 @@ export default function AdminPage() {
                           ADMIN 부여
                         </button>
                       )}
-                      {u.status !== 'WITHDRAWN' && (
-                        <button className="fl-btn fl-btn-sm" onClick={() => resetPassword(u)}>
-                          비밀번호 초기화
-                        </button>
-                      )}
-                      {canWithdraw && (
-                        <button
-                          className="fl-btn fl-btn-sm fl-btn-danger"
-                          onClick={() => withdrawUser(u)}
-                        >
-                          탈퇴 처리
-                        </button>
-                      )}
+
+                      {/*
+                        가끔 쓰는 두 동작은 아이콘으로 접는다. 글자 버튼 세 개는
+                        칸을 넘겨 줄바꿈되면서 행 높이가 제각각이 됐다.
+                        둘 다 누르면 확인 창이 먼저 뜬다.
+                      */}
+                      <span className="ad-row-tools">
+                        {!isWithdrawn && (
+                          <button
+                            className="fl-btn-icon ad-row-action"
+                            onClick={() => resetPassword(u)}
+                            title="비밀번호 초기화"
+                            aria-label={`${u.username} 비밀번호 초기화`}
+                          >
+                            <KeyIcon />
+                          </button>
+                        )}
+                        {canWithdraw && (
+                          <button
+                            className="fl-btn-icon ad-row-action is-danger"
+                            onClick={() => withdrawUser(u)}
+                            title="탈퇴 처리"
+                            aria-label={`${u.username} 탈퇴 처리`}
+                          >
+                            <UserMinusIcon />
+                          </button>
+                        )}
+                      </span>
                     </span>
                   </div>
                 )

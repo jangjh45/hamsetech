@@ -203,3 +203,62 @@
     padding: 12px 16px;
   }
 }
+
+/* ── 사용자 행의 관리 동작 ───────────────────────────────────────
+   역할 토글(글자)과 가끔 쓰는 동작(아이콘)을 구분해 놓는다.
+   글자 버튼 세 개를 나란히 두면 210px 칸을 넘겨 줄바꿈되고, 행마다 높이가
+   달라져 목록이 읽기 어려워진다. */
+.ad-user-actions {
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+/* 아이콘 묶음. 왼쪽의 세로선이 "여기부터는 다른 성격의 동작"임을 알린다. */
+.ad-row-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 8px;
+  border-left: 1px solid var(--fl-divider);
+}
+
+/* 행 안에 들어가므로 기본 아이콘 버튼(36px)보다 작게 */
+.ad-row-action {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+
+.ad-row-action svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 되돌릴 수 없는 동작. 평소에는 조용히 있다가 가리키면 위험을 드러낸다. */
+.ad-row-action.is-danger:hover:not(:disabled) {
+  background: var(--fl-danger-soft);
+  border-color: var(--fl-danger);
+  color: var(--fl-danger);
+}
+
+@media (max-width: 900px) {
+  /* 세로로 쌓인 행에서는 역할 버튼만 늘리고 아이콘은 제 크기를 지킨다 */
+  .ad-user-actions {
+    flex-wrap: wrap;
+  }
+
+  .ad-row-tools {
+    border-left: none;
+    padding-left: 0;
+  }
+
+  .fl-tr.ad-user-row .ad-row-action {
+    flex: 0 0 auto;
+  }
+}
+
+/* 더 이상 할 동작이 없는 행(탈퇴 계정). 칸을 비워 두면 정렬이 흐트러져 보인다. */
+.ad-row-none {
+  color: var(--fl-faint);
+  font-size: 13px;
+}
