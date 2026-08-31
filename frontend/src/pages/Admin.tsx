@@ -102,6 +102,8 @@ export default function AdminPage() {
   const [overtimeFilters, setOvertimeFilters] = useState({ username: '', type: '', status: '' })
   const [overtimePagination, setOvertimePagination] = useState({ currentPage: 0, totalPages: 0, totalElements: 0, size: 20 })
   const [overtimeMonth, setOvertimeMonth] = useState<string>(() => new Date().toISOString().slice(0, 7))
+  // 초기화 직후 한 번만 보여줄 임시 비밀번호. 화면을 닫으면 다시 볼 수 없다.
+  const [tempPassword, setTempPassword] = useState<{ username: string; password: string } | null>(null)
   const [rejectingId, setRejectingId] = useState<number | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [bulkOpen, setBulkOpen] = useState(false)
@@ -471,6 +473,25 @@ export default function AdminPage() {
     } catch (e: any) { setError(e.message) }
   }
 
+  /**
+   * 비밀번호 초기화.
+   *
+   * 자가 재설정을 없앤 자리를 대신한다. 서버가 만든 임시 비밀번호를 응답으로 한 번
+   * 받아 관리자가 본인에게 직접 전달하는 방식이라, 받은 값을 놓치면 다시 초기화해야 한다.
+   */
+  async function resetPassword(u: any) {
+    const label = `${u.username}${u.displayName ? ` (${u.displayName})` : ''}`
+    if (!window.confirm(
+      `${label} 계정의 비밀번호를 초기화합니다.\n\n` +
+        '임시 비밀번호가 발급되고 이 계정의 기존 로그인은 모두 해제됩니다.\n' +
+        '임시 비밀번호는 지금 한 번만 표시됩니다.',
+    )) return
+    try {
+      const res = await apiFetch(`/api/admin/users/${u.id}/reset-password`, { method: 'POST' })
+      setTempPassword({ username: res.username, password: res.temporaryPassword })
+    } catch (e: any) { setError(e.message) }
+  }
+
   async function grant(id: number) {
     try {
       await apiFetch(`/api/admin/users/${id}/grant-admin`, { method: 'POST' })
@@ -654,6 +675,11 @@ export default function AdminPage() {
                       ) : (
                         <button className="fl-btn fl-btn-sm" onClick={() => grant(u.id)}>
                           ADMIN 부여
+                        </button>
+                      )}
+                      {u.status !== 'WITHDRAWN' && (
+                        <button className="fl-btn fl-btn-sm" onClick={() => resetPassword(u)}>
+                          비밀번호 초기화
                         </button>
                       )}
                       {canWithdraw && (
@@ -1424,6 +1450,79 @@ export default function AdminPage() {
           )}
         </div>
       )}
+      {tempPassword && (
+        <TempPasswordModal
+          username={tempPassword.username}
+          password={tempPassword.password}
+          onClose={() => setTempPassword(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * 초기화로 발급된 임시 비밀번호를 보여준다.
+ *
+ * 서버는 이 값을 저장하지 않고 해시만 남기므로, 이 화면을 닫으면 다시 볼 방법이
+ * 없다. 관리자가 옮겨 적을 시간을 주는 것이 이 모달의 유일한 역할이라
+ * 바깥을 눌러서는 닫히지 않게 한다.
+ */
+function TempPasswordModal({
+  username,
+  password,
+  onClose,
+}: {
+  username: string
+  password: string
+  onClose: () => void
+}) {
+  const [copied, setCopied] = useState(false)
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(password)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // 클립보드 권한이 없으면(비 HTTPS 등) 화면의 값을 직접 옮겨 적으면 된다
+      setCopied(false)
+    }
+  }
+
+  return (
+    <div className="fl-modal-overlay">
+      <div className="fl-modal ad-temp-modal" role="dialog" aria-modal="true">
+        <div className="fl-modal-head">
+          <div className="fl-modal-heading">
+            <span className="fl-modal-title">임시 비밀번호 발급</span>
+            <span className="fl-modal-sub">{username} 계정의 비밀번호가 초기화되었습니다.</span>
+          </div>
+        </div>
+
+        <div className="fl-modal-body">
+          <div className="ad-temp-value">
+            <code>{password}</code>
+            <button type="button" className="fl-btn fl-btn-sm" onClick={copy}>
+              {copied ? '복사됨' : '복사'}
+            </button>
+          </div>
+
+          <div className="fl-hint ad-temp-warn">
+            이 값은 지금만 볼 수 있습니다. 창을 닫으면 다시 확인할 수 없고, 필요하면 다시
+            초기화해야 합니다. 본인에게 전달한 뒤 로그인해서 새 비밀번호로 바꾸도록 안내하세요.
+          </div>
+        </div>
+
+        <div className="fl-modal-foot">
+          <span className="fl-modal-foot-note">이 계정의 기존 로그인은 모두 해제되었습니다.</span>
+          <div className="fl-modal-foot-actions">
+            <button type="button" className="fl-btn fl-btn-primary" onClick={onClose}>
+              옮겨 적었습니다
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
