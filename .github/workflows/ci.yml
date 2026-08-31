@@ -25,10 +25,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -37,7 +37,7 @@ jobs:
       # gradle-wrapper.jar가 저장소에 커밋되어 있고 CI가 그걸 실행한다.
       # 공식 배포본과 체크섬이 같은지 확인한다.
       - name: Validate Gradle wrapper
-        uses: gradle/actions/wrapper-validation@v4
+        uses: gradle/actions/wrapper-validation@v6
 
       # .gitattributes가 gradlew를 eol=lf로 고정해 개행은 안전하지만,
       # 실행 비트는 git 인덱스 모드에 달려 있어 별개다. 이미 맞아도 무해하다.
@@ -54,7 +54,7 @@ jobs:
 
       - name: Upload test reports
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-test-reports
           path: |
@@ -74,12 +74,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       # 버전 출처는 frontend/.nvmrc 하나로 모은다.
       # frontend/Dockerfile의 node:22-alpine과 같이 움직여야 한다.
       - name: Set up Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version-file: frontend/.nvmrc
           cache: npm
