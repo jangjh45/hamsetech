@@ -8,15 +8,27 @@ import org.springframework.test.context.ActiveProfiles;
  * 애플리케이션 배선 검증.
  *
  * 이 테스트가 잡는 것은 "빈이 전부 엮이는가"다 — 빈 누락, 순환 의존,
- * @ConfigurationProperties 바인딩 실패. 값싸고 넓은 그물이라 남겨 둔다.
+ * &#64;ConfigurationProperties 바인딩 실패. 값싸고 넓은 그물이라, Docker가 없는
+ * 곳에서도 돌도록 H2로 띄운다.
  *
- * 이 테스트가 잡지 못하는 것은 DB 동작이다. 여기서는 H2가 ddl-auto=create-drop으로
- * 엔티티에서 스키마를 새로 만들지만, 운영은 ddl-auto=update와 SchemaFixer가 만든다.
- * 생성 경로가 아예 다르고, SchemaFixer는 @Profile("!test")라 여기서 돌지도 않는다.
- * 부분 인덱스나 nulls last 같은 PostgreSQL 전용 동작도 확인되지 않는다.
- * 그쪽은 Testcontainers를 붙일 때의 몫이고, 그때 H2를 걷어내면 된다.
+ * 스키마는 여기서 검증하지 않는다. Flyway를 끄고 Hibernate가 엔티티에서 H2 스키마를
+ * 직접 만들게 둔다. 마이그레이션이 실제로 맞는 스키마를 만드는지는
+ * {@link com.hamsetech.hamsetech.db.SchemaMigrationTest}가 진짜 PostgreSQL로 확인한다.
+ *
+ * 데이터소스를 여기에 직접 박은 이유가 있다. application-test.yml에 두면
+ * 환경변수(SPRING_DATASOURCE_URL 등)가 우선순위에서 이긴다. 도커 개발 환경에는 그
+ * 변수가 떠 있어서, H2 드라이버에 PostgreSQL URL이 물려 컨텍스트 로딩이 깨졌다.
+ * &#64;SpringBootTest(properties)는 환경변수보다 우선순위가 높아 그 오염을 막는다.
  */
-@SpringBootTest
+@SpringBootTest(properties = {
+		"spring.datasource.url=jdbc:h2:mem:hamsetech;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
+		"spring.datasource.driver-class-name=org.h2.Driver",
+		"spring.datasource.username=sa",
+		"spring.datasource.password=",
+		"spring.flyway.enabled=false",
+		"spring.jpa.hibernate.ddl-auto=create-drop",
+		"spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect"
+})
 @ActiveProfiles("test")
 class HamsetechApplicationTests {
 

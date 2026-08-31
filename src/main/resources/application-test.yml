@@ -1,15 +1,14 @@
-spring:
-  datasource:
-    url: jdbc:h2:mem:hamsetech;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
-  jpa:
-    hibernate:
-      ddl-auto: create-drop
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
+# 테스트 공통 설정.
+#
+# 데이터소스는 여기에 두지 않는다. 환경변수(SPRING_DATASOURCE_URL 등)가
+# application-*.yml보다 우선순위가 높아서, 도커 개발 환경처럼 그 변수가 떠 있는
+#곳에서는 여기 적은 값이 무시된다. 실제로 H2 드라이버에 PostgreSQL URL이 물려
+# 컨텍스트 로딩이 깨졌다.
+#
+# 그래서 각 테스트가 자기 데이터소스를 직접 정한다.
+#   - HamsetechApplicationTests: @SpringBootTest(properties=...)로 H2를 못 박는다.
+#   - SchemaMigrationTest: Testcontainers가 @ServiceConnection으로 주입한다.
+# 둘 다 환경변수보다 우선순위가 높다.
 
 security:
   jwt:
@@ -18,3 +17,8 @@ security:
 admin:
   bootstrap:
     enabled: false
+
+# 스케줄러는 테스트에서 돌 이유가 없다. 조회 로그 정리나 첨부 청소가
+# 테스트 도중 끼어들면 원인을 찾기 어려운 실패가 된다.
+admin.read-log.cleanup-cron: "0 0 5 31 2 *"
+app.upload.orphan-cleanup-cron: "0 0 5 31 2 *"
