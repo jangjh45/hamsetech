@@ -16,7 +16,9 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: `http://${apiHost}:8080`,
-        changeOrigin: true,
+        // Nginx(프로덕션)처럼 원본 Host를 그대로 넘긴다. Host를 backend:8080으로
+        // 바꾸면 Origin과 어긋나 스프링이 교차 오리진으로 보고 403을 낸다.
+        changeOrigin: false,
       },
     },
   },
