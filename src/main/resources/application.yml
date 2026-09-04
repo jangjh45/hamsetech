@@ -81,7 +81,9 @@ admin:
 # 공지
 app:
   cors:
-    # 사설망에서 개발할 경우 필요한 정확한 origin만 CORS_ALLOWED_ORIGINS로 추가한다.
+    # 운영 기본값. Nginx가 프론트와 /api를 같은 오리진으로 묶으므로 교차 오리진
+    # 요청 자체가 없고, 여기에 사설망 IP를 넣을 일도 없다.
+    # 개발용 사설망 오리진은 application-dev.yml이 따로 덮어쓴다.
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*}
   notice:
     # 같은 사람이 같은 글을 다시 열어도 이 시간 안에는 조회수를 올리지 않는다.
