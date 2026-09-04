@@ -812,21 +812,30 @@ export default function DeliveryPage() {
                       placeholder="300"
                       aria-label={`${idx + 1}번 물품 세로`}
                     />
+                    {/* 표 머리가 사라지는 좁은 화면에서만 보이는 단위 */}
+                    <span className="dl-cell-label dl-cell-unit" aria-hidden="true">
+                      mm
+                    </span>
                   </span>
-                  <input
-                    className="fl-input dl-item-qty"
-                    inputMode="numeric"
-                    value={it.qty}
-                    onChange={(e) => updateItem(idx, { qty: normalizeNumericInput(e.target.value) })}
-                    onKeyDown={(e) => {
-                      // 마지막 행에서 Enter를 치면 이어서 다음 행을 넣는다
-                      if (e.key === 'Enter' && idx === items.length - 1) {
-                        e.preventDefault()
-                        addItem()
-                      }
-                    }}
-                    aria-label={`${idx + 1}번 물품 수량`}
-                  />
+                  <span className="dl-qty">
+                    <span className="dl-cell-label" aria-hidden="true">
+                      수량
+                    </span>
+                    <input
+                      className="fl-input dl-item-qty"
+                      inputMode="numeric"
+                      value={it.qty}
+                      onChange={(e) => updateItem(idx, { qty: normalizeNumericInput(e.target.value) })}
+                      onKeyDown={(e) => {
+                        // 마지막 행에서 Enter를 치면 이어서 다음 행을 넣는다
+                        if (e.key === 'Enter' && idx === items.length - 1) {
+                          e.preventDefault()
+                          addItem()
+                        }
+                      }}
+                      aria-label={`${idx + 1}번 물품 수량`}
+                    />
+                  </span>
                   <span className="fl-cell-actions dl-item-actions">
                     <button
                       className="fl-btn-e"

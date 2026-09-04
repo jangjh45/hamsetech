@@ -27,6 +27,16 @@ export default function Header() {
     if (!isMobile) setShowMobileMenu(false)
   }, [isMobile])
 
+  // 열린 메뉴는 Esc로도 닫힌다 (바깥 탭은 백드롭이 받는다)
+  useEffect(() => {
+    if (!showMobileMenu) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowMobileMenu(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showMobileMenu])
+
   function handleLogout() {
     clearToken()
     navigate('/')
@@ -88,19 +98,42 @@ export default function Header() {
         {isMobile && (
           <>
             <div className="fl-spacer" />
+            {/* 프로필은 메뉴를 열지 않고도 한 번에 가도록 막대에 아바타를 둔다 */}
+            {authed && displayName && (
+              <Link
+                to="/profile"
+                className="fl-avatar fl-avatar-link"
+                aria-label={`${displayName}님 프로필`}
+                title={`${displayName}님`}
+                onClick={() => setShowMobileMenu(false)}
+              >
+                {displayName.charAt(0)}
+              </Link>
+            )}
             <button
               className="fl-btn-icon"
               onClick={() => setShowMobileMenu((v) => !v)}
-              aria-label="메뉴"
+              aria-label={showMobileMenu ? '메뉴 닫기' : '메뉴 열기'}
               aria-expanded={showMobileMenu}
+              aria-controls="fl-mobile-nav"
             >
               {showMobileMenu ? '✕' : '☰'}
             </button>
           </>
         )}
 
+        {/* 메뉴가 열리면 본문을 살짝 가리고, 가려진 곳을 탭하면 닫힌다 */}
+        {isMobile && showMobileMenu && (
+          <div className="fl-mobile-backdrop" onClick={() => setShowMobileMenu(false)} aria-hidden="true" />
+        )}
+
         {isMobile && (
-          <nav className={`fl-mobile-nav${showMobileMenu ? ' is-open' : ''}`} aria-hidden={!showMobileMenu}>
+          <nav
+            id="fl-mobile-nav"
+            className={`fl-mobile-nav${showMobileMenu ? ' is-open' : ''}`}
+            aria-hidden={!showMobileMenu}
+            aria-label="주 메뉴"
+          >
             {navLinks.map((link) => (
               <NavLink
                 key={link.to}

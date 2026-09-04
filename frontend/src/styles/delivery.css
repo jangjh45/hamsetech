@@ -221,9 +221,26 @@
   color: var(--fl-muted-2);
 }
 
+/* 수량 칸. 좁은 화면에서 앞에 "수량" 라벨이 붙는다 */
+.dl-qty {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .dl-item-qty {
   text-align: center;
   font-variant-numeric: tabular-nums;
+}
+
+/* 표 머리가 있는 넓은 화면에서는 칸 안 라벨이 필요 없다 */
+.dl-cell-label {
+  display: none;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fl-muted-2);
 }
 
 /* ── 적재 미리보기 ───────────────────────────────────────────── */
@@ -598,9 +615,20 @@
   .dl-item-order { grid-area: order; }
   .dl-item-name { grid-area: name; }
   .dl-dims { grid-area: dims; }
-  .dl-item-qty { grid-area: qty; width: 72px; }
+  .dl-qty { grid-area: qty; justify-self: end; }
   .dl-item-actions { grid-area: actions; }
   .dl-item-note { grid-area: note; }
+
+  /*
+   * 수량 입력은 폭을 고정한다. .dl-item-row .fl-input의 width:100%가 이기면
+   * auto 열이 입력의 기본 폭(150px 남짓)까지 늘어나 치수 칸을 밀어낸다.
+   */
+  .fl-tr.dl-item-row .dl-qty .fl-input {
+    width: 64px;
+  }
+
+  .dl-cell-label { display: inline; }
+  .dl-cell-unit { font-weight: 500; }
 
   .dl-bin-field { flex: 1 1 100px; width: auto; }
   .dl-toggle { flex: 1 1 100%; justify-content: center; }

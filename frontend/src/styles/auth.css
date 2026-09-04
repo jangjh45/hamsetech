@@ -238,6 +238,8 @@ body:has(.au-shell) {
 
 /* 바로 위 .au-card .fl-btn보다 셀렉터가 세야 높이·글자 크기를 덮는다 */
 .au-card .au-submit {
+  /* <Link>로 쓰일 때는 content-box라 100% + 좌우 패딩만큼 카드 밖으로 삐져나온다 */
+  box-sizing: border-box;
   margin-top: 4px;
   width: 100%;
   height: 50px;
@@ -385,33 +387,110 @@ body:has(.au-shell) {
   flex-shrink: 0;
 }
 
-/* ── 회원가입 진행 표시 ──────────────────────────────────────── */
+/* ── 회원가입 단계 표시 ──────────────────────────────────────── */
 
-.au-progress {
+/*
+ * 칸마다 막대 + (번호/체크 + 이름). 막대만 있을 때는 현재 칸이 차 있는 게
+ * "이미 끝난 진행률"로 읽혔다. 지난 단계는 체크, 현재 단계는 번호 배지로
+ * 구분하고, 다가올 단계는 흐리게 둔다. 카드 안 다른 요소들과 같은 등장
+ * 모션을 가장 먼저 탄다.
+ */
+.au-steps {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+  animation: au-enter 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.02s;
 }
 
-.au-progress-bar {
+.au-step {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.au-step-bar {
   height: 4px;
   border-radius: 999px;
   background: var(--fl-border);
   transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.au-progress-bar.is-on {
+.au-step-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--fl-muted-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.3s ease;
+}
+
+.au-step-num {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1.5px solid currentColor;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease;
+}
+
+.au-step.is-current .au-step-bar {
   background: var(--fl-primary);
 }
 
-.au-progress-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--fl-muted);
-  min-width: 34px;
-  text-align: right;
+.au-step.is-current .au-step-text {
+  color: var(--fl-text);
+}
+
+.au-step.is-current .au-step-num {
+  background: var(--fl-primary);
+  border-color: var(--fl-primary);
+  color: var(--fl-on-primary);
+}
+
+.au-step.is-done .au-step-bar {
+  background: var(--fl-primary);
+  opacity: 0.55;
+}
+
+.au-step.is-done .au-step-text {
+  color: var(--fl-primary);
+}
+
+.au-step.is-done .au-step-num {
+  background: var(--fl-primary-soft);
+  border-color: transparent;
+  color: var(--fl-primary);
+}
+
+/* 스크린리더용 보조 문구 */
+.au-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* 이전 / 가입 신청하기 */
@@ -421,11 +500,14 @@ body:has(.au-shell) {
   margin-top: 4px;
 }
 
-/* 나란히 서는 두 버튼은 높이가 같아야 한다 — .au-card .au-submit의 50px를 되돌린다 */
+/* 나란히 서는 두 버튼은 높이가 같아야 한다 — .au-card .au-submit의 50px를 되돌린다.
+   등장 모션은 행(.au-actions)이 이미 타므로 여기서 한 번 더 돌면 옆의 "이전"보다
+   늦고 흐리게 떠오른다. */
 .au-card .au-actions .au-submit {
   flex: 1;
   margin-top: 0;
   height: 48px;
+  animation: none;
 }
 
 /* ── 모바일 ──────────────────────────────────────────────────── */
@@ -433,19 +515,41 @@ body:has(.au-shell) {
 /*
  * 좁은 화면에서는 어두운 면을 걷어내고 평범한 --fl-bg 위에 카드만 남긴다.
  * 배경이 밝아지므로 그 위에 얹혀 있던 흰 글자(로고·푸터)와 어두운 바탕용 테마
- * 버튼도 함께 되돌린다.
+ * 버튼도 함께 되돌린다. 로고와 푸터는 절대 위치를 풀고 카드 위아래에 흐름으로
+ * 놓아, 세 요소를 묶어 화면 세로 가운데에 둔다 — 카드만 위에 붙어 있으면
+ * 아래가 텅 비어 보인다.
  */
 @media (max-width: 900px) {
   .au-shell {
-    padding: 42px 18px;
-    align-items: flex-start;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 72px 18px 28px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     background: var(--fl-bg);
   }
 
-  .au-stage,
-  .au-brand-mark,
-  .au-foot {
+  .au-stage {
     display: none;
+  }
+
+  .au-brand-mark {
+    position: static;
+    margin-bottom: 22px;
+    font-size: 21px;
+    font-weight: 700;
+    color: var(--fl-text);
+  }
+
+  .au-brand-mark:hover {
+    color: var(--fl-text);
+  }
+
+  .au-foot {
+    position: static;
+    margin-top: 26px;
+    color: var(--fl-muted-2);
   }
 
   .au-theme {
@@ -464,7 +568,6 @@ body:has(.au-shell) {
 
   .au-pane {
     max-width: 440px;
-    padding-top: 34px;
   }
 
   .au-card {
@@ -540,6 +643,7 @@ body:has(.au-shell) {
 @media (prefers-reduced-motion: reduce) {
   .au-aurora,
   .au-card,
+  .au-steps,
   .au-heading,
   .au-fields > .fl-field,
   .au-fields > .fl-hint,
