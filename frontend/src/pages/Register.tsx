@@ -4,6 +4,52 @@ import { apiFetch } from '../api/client'
 import AuthShell from '../components/AuthShell'
 import PasswordStrength from '../components/PasswordStrength'
 
+const STEPS = ['계정 정보', '프로필 정보'] as const
+
+/*
+ * 단계 표시. 막대만 있으면 1단계에서 이미 절반이, 2단계에서는 아직 신청도 안 했는데
+ * 전부 찬 것처럼 읽히므로 각 칸에 이름과 번호를 붙이고 지난 단계는 체크로 구분한다.
+ * current가 단계 수보다 크면(신청 완료 화면) 모든 칸이 완료로 표시된다.
+ */
+function Progress({ current }: { current: number }) {
+  return (
+    <ol className="au-steps" aria-label="회원가입 단계">
+      {STEPS.map((label, i) => {
+        const n = i + 1
+        const state = n < current ? 'done' : n === current ? 'current' : 'todo'
+        return (
+          <li
+            key={label}
+            className={`au-step is-${state}`}
+            aria-current={state === 'current' ? 'step' : undefined}
+          >
+            <span className="au-step-bar" />
+            <span className="au-step-text">
+              <span className="au-step-num" aria-hidden="true">
+                {state === 'done' ? (
+                  <svg viewBox="0 0 12 12" width="9" height="9" fill="none">
+                    <path
+                      d="M2.5 6.2 5 8.6l4.6-5.2"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : (
+                  n
+                )}
+              </span>
+              {label}
+              {state === 'done' && <span className="au-sr">(완료)</span>}
+            </span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
 export default function RegisterPage() {
   const [step, setStep] = useState<1 | 2>(1)
   const [submitted, setSubmitted] = useState('')
@@ -58,14 +104,19 @@ export default function RegisterPage() {
   if (submitted) {
     return (
       <AuthShell>
+        <Progress current={STEPS.length + 1} />
+
         <div className="au-heading">
           <h2>승인을 기다리는 중이에요</h2>
           <p>{submitted}</p>
         </div>
 
+        {/* .fl-hint는 flex라 <b>가 따로 열로 떨어진다 — 문장 전체를 한 노드로 감싼다 */}
         <div className="fl-hint">
-          승인이 늦어지면 관리자에게 문의해 주세요. 승인 후에는 <b>{username}</b> 아이디로 바로
-          로그인할 수 있습니다.
+          <span>
+            승인이 늦어지면 관리자에게 문의해 주세요. 승인 후에는 <b>{username}</b> 아이디로 바로
+            로그인할 수 있습니다.
+          </span>
         </div>
 
         <Link className="fl-btn fl-btn-primary au-submit" to="/login">
@@ -77,11 +128,7 @@ export default function RegisterPage() {
 
   return (
     <AuthShell>
-      <div className="au-progress">
-        <span className="au-progress-bar is-on" />
-        <span className={step === 2 ? 'au-progress-bar is-on' : 'au-progress-bar'} />
-        <span className="au-progress-label">{step}/2</span>
-      </div>
+      <Progress current={step} />
 
       {/* key로 단계마다 새 노드를 만들어야 au-enter 등장 모션이 다시 돈다 */}
       <div className="au-heading" key={`h${step}`}>

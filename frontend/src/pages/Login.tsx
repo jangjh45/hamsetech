@@ -53,6 +53,7 @@ export default function LoginPage() {
   return (
     <AuthShell>
       <div className="au-heading">
+        <h2>로그인</h2>
         <p>사내 계정으로 로그인하세요.</p>
       </div>
 

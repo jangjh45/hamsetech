@@ -525,7 +525,7 @@ export default function AdminPage() {
           <h1>관리자</h1>
           <p>{msg}</p>
         </div>
-        <div className="fl-seg">
+        <div className="fl-seg ad-tabs" role="tablist" aria-label="관리자 메뉴">
           <button
             className={`fl-seg-btn${activeTab === 'users' ? ' is-active' : ''}`}
             onClick={() => setActiveTab('users')}
@@ -1977,10 +1977,13 @@ function LogRows({ logs, loading }: { logs: AdminLog[]; loading: boolean }) {
 
           <span className="ad-log-detail">
             <span className="ad-label">내용</span>
-            <span className="ad-log-entity">
-              {log.entityType} {log.entityId != null && `(ID: ${log.entityId})`}
+            {/* 좁은 화면에서 라벨 옆 한 덩어리로 서도록 대상과 상세를 묶는다 */}
+            <span className="ad-log-detail-body">
+              <span className="ad-log-entity">
+                {log.entityType} {log.entityId != null && `(ID: ${log.entityId})`}
+              </span>
+              {log.details && <span className="ad-log-text">{log.details}</span>}
             </span>
-            {log.details && <span className="ad-log-text">{log.details}</span>}
           </span>
 
           <span className="ad-log-ip">

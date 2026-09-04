@@ -135,7 +135,8 @@
   white-space: nowrap;
 }
 
-.ad-log-detail {
+.ad-log-detail,
+.ad-log-detail-body {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -161,6 +162,25 @@
 /* ── 반응형 ──────────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
+  /*
+   * 탭 여섯 개를 한 줄에 두면 화면 밖으로 밀려나 오른쪽 탭을 못 본다.
+   * 제목 아래 한 줄을 통째로 차지하는 3열 격자로 접어 두 줄에 다 보이게 한다.
+   */
+  .ad-tabs {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 3px;
+  }
+
+  .ad-tabs .fl-seg-btn {
+    height: 38px;
+    padding: 0 6px;
+    font-size: 12.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .ad-search,
   .ad-search .fl-input,
   .ad-filters {
@@ -175,13 +195,38 @@
     grid-template-columns: 1fr;
   }
 
-  /* 세로로 쌓인 행에서는 라벨과 값을 좌우로 놓는다 */
+  /*
+   * 세로로 쌓인 행에서는 라벨을 왼쪽 고정 열에, 값을 오른쪽에 놓는다.
+   * 라벨을 값 위에 얹으면 둘 다 왼쪽에서 시작해 어디까지가 라벨인지 흐릿하다.
+   * 열을 나누면 위아래 행의 라벨이 세로로 정렬돼 훑어 읽기 쉽다.
+   */
+  .fl-tr.ad-user-row > :has(> .ad-label),
+  .fl-tr.ad-log-row > :has(> .ad-label) {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 12px;
+    min-width: 0;
+  }
+
   .ad-label {
     display: block;
-    font-size: 12px;
+    flex: 0 0 64px;
+    font-size: 11.5px;
     font-weight: 600;
+    line-height: 1.5;
     color: var(--fl-muted-2);
-    margin-bottom: 4px;
+  }
+
+  /* 라벨 옆의 편집기·상세 묶음은 남은 폭을 다 쓴다. 배지는 제 크기를 지킨다 */
+  .ad-label + *:not(.fl-badge) {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .fl-tr.ad-user-row,
+  .fl-tr.ad-log-row {
+    gap: 9px;
   }
 
   .fl-tr.ad-user-row .fl-cell-actions,
