@@ -46,3 +46,7 @@ uploads/
 .env
 ### Claude Code ###
 .claude/settings.local.json
+
+# NAS 배포용 이미지 아카이브 (docker save 산출물, ~300MB)
+hamsetech-nas.tar
+*.tar
