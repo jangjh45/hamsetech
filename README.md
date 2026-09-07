@@ -71,6 +71,114 @@ docker compose up --build
 
 프로덕션용 구성은 `docker-compose.prod.yml`을 사용합니다.
 
+### NAS(Synology) 배포
+
+DS218+ 같은 2GB 저사양 NAS에서는 `docker-compose.nas.yml` 오버레이를 반드시 함께
+얹습니다. `prod` 단독은 메모리 한도 합계가 3.25GB라, 컨테이너 한도에 닿기 전에
+호스트 OOM 킬러가 프로세스를 먼저 죽입니다.
+
+**NAS에서는 빌드하지 않습니다.** 2코어/2GB에서 Gradle 컴파일과 Vite 번들링은
+20~40분이 걸리고 중간에 죽습니다. 이미지는 PC에서 만들어 tar로 옮깁니다.
+
+#### 공통 — PC에서 이미지 만들기
+
+```bash
+docker pull postgres:16-alpine
+docker compose -f docker-compose.prod.yml -f docker-compose.nas.yml build
+docker save -o hamsetech-nas.tar hamsetech-backend:nas hamsetech-frontend:nas postgres:16-alpine
+```
+
+`postgres:16-alpine`은 빌드 대상이 아니라서 미리 `pull` 해두어야 save에 들어갑니다.
+NAS에 이미 같은 이미지가 있는 업데이트라면 인자에서 빼도 됩니다(tar가 200MB쯤 줄어듭니다).
+`docker save -o`는 셸을 거치지 않으므로 Windows cmd/PowerShell에서도 그대로 동작합니다.
+
+#### 첫 기동 (최초 1회)
+
+1. `/volume1/docker/hamsetech/`에 네 개를 넣습니다 — `hamsetech-nas.tar`,
+   `docker-compose.prod.yml`, `docker-compose.nas.yml`, `.env`.
+   `.env`는 NAS용으로 새로 씁니다. 저장소의 개발용 기본값을 그대로 올리면 안 됩니다.
+   `DB_PASSWORD`, `JWT_SECRET`(64자 이상), `ADMIN_PASSWORD`를 실제 값으로 채우고
+   `FRONTEND_HOST_PORT=8080`, `ADMIN_BOOTSTRAP_ENABLED=true`를 둡니다.
+
+2. SSH로 접속해 이미지를 적재하고, 태그가 다 들어왔는지 확인합니다.
+
+```bash
+cd /volume1/docker/hamsetech
+sudo docker load -i hamsetech-nas.tar
+sudo docker images | grep -E "hamsetech|postgres"
+```
+
+   세 줄이 다 보여야 합니다. 태그가 없으면 다음 단계가 NAS에서 빌드를 시작합니다.
+
+3. 기동합니다.
+
+```bash
+sudo docker compose -f docker-compose.prod.yml -f docker-compose.nas.yml up -d --no-build
+```
+
+4. 로그로 기동을 확인합니다. J3355에서 `Started HamsetechApplication`까지 60~120초,
+   Flyway가 스키마를 처음 만드는 기동은 그보다 더 걸립니다. frontend는 backend가
+   healthy가 되어야 뜨므로 그전까지 접속이 안 되는 것이 정상입니다.
+
+```bash
+sudo docker compose -f docker-compose.prod.yml -f docker-compose.nas.yml logs -f backend
+```
+
+5. `http://<나스IP>:8080`으로 접속해 관리자로 로그인한 뒤, `.env`의
+   `ADMIN_BOOTSTRAP_ENABLED`를 `false`로 내리고 backend를 재기동합니다.
+
+#### 업데이트 기동 (2회차 이후)
+
+컨테이너와 볼륨은 그대로 두고 이미지만 갈아끼웁니다. compose 프로젝트 이름이
+`docker-compose.prod.yml`에 `name: hamsetech-prod`로 박혀 있어, 실행 디렉터리가
+달라져도 기존 볼륨을 그대로 이어받습니다.
+
+1. 새 tar를 `/volume1/docker/hamsetech/`에 덮어씁니다. compose 파일이나 `.env`가
+   이번 배포에서 바뀌었다면 그것도 함께 갱신합니다.
+
+2. DB를 백업합니다. 마이그레이션이 포함된 배포라면 특히 건너뛰지 마세요.
+
+```bash
+cd /volume1/docker/hamsetech
+sudo docker exec hamsetech-postgres pg_dump -U hamsetech hamsetech | gzip > backup-$(date +%F).sql.gz
+```
+
+3. 이미지를 적재합니다. 같은 태그가 이미 있으면 태그가 새 이미지로 옮겨가고 옛
+   이미지는 태그 없이(dangling) 남습니다. 돌고 있는 컨테이너는 영향받지 않습니다.
+
+```bash
+sudo docker load -i hamsetech-nas.tar
+```
+
+4. 재기동합니다. 이미지가 바뀐 서비스만 재생성되고 볼륨은 유지됩니다.
+
+```bash
+sudo docker compose -f docker-compose.prod.yml -f docker-compose.nas.yml up -d --no-build
+```
+
+5. 상태를 확인한 뒤 옛 이미지를 정리합니다. `up -d` 전에 돌리면 실행 중인 컨테이너가
+   붙들고 있어 지워지지 않으므로 순서를 지킵니다.
+
+```bash
+sudo docker compose -f docker-compose.prod.yml -f docker-compose.nas.yml ps
+sudo docker image prune -f
+```
+
+#### 두 경로의 차이
+
+| | 첫 기동 | 업데이트 기동 |
+| --- | --- | --- |
+| `.env` | NAS용으로 새로 작성 | 바뀐 값만 갱신 |
+| `ADMIN_BOOTSTRAP_ENABLED` | `true`로 시작해 완료 후 `false` | `false` 유지 |
+| DB 백업 | 불필요 (데이터 없음) | 필수 |
+| Flyway | V1부터 전체 적용 | 새 버전만 적용 |
+| 기동 시간 | 스키마 생성까지 2분 이상 | 대개 1~2분 |
+| 옛 이미지 정리 | 불필요 | `docker image prune -f` |
+
+DSM 버전이 낮아 `docker compose`가 없으면 `docker-compose`(v1)로 대체합니다. 단 v1에는
+`--no-build`가 없고 `deploy:` 블록을 조용히 무시하므로, DSM 7.2의 Container Manager를
+쓰는 편이 안전합니다.
+
 ### 로컬에서 직접 실행
 
 **백엔드**
