@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback, useRef } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { MAX_PIECES } from '../utils/packing'
 import type { PackingScenario } from '../api/scenarios'
 import ScenarioRow from '../components/delivery/ScenarioRow'
@@ -12,10 +12,10 @@ import {
   toInt,
   toSquareMeters,
   type Draft,
-  type ItemRow,
 } from '../components/delivery/deliveryShared'
 import { useScenarios } from '../hooks/useScenarios'
 import { usePackingCalc, usePackingStats } from '../hooks/usePackingCalc'
+import { useItemRows } from '../hooks/useItemRows'
 import '../styles/delivery.css'
 
 export default function DeliveryPage() {
@@ -26,10 +26,31 @@ export default function DeliveryPage() {
   const [marginStr, setMarginStr] = useState<string>(initialDraft?.margin ?? '0')
   const [allowRotate, setAllowRotate] = useState<boolean>(initialDraft?.allowRotate ?? true)
   const [preserveOrder, setPreserveOrder] = useState<boolean>(initialDraft?.preserveOrder ?? false)
-  const [items, setItems] = useState<ItemRow[]>(initialDraft?.items ?? [])
 
   const [error, setError] = useState<string>('')
   const [showRestoredHint, setShowRestoredHint] = useState<boolean>(!!initialDraft)
+
+  // 물품 목록 편집과 드래그 정렬. 같은 items를 두 가지 방식으로 만지므로 한 묶음이다.
+  const {
+    items,
+    setItems,
+    lastRemoved,
+    setLastRemoved,
+    focusItemIdRef,
+    addItem,
+    duplicateItem,
+    updateItem,
+    removeItem,
+    undoRemove,
+    clearItems,
+    dragIndex,
+    setDragIndex,
+    dragOverIndex,
+    setDragOverIndex,
+    handleDragOver,
+    handleDrop,
+    handleDragEnd,
+  } = useItemRows(initialDraft?.items ?? [])
 
 
   const nameMap = useMemo(() => Object.fromEntries(items.map((i) => [i.id, i.name])), [items])
@@ -47,9 +68,6 @@ export default function DeliveryPage() {
     binH,
     margin,
   } = usePackingCalc({ binWStr, binHStr, marginStr, allowRotate, preserveOrder, items })
-
-  // 방금 지운 행 (되돌리기용)
-  const [lastRemoved, setLastRemoved] = useState<{ index: number; row: ItemRow } | null>(null)
 
   // 훅에 넘길 두 함수. useCallback으로 감싸지 않으면 매 렌더마다 새 함수가 생겨
   // 컴포넌트 전체가 memoize되지 않는다 — React Compiler가 최적화를 건너뛰고
@@ -116,8 +134,6 @@ export default function DeliveryPage() {
     closeScenarioModal,
   } = useScenarios({ getInput, applyScenario, onError: setError })
 
-  const focusItemIdRef = useRef<number | null>(null)
-
   // 입력을 브라우저에 남겨 새로고침해도 이어서 쓸 수 있게 한다
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -138,47 +154,7 @@ export default function DeliveryPage() {
     return () => clearTimeout(timer)
   }, [showRestoredHint])
 
-  // ── 물품 목록 ──────────────────────────────────────────────
-
-  const nextItemId = () => (items.length ? Math.max(...items.map((i) => i.id)) + 1 : 1)
-
-  function addItem() {
-    const id = nextItemId()
-    focusItemIdRef.current = id
-    setItems([...items, { id, name: '', w: '200', h: '200', qty: '1' }])
-    setLastRemoved(null)
-  }
-
-  function duplicateItem(idx: number) {
-    const src = items[idx]
-    const id = nextItemId()
-    focusItemIdRef.current = id
-    const next = [...items]
-    next.splice(idx + 1, 0, { ...src, id, name: src.name ? `${src.name} 사본` : '' })
-    setItems(next)
-    setLastRemoved(null)
-  }
-
-  function updateItem(idx: number, patch: Partial<ItemRow>) {
-    const next = [...items]
-    next[idx] = { ...next[idx], ...patch }
-    setItems(next)
-  }
-
-  function removeItem(idx: number) {
-    setLastRemoved({ index: idx, row: items[idx] })
-    const next = [...items]
-    next.splice(idx, 1)
-    setItems(next)
-  }
-
-  function undoRemove() {
-    if (!lastRemoved) return
-    const next = [...items]
-    next.splice(Math.min(lastRemoved.index, next.length), 0, lastRemoved.row)
-    setItems(next)
-    setLastRemoved(null)
-  }
+  // ── 전체 초기화 ────────────────────────────────────────────
 
   function resetInputs() {
     if (!window.confirm('입력한 적재함 설정과 물품 목록을 모두 지울까요?')) return
@@ -187,46 +163,13 @@ export default function DeliveryPage() {
     setMarginStr('0')
     setAllowRotate(true)
     setPreserveOrder(false)
-    setItems([])
-    setLastRemoved(null)
+    clearItems()
     setShowRestoredHint(false)
     try {
       localStorage.removeItem(DRAFT_KEY)
     } catch {
       // 지우기 실패는 무시. 다음 편집 때 어차피 덮어쓴다.
     }
-  }
-
-  // ── 드래그 정렬 ────────────────────────────────────────────
-
-  const [dragIndex, setDragIndex] = useState<number | null>(null)
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
-
-  function handleDragOver(e: React.DragEvent, idx: number) {
-    e.preventDefault()
-    if (dragIndex !== null && dragIndex !== idx) {
-      setDragOverIndex(idx)
-    }
-  }
-
-  function handleDrop(idx: number) {
-    if (dragIndex === null || dragIndex === idx) {
-      setDragIndex(null)
-      setDragOverIndex(null)
-      return
-    }
-
-    const next = [...items]
-    const [dragged] = next.splice(dragIndex, 1)
-    next.splice(idx, 0, dragged)
-    setItems(next)
-    setDragIndex(null)
-    setDragOverIndex(null)
-  }
-
-  function handleDragEnd() {
-    setDragIndex(null)
-    setDragOverIndex(null)
   }
 
   // ── 시나리오 ───────────────────────────────────────────────
