@@ -1,6 +1,6 @@
 plugins {
 	id 'java'
-	id 'org.springframework.boot' version '3.5.8'
+	id 'org.springframework.boot' version '4.1.1'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'com.github.ben-manes.versions' version '0.64.0'
 }
@@ -41,7 +41,7 @@ dependencies {
 	// 실패해도 조용히 넘어갔고, 무엇이 적용됐는지 기록도 남지 않았다.
 	implementation 'org.flywaydb:flyway-core'
 	implementation 'org.flywaydb:flyway-database-postgresql'
-	implementation 'org.springframework.boot:spring-boot-starter-aop'
+	implementation 'org.springframework.boot:spring-boot-starter-aspectj'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	// 관리자 잔업/특근 엑셀 내보내기. Spring Boot BOM이 관리하지 않아 버전을 명시한다.
 	implementation 'org.apache.poi:poi-ooxml:5.5.1'
@@ -58,12 +58,17 @@ dependencies {
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
+	// Spring Boot 4 에서 슬라이스 테스트 어노테이션이 starter-test 에서 빠지고
+	// 모듈별 test 아티팩트로 독립했다. @WebMvcTest 는 webmvc-test,
+	// @DataJpaTest 는 data-jpa-test 가 있어야 보인다.
+	testImplementation 'org.springframework.boot:spring-boot-webmvc-test'
+	testImplementation 'org.springframework.boot:spring-boot-data-jpa-test'
 	// H2는 빠른 배선 확인(HamsetechApplicationTests)에만 쓴다.
 	// 스키마·마이그레이션 검증은 Testcontainers가 실제 PostgreSQL로 한다.
 	testRuntimeOnly 'com.h2database:h2'
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
-	testImplementation 'org.testcontainers:junit-jupiter'
-	testImplementation 'org.testcontainers:postgresql'
+	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+	testImplementation 'org.testcontainers:testcontainers-postgresql'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
