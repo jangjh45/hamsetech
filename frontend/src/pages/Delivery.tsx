@@ -1,15 +1,6 @@
-import { useMemo, useState, useEffect, useCallback, useRef, type FormEvent } from 'react'
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react'
 import { packIntoTrucks, MAX_PIECES, type PackResult } from '../utils/packing'
-import {
-  getAllScenarios,
-  getFavoriteScenarios,
-  createScenario,
-  updateScenario,
-  deleteScenario,
-  toggleFavorite,
-  type PackingScenario,
-  type CreateScenarioRequest,
-} from '../api/scenarios'
+import type { PackingScenario } from '../api/scenarios'
 import ScenarioRow from '../components/delivery/ScenarioRow'
 import TruckCard from '../components/delivery/TruckCard'
 import {
@@ -23,6 +14,7 @@ import {
   type Draft,
   type ItemRow,
 } from '../components/delivery/deliveryShared'
+import { useScenarios } from '../hooks/useScenarios'
 import '../styles/delivery.css'
 
 export default function DeliveryPage() {
@@ -38,18 +30,6 @@ export default function DeliveryPage() {
   const [error, setError] = useState<string>('')
   const [showRestoredHint, setShowRestoredHint] = useState<boolean>(!!initialDraft)
 
-  // 시나리오 관련 상태
-  const [scenarios, setScenarios] = useState<PackingScenario[]>([])
-  const [favoriteScenarios, setFavoriteScenarios] = useState<PackingScenario[]>([])
-  const [showScenarioModal, setShowScenarioModal] = useState<boolean>(false)
-  const [showLoadModal, setShowLoadModal] = useState<boolean>(false)
-  const [scenarioQuery, setScenarioQuery] = useState<string>('')
-  const [scenarioName, setScenarioName] = useState<string>('')
-  const [scenarioDescription, setScenarioDescription] = useState<string>('')
-  const [editingScenario, setEditingScenario] = useState<PackingScenario | null>(null)
-  const [formError, setFormError] = useState<string>('')
-  const [saving, setSaving] = useState<boolean>(false)
-  const [deleteTarget, setDeleteTarget] = useState<PackingScenario | null>(null)
 
   const nameMap = useMemo(() => Object.fromEntries(items.map((i) => [i.id, i.name])), [items])
 
@@ -61,6 +41,71 @@ export default function DeliveryPage() {
 
   // 방금 지운 행 (되돌리기용)
   const [lastRemoved, setLastRemoved] = useState<{ index: number; row: ItemRow } | null>(null)
+
+  // 훅에 넘길 두 함수. useCallback으로 감싸지 않으면 매 렌더마다 새 함수가 생겨
+  // 컴포넌트 전체가 memoize되지 않는다 — React Compiler가 최적화를 건너뛰고
+  // preserve-manual-memoization 오류를 붙인다.
+  const getInput = useCallback(
+    () => ({
+      binW: toInt(binWStr),
+      binH: toInt(binHStr),
+      margin: toInt(marginStr),
+      allowRotate,
+      preserveOrder,
+      items,
+    }),
+    [binWStr, binHStr, marginStr, allowRotate, preserveOrder, items],
+  )
+
+  const applyScenario = useCallback((s: PackingScenario) => {
+    setBinWStr(String(s.truckWidth))
+    setBinHStr(String(s.truckHeight))
+    setAllowRotate(s.allowRotate)
+    setMarginStr(String(s.margin))
+    setPreserveOrder(!!s.preserveOrder)
+    // 서버가 sortOrder 순으로 내려주므로 받은 순서 그대로 쓴다
+    setItems(
+      s.items.map((item, index) => ({
+        id: index + 1,
+        name: item.name,
+        w: String(item.width),
+        h: String(item.height),
+        qty: String(item.quantity),
+      })),
+    )
+    setLastRemoved(null)
+    setShowRestoredHint(false)
+  }, [])
+
+  // 시나리오 상태는 useScenarios가 들고 있다. 이름을 그대로 풀어 놓는 이유는
+  // 이 화면 아래쪽 JSX가 전부 이 이름들을 참조하기 때문이다 — 접두사를 붙이려면
+  // 렌더 부분을 전부 손대야 한다.
+  const {
+    scenarios,
+    favoriteScenarios,
+    showScenarioModal,
+    showLoadModal,
+    setShowLoadModal,
+    scenarioQuery,
+    setScenarioQuery,
+    scenarioName,
+    setScenarioName,
+    scenarioDescription,
+    setScenarioDescription,
+    editingScenario,
+    formError,
+    setFormError,
+    saving,
+    deleteTarget,
+    setDeleteTarget,
+    saveScenario,
+    loadScenario,
+    confirmDelete,
+    toggleFavoriteHandler,
+    openSaveModal,
+    openEditModal,
+    closeScenarioModal,
+  } = useScenarios({ getInput, applyScenario, onError: setError })
 
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // 행을 추가한 직후 그 행의 이름 칸으로 포커스를 옮기기 위한 표시
@@ -231,145 +276,6 @@ export default function DeliveryPage() {
   }
 
   // ── 시나리오 ───────────────────────────────────────────────
-
-  const loadScenarios = useCallback(async () => {
-    try {
-      const [allScenarios, favorites] = await Promise.all([getAllScenarios(), getFavoriteScenarios()])
-      setScenarios(allScenarios)
-      setFavoriteScenarios(favorites)
-    } catch (e: any) {
-      setError(e?.message || '시나리오 목록을 불러오지 못했습니다.')
-    }
-  }, [])
-
-  useEffect(() => {
-    loadScenarios()
-  }, [loadScenarios])
-
-  async function saveScenario(e: FormEvent) {
-    e.preventDefault()
-    if (!scenarioName.trim()) {
-      setFormError('시나리오 이름을 입력해주세요.')
-      return
-    }
-
-    // 가로·세로·수량이 모두 0보다 큰 물품만 저장한다. 이름이 비면 순번으로 채운다.
-    const validItems = items
-      .filter((item) => toInt(item.w) > 0 && toInt(item.h) > 0 && toInt(item.qty) > 0)
-      .map((item, index) => ({
-        name: item.name.trim() || `물품${index + 1}`,
-        width: toInt(item.w),
-        height: toInt(item.h),
-        quantity: toInt(item.qty),
-      }))
-
-    if (validItems.length === 0) {
-      setFormError('저장할 물품이 없습니다. 가로·세로·수량이 모두 0보다 큰 물품을 추가해주세요.')
-      return
-    }
-
-    const request: CreateScenarioRequest = {
-      name: scenarioName.trim(),
-      description: scenarioDescription.trim() || undefined,
-      truckWidth: binW,
-      truckHeight: binH,
-      allowRotate,
-      margin,
-      preserveOrder,
-      items: validItems,
-    }
-
-    setSaving(true)
-    setFormError('')
-    try {
-      if (editingScenario) {
-        await updateScenario(editingScenario.id!, request)
-      } else {
-        await createScenario(request)
-      }
-      closeScenarioModal()
-      setError('')
-      await loadScenarios()
-    } catch (e: any) {
-      // 서버는 이름이 겹칠 때 400을 준다
-      if (e?.message?.includes('400')) {
-        setFormError('이미 같은 이름의 시나리오가 있습니다. 다른 이름을 사용해주세요.')
-      } else {
-        setFormError(e?.message || '시나리오 저장에 실패했습니다.')
-      }
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  function loadScenario(scenario: PackingScenario) {
-    setBinWStr(String(scenario.truckWidth))
-    setBinHStr(String(scenario.truckHeight))
-    setAllowRotate(scenario.allowRotate)
-    setMarginStr(String(scenario.margin))
-    setPreserveOrder(!!scenario.preserveOrder)
-    // 서버가 sortOrder 순으로 내려주므로 받은 순서 그대로 쓴다
-    setItems(
-      scenario.items.map((item, index) => ({
-        id: index + 1,
-        name: item.name,
-        w: String(item.width),
-        h: String(item.height),
-        qty: String(item.quantity),
-      })),
-    )
-    setLastRemoved(null)
-    setShowRestoredHint(false)
-    setShowLoadModal(false)
-  }
-
-  async function confirmDelete() {
-    if (!deleteTarget) return
-    try {
-      await deleteScenario(deleteTarget.id!)
-      setError('')
-      await loadScenarios()
-    } catch (e: any) {
-      setError(e?.message || '시나리오 삭제에 실패했습니다.')
-    } finally {
-      setDeleteTarget(null)
-    }
-  }
-
-  async function toggleFavoriteHandler(id: number) {
-    try {
-      await toggleFavorite(id)
-      setError('')
-      await loadScenarios()
-    } catch (e: any) {
-      setError(e?.message || '즐겨찾기 설정에 실패했습니다.')
-    }
-  }
-
-  function openSaveModal() {
-    setEditingScenario(null)
-    setScenarioName('')
-    setScenarioDescription('')
-    setFormError('')
-    setShowScenarioModal(true)
-  }
-
-  function openEditModal(scenario: PackingScenario) {
-    setEditingScenario(scenario)
-    setScenarioName(scenario.name)
-    setScenarioDescription(scenario.description || '')
-    setFormError('')
-    setShowLoadModal(false)
-    setShowScenarioModal(true)
-  }
-
-  function closeScenarioModal() {
-    setShowScenarioModal(false)
-    setEditingScenario(null)
-    setScenarioName('')
-    setScenarioDescription('')
-    setFormError('')
-  }
 
   const anyModalOpen = showScenarioModal || showLoadModal || deleteTarget !== null
 
