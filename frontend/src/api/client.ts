@@ -67,8 +67,13 @@ async function rawFetch(input: RequestInfo | URL, init: RequestInit = {}): Promi
       typeof bodyData === 'object' && bodyData !== null && (bodyData as any).code === 'FORBIDDEN'
 
     if (isPermissionDenied) {
-      const err = new Error(message || '권한이 없습니다.')
-      try { console.warn('apiFetch forbidden', { url, status: res.status, message }) } catch {}
+      // 위에서 계산한 message에는 error가 없을 때 JSON 문자열이 들어가 있다.
+      // 권한 거부 메시지로 그 문자열을 보여 주면 화면에 {"code":"FORBIDDEN"}이
+      // 그대로 떠서 사용자에게 무슨 뜻인지 알 수 없다. error만 보고 없으면
+      // 기본 문구를 쓴다.
+      const denied = typeof bodyData === 'object' && bodyData !== null ? (bodyData as any).error : ''
+      const err = new Error(typeof denied === 'string' && denied ? denied : '권한이 없습니다.')
+      try { console.warn('apiFetch forbidden', { url, status: res.status, message: err.message }) } catch {}
       throw err
     }
 

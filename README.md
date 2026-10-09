@@ -5,7 +5,7 @@
 ## 기술 스택
 
 - **백엔드**: Java 21, Spring Boot 3.5, Spring Security (JWT + OAuth2 Client), Spring Data JPA / JDBC, PostgreSQL, Flyway
-- **프론트엔드**: React 19, TypeScript, Vite, React Router
+- **프론트엔드**: React 19, TypeScript, Vite, React Router, Vitest
 - **인프라**: Docker / Docker Compose, GitHub Actions (CI, Docker 빌드, Trivy 이미지 스캔)
 
 > Redis 의존성(`spring-boot-starter-data-redis`)이 빌드에 들어 있지만 아직 실제로 쓰지 않습니다. Compose에 컨테이너가 없고 Actuator 헬스체크에서도 제외돼 있으며, 로그인 시도 제한은 인메모리로 동작합니다. 백엔드를 여러 인스턴스로 늘릴 때 Redis 도입이 선결 과제입니다.
@@ -207,7 +207,16 @@ npm run dev
 cd frontend
 npm run build
 npm run lint
+npm run test        # Vitest. 순수 함수와 API 클라이언트 계약
+npm run test:watch  # 파일을 고치면 자동으로 다시 돌린다
 ```
+
+프론트엔드 테스트는 도메인 로직만 다룬다. `packing`(적재 알고리즘),
+`homeLayout`(위젯 배치), `overtime`(서버 `OvertimeRecordService`의 미러),
+`noticeHtml`, `api/client`(만료·권한 거부 분기)이 대상이다.
+
+`overtime` 테스트의 기대값은 서버 `work/OvertimeRecordServiceTest`와 같은
+입력을 쓴다. 휴게시간 상수를 한쪽만 고치면 양쪽 테스트가 같이 깨진다.
 
 ## 프로젝트 구조
 
