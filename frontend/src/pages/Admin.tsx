@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../api/client'
-import { getUsername as getMe, getToken, getRoles, saveAuth, onTokenExpired } from '../auth/token'
+import { getUsername as getMe, getRoles, onTokenExpired } from '../auth/token'
 import {
   listAllOvertimeRecords,
   approveOvertimeRecord,
@@ -20,6 +20,7 @@ import { formatTime, payrollCycle } from '../utils/formatDate'
 import Pager from '../components/Pager'
 import { useChangeLogsTab } from '../hooks/useChangeLogsTab'
 import { useReadLogsTab } from '../hooks/useReadLogsTab'
+import { useUserTabs } from '../hooks/useUserTabs'
 import { KeyIcon, UserMinusIcon } from '../components/AdminIcons'
 import DisplayNameEditor from '../components/admin/DisplayNameEditor'
 import LogRows from '../components/admin/LogRows'
@@ -50,20 +51,14 @@ function workTimeText(r: OvertimeRecord): string {
 export default function AdminPage() {
   const [msg, setMsg] = useState('loading...')
   const [error, setError] = useState('')
-  const [users, setUsers] = useState<any[]>([])
-  const [q, setQ] = useState('')
   const [tokenExpired, setTokenExpired] = useState(false)
-  const [activeTab, setActiveTab] = useState<'users' | 'pending' | 'withdraw' | 'logs' | 'readLogs' | 'overtime'>('users')
-  const [pendingUsers, setPendingUsers] = useState<any[]>([])
-  const [withdrawUsers, setWithdrawUsers] = useState<any[]>([])
+  const [activeTab, setActiveTab] = useState<'userTabs.users' | 'pending' | 'withdraw' | 'logs' | 'readLogs' | 'overtime'>('userTabs.users')
   const [overtimeRecords, setOvertimeRecords] = useState<OvertimeRecord[]>([])
   const [overtimeLoading, setOvertimeLoading] = useState(false)
   const [overtimeSummary, setOvertimeSummary] = useState<OvertimeSummary[]>([])
   const [overtimeFilters, setOvertimeFilters] = useState({ username: '', type: '', status: '' })
   const [overtimePagination, setOvertimePagination] = useState({ currentPage: 0, totalPages: 0, totalElements: 0, size: 20 })
   const [overtimeMonth, setOvertimeMonth] = useState<string>(() => new Date().toISOString().slice(0, 7))
-  // 초기화 직후 한 번만 보여줄 임시 비밀번호. 화면을 닫으면 다시 볼 수 없다.
-  const [tempPassword, setTempPassword] = useState<{ username: string; password: string } | null>(null)
   const [rejectingId, setRejectingId] = useState<number | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [bulkOpen, setBulkOpen] = useState(false)
@@ -77,6 +72,10 @@ export default function AdminPage() {
   const navigate = useNavigate()
   const logsTab = useChangeLogsTab(activeTab === 'logs')
   const readLogsTab = useReadLogsTab(activeTab === 'readLogs')
+  const userTabs = useUserTabs({
+    onError: setError,
+    onSelfRevoked: () => navigate('/'),
+  })
 
   useEffect(() => {
     const me = getMe()
@@ -99,36 +98,6 @@ export default function AdminPage() {
     
     return unsubscribe
   }, [])
-
-  async function loadUsers(query = q) {
-    try {
-      const search = query ? `?q=${encodeURIComponent(query)}` : ''
-      const list = await apiFetch(`/api/admin/users${search}`)
-      setUsers(list as any[])
-    } catch (e: any) {
-      setError(e.message || 'load failed')
-    }
-  }
-
-  // 승인 대기 목록. 사용자 탭과 별도로 유지해 검색어에 영향을 받지 않게 한다.
-  async function loadPendingUsers() {
-    try {
-      const list = await apiFetch('/api/admin/users?status=PENDING')
-      setPendingUsers(list as any[])
-    } catch (e: any) {
-      setError(e.message || 'load failed')
-    }
-  }
-
-  // 탈퇴 신청 목록. 가입 승인 대기와 같은 이유로 별도 관리한다.
-  async function loadWithdrawUsers() {
-    try {
-      const list = await apiFetch('/api/admin/users?status=WITHDRAW_REQUESTED')
-      setWithdrawUsers(list as any[])
-    } catch (e: any) {
-      setError(e.message || 'load failed')
-    }
-  }
 
   async function loadLogStats() {
     try {
@@ -252,20 +221,7 @@ export default function AdminPage() {
     }
   }
 
-  // 대기 건수는 탭 배지에 항상 떠 있어야 하므로 진입 시 함께 읽는다
   useEffect(() => {
-    loadUsers('')
-    loadPendingUsers()
-    loadWithdrawUsers()
-  }, [])
-
-  useEffect(() => {
-    if (activeTab === 'pending') {
-      loadPendingUsers()
-    }
-    if (activeTab === 'withdraw') {
-      loadWithdrawUsers()
-    }
     if (activeTab === 'logs') {
       loadLogStats()
     }
@@ -295,82 +251,7 @@ export default function AdminPage() {
   }, [overtimeMonth])
 
   // 승인·거절은 두 목록의 상태를 동시에 바꾸므로 양쪽을 다시 읽는다
-  async function decideUser(id: number, decision: 'approve' | 'reject') {
-    try {
-      await apiFetch(`/api/admin/users/${id}/${decision}`, { method: 'POST' })
-      await Promise.all([loadPendingUsers(), loadUsers()])
-    } catch (e: any) { setError(e.message) }
-  }
-
   // 탈퇴 확정은 되돌릴 수 없으므로 항상 사유를 묻고 한 번 더 확인한다
-  async function withdrawUser(u: any) {
-    const reason = window.prompt(
-      `${u.username}${u.displayName ? ` (${u.displayName})` : ''} 계정을 탈퇴 처리합니다.\n` +
-        '이메일·표시 이름이 삭제되고 다시 로그인할 수 없게 됩니다. 잔업·특근 기록은 보존됩니다.\n\n' +
-        '처리 사유를 입력하세요.',
-      u.withdrawReason || '',
-    )
-    if (reason === null) return
-    try {
-      await apiFetch(`/api/admin/users/${u.id}/withdraw`, {
-        method: 'POST',
-        body: JSON.stringify({ reason }),
-      })
-      await Promise.all([loadUsers(), loadWithdrawUsers()])
-    } catch (e: any) { setError(e.message) }
-  }
-
-  async function rejectWithdraw(id: number) {
-    try {
-      await apiFetch(`/api/admin/users/${id}/withdraw/reject`, { method: 'POST' })
-      await Promise.all([loadUsers(), loadWithdrawUsers()])
-    } catch (e: any) { setError(e.message) }
-  }
-
-  /**
-   * 비밀번호 초기화.
-   *
-   * 자가 재설정을 없앤 자리를 대신한다. 서버가 만든 임시 비밀번호를 응답으로 한 번
-   * 받아 관리자가 본인에게 직접 전달하는 방식이라, 받은 값을 놓치면 다시 초기화해야 한다.
-   */
-  async function resetPassword(u: any) {
-    const label = `${u.username}${u.displayName ? ` (${u.displayName})` : ''}`
-    if (!window.confirm(
-      `${label} 계정의 비밀번호를 초기화합니다.\n\n` +
-        '임시 비밀번호가 발급되고 이 계정의 기존 로그인은 모두 해제됩니다.\n' +
-        '임시 비밀번호는 지금 한 번만 표시됩니다.',
-    )) return
-    try {
-      const res = await apiFetch(`/api/admin/users/${u.id}/reset-password`, { method: 'POST' })
-      setTempPassword({ username: res.username, password: res.temporaryPassword })
-    } catch (e: any) { setError(e.message) }
-  }
-
-  async function grant(id: number) {
-    try {
-      await apiFetch(`/api/admin/users/${id}/grant-admin`, { method: 'POST' })
-      await loadUsers()
-    } catch (e: any) { setError(e.message) }
-  }
-
-  async function revoke(id: number) {
-    try {
-      await apiFetch(`/api/admin/users/${id}/revoke-admin`, { method: 'POST' })
-      await loadUsers()
-      // If current user revoked self, drop ADMIN locally and leave admin page
-      const me = getMe()
-      const target = users.find(u => u.id === id)
-      if (target && me && target.username === me) {
-        const token = getToken()
-        const roles = getRoles().filter(r => r !== 'ADMIN')
-        if (token) {
-          saveAuth(token, roles, me)
-        }
-        navigate('/')
-      }
-    } catch (e: any) { setError(e.message) }
-  }
-
   return (
     <div className="fl-page">
       <div className="fl-titleband">
@@ -380,22 +261,22 @@ export default function AdminPage() {
         </div>
         <div className="fl-seg ad-tabs" role="tablist" aria-label="관리자 메뉴">
           <button
-            className={`fl-seg-btn${activeTab === 'users' ? ' is-active' : ''}`}
-            onClick={() => setActiveTab('users')}
+            className={`fl-seg-btn${activeTab === 'userTabs.users' ? ' is-active' : ''}`}
+            onClick={() => setActiveTab('userTabs.users')}
           >
             사용자
           </button>
           <button
-            className={`fl-seg-btn${activeTab === 'pending' ? ' is-active' : ''}${pendingUsers.length > 0 ? ' fl-tone-warn' : ''}`}
+            className={`fl-seg-btn${activeTab === 'pending' ? ' is-active' : ''}${userTabs.pendingUsers.length > 0 ? ' fl-tone-warn' : ''}`}
             onClick={() => setActiveTab('pending')}
           >
-            가입 승인{pendingUsers.length > 0 ? ` (${pendingUsers.length})` : ''}
+            가입 승인{userTabs.pendingUsers.length > 0 ? ` (${userTabs.pendingUsers.length})` : ''}
           </button>
           <button
-            className={`fl-seg-btn${activeTab === 'withdraw' ? ' is-active' : ''}${withdrawUsers.length > 0 ? ' fl-tone-warn' : ''}`}
+            className={`fl-seg-btn${activeTab === 'withdraw' ? ' is-active' : ''}${userTabs.withdrawUsers.length > 0 ? ' fl-tone-warn' : ''}`}
             onClick={() => setActiveTab('withdraw')}
           >
-            탈퇴 신청{withdrawUsers.length > 0 ? ` (${withdrawUsers.length})` : ''}
+            탈퇴 신청{userTabs.withdrawUsers.length > 0 ? ` (${userTabs.withdrawUsers.length})` : ''}
           </button>
           <button
             className={`fl-seg-btn${activeTab === 'logs' ? ' is-active' : ''}`}
@@ -430,22 +311,22 @@ export default function AdminPage() {
         </div>
       )}
 
-      {activeTab === 'users' && (
+      {activeTab === 'userTabs.users' && (
         <section className="fl-card">
           <div className="fl-card-head">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span className="fl-card-title">사용자</span>
-              <span className="fl-card-count">총 {users.length}명</span>
+              <span className="fl-card-count">총 {userTabs.users.length}명</span>
             </div>
             <div className="ad-filters ad-search">
               <input
                 className="fl-input"
                 placeholder="사번 · 이름 검색"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && loadUsers(q)}
+                value={userTabs.query}
+                onChange={(e) => userTabs.setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && userTabs.loadUsers(userTabs.query)}
               />
-              <button className="fl-btn" onClick={() => loadUsers(q)}>
+              <button className="fl-btn" onClick={() => userTabs.loadUsers(userTabs.query)}>
                 검색
               </button>
             </div>
@@ -460,10 +341,10 @@ export default function AdminPage() {
               <div style={{ textAlign: 'right' }}>관리</div>
             </div>
 
-            {users.length === 0 ? (
+            {userTabs.users.length === 0 ? (
               <div className="fl-empty">사용자가 없습니다.</div>
             ) : (
-              users.map((u: any) => {
+              userTabs.users.map((u: any) => {
                 const roles: string[] = u.roles || []
                 const isAdmin = roles.includes('ADMIN')
                 const isSuperAdmin = roles.includes('SUPER_ADMIN')
@@ -508,11 +389,11 @@ export default function AdminPage() {
                         initial={u.displayName || ''}
                         onSave={async (value) => {
                           try {
-                            await apiFetch(`/api/admin/users/${u.id}/display-name`, {
+                            await apiFetch(`/api/admin/userTabs.users/${u.id}/display-name`, {
                               method: 'PUT',
                               body: JSON.stringify({ displayName: value }),
                             })
-                            await loadUsers()
+                            await userTabs.loadUsers()
                           } catch (e: any) {
                             setError(e.message)
                           }
@@ -533,11 +414,11 @@ export default function AdminPage() {
                       ) : isSuperAdmin ? (
                         <span className="fl-badge fl-tone-primary">SUPER</span>
                       ) : isAdmin ? (
-                        <button className="fl-btn fl-btn-sm" onClick={() => revoke(u.id)}>
+                        <button className="fl-btn fl-btn-sm" onClick={() => userTabs.revoke(u.id)}>
                           ADMIN 해제
                         </button>
                       ) : (
-                        <button className="fl-btn fl-btn-sm" onClick={() => grant(u.id)}>
+                        <button className="fl-btn fl-btn-sm" onClick={() => userTabs.grant(u.id)}>
                           ADMIN 부여
                         </button>
                       )}
@@ -551,7 +432,7 @@ export default function AdminPage() {
                         {!isWithdrawn && (
                           <button
                             className="fl-btn-icon ad-row-action"
-                            onClick={() => resetPassword(u)}
+                            onClick={() => userTabs.resetPassword(u)}
                             title="비밀번호 초기화"
                             aria-label={`${u.username} 비밀번호 초기화`}
                           >
@@ -561,7 +442,7 @@ export default function AdminPage() {
                         {canWithdraw && (
                           <button
                             className="fl-btn-icon ad-row-action is-danger"
-                            onClick={() => withdrawUser(u)}
+                            onClick={() => userTabs.withdrawUser(u)}
                             title="탈퇴 처리"
                             aria-label={`${u.username} 탈퇴 처리`}
                           >
@@ -583,9 +464,9 @@ export default function AdminPage() {
           <div className="fl-card-head">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span className="fl-card-title">가입 승인 대기</span>
-              <span className="fl-card-count">총 {pendingUsers.length}명</span>
+              <span className="fl-card-count">총 {userTabs.pendingUsers.length}명</span>
             </div>
-            <button className="fl-btn" onClick={() => loadPendingUsers()}>
+            <button className="fl-btn" onClick={() => userTabs.loadPendingUsers()}>
               새로고침
             </button>
           </div>
@@ -599,10 +480,10 @@ export default function AdminPage() {
               <div style={{ textAlign: 'right' }}>승인</div>
             </div>
 
-            {pendingUsers.length === 0 ? (
+            {userTabs.pendingUsers.length === 0 ? (
               <div className="fl-empty">승인을 기다리는 신청이 없습니다.</div>
             ) : (
-              pendingUsers.map((u: any) => (
+              userTabs.pendingUsers.map((u: any) => (
                 <div key={u.id} className="fl-tr ad-user-row ad-pending-row">
                   <span className="fl-cell-num">
                     <span className="ad-label">ID</span>
@@ -630,13 +511,13 @@ export default function AdminPage() {
                   <span className="fl-cell-actions">
                     <button
                       className="fl-btn fl-btn-sm fl-btn-primary"
-                      onClick={() => decideUser(u.id, 'approve')}
+                      onClick={() => userTabs.decideUser(u.id, 'approve')}
                     >
                       승인
                     </button>
                     <button
                       className="fl-btn fl-btn-sm"
-                      onClick={() => decideUser(u.id, 'reject')}
+                      onClick={() => userTabs.decideUser(u.id, 'reject')}
                     >
                       거절
                     </button>
@@ -653,9 +534,9 @@ export default function AdminPage() {
           <div className="fl-card-head">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span className="fl-card-title">탈퇴 신청</span>
-              <span className="fl-card-count">총 {withdrawUsers.length}명</span>
+              <span className="fl-card-count">총 {userTabs.withdrawUsers.length}명</span>
             </div>
-            <button className="fl-btn" onClick={() => loadWithdrawUsers()}>
+            <button className="fl-btn" onClick={() => userTabs.loadWithdrawUsers()}>
               새로고침
             </button>
           </div>
@@ -674,10 +555,10 @@ export default function AdminPage() {
               <div style={{ textAlign: 'right' }}>처리</div>
             </div>
 
-            {withdrawUsers.length === 0 ? (
+            {userTabs.withdrawUsers.length === 0 ? (
               <div className="fl-empty">처리를 기다리는 탈퇴 신청이 없습니다.</div>
             ) : (
-              withdrawUsers.map((u: any) => (
+              userTabs.withdrawUsers.map((u: any) => (
                 <div key={u.id} className="fl-tr ad-user-row ad-withdraw-row">
                   <span className="fl-cell-num">
                     <span className="ad-label">ID</span>
@@ -708,13 +589,13 @@ export default function AdminPage() {
                   <span className="fl-cell-actions">
                     <button
                       className="fl-btn fl-btn-sm fl-btn-danger"
-                      onClick={() => withdrawUser(u)}
+                      onClick={() => userTabs.withdrawUser(u)}
                     >
                       탈퇴 확정
                     </button>
                     <button
                       className="fl-btn fl-btn-sm"
-                      onClick={() => rejectWithdraw(u.id)}
+                      onClick={() => userTabs.rejectWithdraw(u.id)}
                     >
                       반려
                     </button>
@@ -1317,11 +1198,11 @@ export default function AdminPage() {
           )}
         </div>
       )}
-      {tempPassword && (
+      {userTabs.tempPassword && (
         <TempPasswordModal
-          username={tempPassword.username}
-          password={tempPassword.password}
-          onClose={() => setTempPassword(null)}
+          username={userTabs.tempPassword.username}
+          password={userTabs.tempPassword.password}
+          onClose={() => userTabs.setTempPassword(null)}
         />
       )}
     </div>
