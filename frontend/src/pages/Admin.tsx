@@ -52,7 +52,7 @@ export default function AdminPage() {
   const [msg, setMsg] = useState('loading...')
   const [error, setError] = useState('')
   const [tokenExpired, setTokenExpired] = useState(false)
-  const [activeTab, setActiveTab] = useState<'userTabs.users' | 'pending' | 'withdraw' | 'logs' | 'readLogs' | 'overtime'>('userTabs.users')
+  const [activeTab, setActiveTab] = useState<'users' | 'pending' | 'withdraw' | 'logs' | 'readLogs' | 'overtime'>('users')
   const [overtimeRecords, setOvertimeRecords] = useState<OvertimeRecord[]>([])
   const [overtimeLoading, setOvertimeLoading] = useState(false)
   const [overtimeSummary, setOvertimeSummary] = useState<OvertimeSummary[]>([])
@@ -261,8 +261,8 @@ export default function AdminPage() {
         </div>
         <div className="fl-seg ad-tabs" role="tablist" aria-label="관리자 메뉴">
           <button
-            className={`fl-seg-btn${activeTab === 'userTabs.users' ? ' is-active' : ''}`}
-            onClick={() => setActiveTab('userTabs.users')}
+            className={`fl-seg-btn${activeTab === 'users' ? ' is-active' : ''}`}
+            onClick={() => setActiveTab('users')}
           >
             사용자
           </button>
@@ -311,7 +311,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {activeTab === 'userTabs.users' && (
+      {activeTab === 'users' && (
         <section className="fl-card">
           <div className="fl-card-head">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -389,7 +389,7 @@ export default function AdminPage() {
                         initial={u.displayName || ''}
                         onSave={async (value) => {
                           try {
-                            await apiFetch(`/api/admin/userTabs.users/${u.id}/display-name`, {
+                            await apiFetch(`/api/admin/users/${u.id}/display-name`, {
                               method: 'PUT',
                               body: JSON.stringify({ displayName: value }),
                             })
