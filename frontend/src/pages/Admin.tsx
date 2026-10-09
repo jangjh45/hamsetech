@@ -19,6 +19,7 @@ import { formatTime, payrollCycle } from '../utils/formatDate'
 
 import Pager from '../components/Pager'
 import { useChangeLogsTab } from '../hooks/useChangeLogsTab'
+import { useReadLogsTab } from '../hooks/useReadLogsTab'
 import { KeyIcon, UserMinusIcon } from '../components/AdminIcons'
 import DisplayNameEditor from '../components/admin/DisplayNameEditor'
 import LogRows from '../components/admin/LogRows'
@@ -31,7 +32,6 @@ import {
   OVERTIME_TYPE_LABEL,
   USER_STATUS_BADGE,
   formatWorkDate,
-  type AdminLog,
 } from '../components/admin/adminShared'
 import '../styles/admin.css'
 import '../styles/overtime.css'
@@ -74,22 +74,9 @@ export default function AdminPage() {
   const [exportRange, setExportRange] = useState({ from: '', to: '' })
   const [overtimeExporting, setOvertimeExporting] = useState(false)
   const [logStats, setLogStats] = useState<any>(null)
-  const [readLogs, setReadLogs] = useState<AdminLog[]>([])
-  const [readLogsLoading, setReadLogsLoading] = useState(false)
-  const [readLogPagination, setReadLogPagination] = useState({
-    currentPage: 0,
-    totalPages: 0,
-    totalElements: 0,
-    size: 20
-  })
-  const [readLogFilters, setReadLogFilters] = useState({
-    adminUsername: '',
-    entityType: '',
-    startDate: '',
-    endDate: ''
-  })
   const navigate = useNavigate()
   const logsTab = useChangeLogsTab(activeTab === 'logs')
+  const readLogsTab = useReadLogsTab(activeTab === 'readLogs')
 
   useEffect(() => {
     const me = getMe()
@@ -140,32 +127,6 @@ export default function AdminPage() {
       setWithdrawUsers(list as any[])
     } catch (e: any) {
       setError(e.message || 'load failed')
-    }
-  }
-
-  async function loadReadLogs(page: number = 0, customSize?: number) {
-    try {
-      setReadLogsLoading(true)
-      const pageSize = customSize !== undefined ? customSize : readLogPagination.size
-      const params = new URLSearchParams({
-        page: page.toString(),
-        size: pageSize.toString(),
-        ...Object.fromEntries(
-          Object.entries(readLogFilters).filter(([_, value]) => value && value.trim() !== '')
-        )
-      })
-      const result = await apiFetch(`/api/admin/logs/read?${params}`)
-      setReadLogs(result.content || [])
-      setReadLogPagination({
-        currentPage: result.number || 0,
-        totalPages: result.totalPages || 0,
-        totalElements: result.totalElements || 0,
-        size: result.size || 20
-      })
-    } catch (e: any) {
-      setError(e.message || '조회 로그 로드 실패')
-    } finally {
-      setReadLogsLoading(false)
     }
   }
 
@@ -309,7 +270,6 @@ export default function AdminPage() {
       loadLogStats()
     }
     if (activeTab === 'readLogs') {
-      loadReadLogs(0)
       loadLogStats()
     }
     if (activeTab === 'overtime') {
@@ -321,12 +281,6 @@ export default function AdminPage() {
       setBulkOpen(false)
     }
   }, [activeTab])
-
-  useEffect(() => {
-    if (activeTab === 'readLogs') {
-      loadReadLogs(0) // 필터 변경 시 첫 페이지로 이동
-    }
-  }, [readLogFilters])
 
   useEffect(() => {
     if (activeTab === 'overtime') {
@@ -923,21 +877,21 @@ export default function AdminPage() {
             <div className="fl-card-head">
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span className="fl-card-title">조회 이력</span>
-                <span className="fl-card-count">총 {readLogPagination.totalElements}건</span>
+                <span className="fl-card-count">총 {readLogsTab.pagination.totalElements}건</span>
                 <span className="ad-log-note">90일 후 자동 삭제</span>
               </div>
               <div className="ad-filters">
                 <input
                   className="fl-input"
                   placeholder="관리자명"
-                  value={readLogFilters.adminUsername}
-                  onChange={(e) => setReadLogFilters((prev) => ({ ...prev, adminUsername: e.target.value }))}
+                  value={readLogsTab.filters.adminUsername}
+                  onChange={(e) => readLogsTab.patchFilter({ adminUsername: e.target.value })}
                   style={{ width: 130 }}
                 />
                 <select
                   className="fl-input"
-                  value={readLogFilters.entityType}
-                  onChange={(e) => setReadLogFilters((prev) => ({ ...prev, entityType: e.target.value }))}
+                  value={readLogsTab.filters.entityType}
+                  onChange={(e) => readLogsTab.patchFilter({ entityType: e.target.value })}
                   aria-label="엔티티 필터"
                 >
                   {LOG_ENTITY_OPTIONS.map((o) => (
@@ -947,25 +901,21 @@ export default function AdminPage() {
                 <input
                   type="date"
                   className="fl-input"
-                  value={readLogFilters.startDate}
-                  onChange={(e) => setReadLogFilters((prev) => ({ ...prev, startDate: e.target.value }))}
+                  value={readLogsTab.filters.startDate}
+                  onChange={(e) => readLogsTab.patchFilter({ startDate: e.target.value })}
                   aria-label="시작일"
                 />
                 <input
                   type="date"
                   className="fl-input"
-                  value={readLogFilters.endDate}
-                  onChange={(e) => setReadLogFilters((prev) => ({ ...prev, endDate: e.target.value }))}
+                  value={readLogsTab.filters.endDate}
+                  onChange={(e) => readLogsTab.patchFilter({ endDate: e.target.value })}
                   aria-label="종료일"
                 />
                 <select
                   className="fl-input"
-                  value={readLogPagination.size}
-                  onChange={(e) => {
-                    const newSize = parseInt(e.target.value)
-                    setReadLogPagination((prev) => ({ ...prev, size: newSize, currentPage: 0 }))
-                    loadReadLogs(0, newSize)
-                  }}
+                  value={readLogsTab.pagination.size}
+                  onChange={(e) => readLogsTab.changePageSize(parseInt(e.target.value))}
                   aria-label="페이지당 항목 수"
                 >
                   <option value="10">10개씩</option>
@@ -975,9 +925,7 @@ export default function AdminPage() {
                 </select>
                 <button
                   className="fl-btn"
-                  onClick={() =>
-                    setReadLogFilters({ adminUsername: '', entityType: '', startDate: '', endDate: '' })
-                  }
+                  onClick={() => readLogsTab.resetFilters()}
                 >
                   초기화
                 </button>
@@ -993,14 +941,14 @@ export default function AdminPage() {
                 <div>IP 주소</div>
               </div>
 
-              <LogRows logs={readLogs} loading={readLogsLoading} />
+              <LogRows logs={readLogsTab.logs} loading={readLogsTab.loading} />
             </div>
 
             <Pager
-              page={readLogPagination.currentPage}
-              totalPages={readLogPagination.totalPages}
-              onChange={loadReadLogs}
-              disabled={readLogsLoading}
+              page={readLogsTab.pagination.currentPage}
+              totalPages={readLogsTab.pagination.totalPages}
+              onChange={readLogsTab.load}
+              disabled={readLogsTab.loading}
             />
           </section>
         </>
