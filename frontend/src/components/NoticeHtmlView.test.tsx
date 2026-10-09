@@ -58,17 +58,36 @@ describe('NoticeHtmlView — 저장 형식에 따른 렌더', () => {
     expect(container.querySelector('strong')?.textContent).toBe('중요')
   })
 
-  it('TARGET=_blank 링크에 noopener를 붙인다', async () => {
-    // rel을 안 붙이면 열린 페이지가 원래 탭을 window.opener로 조작할 수 있다.
+  it('서버가 넣어 준 rel을 그대로 지킨다', async () => {
+    // rel="nofollow noopener noreferrer"는 NoticeHtmlSanitizer의
+    // requireRelNofollowOnLinks()가 저장 시점에 주입한다. 브라우저에서 다시
+    // 만지는 곳이 없어야 한다 — 이 컴포넌트가 a.rel = 'noopener noreferrer' 로
+    // 덮어쓰면 서버가 넣어 둔 nofollow가 조용히 사라진다.
+    render(
+      <NoticeHtmlView
+        content='<a href="https://example.com" target="_blank" rel="nofollow noopener noreferrer">외부</a>'
+        contentFormat="HTML"
+      />,
+    )
+    await waitFor(() => {
+      const rel = document.querySelector('a')?.rel ?? ''
+      expect(rel).toContain('noopener')
+      expect(rel).toContain('nofollow')
+    })
+  })
+
+  it('서버가 rel을 주지 않은 본문에는 noopener를 덧붙이지 않는다', async () => {
+    // sanitizer를 거친 본문에는 rel이 항상 있으므로 이건 새니타이저를 우회한
+    // 본문일 때뿐이다. 그래도 클라이언트가 임의로 rel을 덮어쓰면 안 된다는
+    // 사실은 고정해 둔다(덮어쓰면 nofollow를 잃는다).
     render(
       <NoticeHtmlView
         content='<a href="https://example.com" target="_blank">외부</a>'
         contentFormat="HTML"
       />,
     )
-    await waitFor(() => {
-      expect(document.querySelector('a')?.rel).toBe('noopener noreferrer')
-    })
+    await waitFor(() => expect(document.querySelector('a')).toBeTruthy())
+    expect(document.querySelector('a')?.rel).toBe('')
   })
 })
 
