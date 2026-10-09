@@ -207,13 +207,15 @@ npm run dev
 cd frontend
 npm run build
 npm run lint
-npm run test        # Vitest. 순수 함수와 API 클라이언트 계약
+npm run test        # Vitest. 도메인 로직과 인증 가드
 npm run test:watch  # 파일을 고치면 자동으로 다시 돌린다
 ```
 
-프론트엔드 테스트는 도메인 로직만 다룬다. `packing`(적재 알고리즘),
+프론트엔드 테스트는 두 갈래다. 하나는 도메인 로직 — `packing`(적재 알고리즘),
 `homeLayout`(위젯 배치), `overtime`(서버 `OvertimeRecordService`의 미러),
-`noticeHtml`, `api/client`(만료·권한 거부 분기)이 대상이다.
+`noticeHtml`, `api/client`(만료·권한 거부 분기). 다른 하나는 DOM을 그리는
+최소한의 컴포넌트 — `routes/routeGuards`(인증·관리자 가드),
+`components/NoticeHtmlView`(첨부 이미지 blob 처리와 링크 rel).
 
 `overtime` 테스트의 기대값은 서버 `work/OvertimeRecordServiceTest`와 같은
 입력을 쓴다. 휴게시간 상수를 한쪽만 고치면 양쪽 테스트가 같이 깨진다.

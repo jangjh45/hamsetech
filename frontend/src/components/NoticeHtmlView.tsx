@@ -89,12 +89,23 @@ export default function NoticeHtmlView({ content, contentFormat }: Props) {
   }, [content, contentFormat, imagePaths, blobByPath])
 
   // 링크는 새 탭으로 열리는데, opener를 남겨 두면 열린 페이지가 원래 탭을 조작할 수 있다.
+  //
+  // 의존성 배열을 두지 않는 이유: React는 dangerouslySetInnerHTML로 그린 내용을
+  // 리렌더마다 다시 적는다. __html 문자열이 완전히 같아도 초기화가 일어난다
+  // (ReactDOM이 문자열 동일성은 보고 DOM을 건드리지 않아야 하는데, 실제로는
+  // 초기화된다 — blob 주소를 고치는 리렌더가 대표적이다). 그래서 [html]로 두면
+  // 첫 마운트 때 붙인 rel이 곧바로 지워지고 끝까지 다시 안 붙는다.
+  //
+  // 위의 이미지 처리와 같은 이유로 "DOM을 손대는 쪽은 다음 렌더에서 지워진다"를
+  // 감안해야 한다. 이미지는 HTML 문자열을 고쳐 넣어서 버티지만, 링크는 속성 하나이므로
+  // 매 커밋 뒤에 다시 붙이는 편이 낫다. 쿼리 대상이 공지 본문 하나로 한정돼서
+  // 비용도 무시할 만하다.
   useEffect(() => {
     if (contentFormat !== 'HTML' || !ref.current) return
     ref.current.querySelectorAll<HTMLAnchorElement>('a[target="_blank"]').forEach((a) => {
       a.rel = 'noopener noreferrer'
     })
-  }, [html, contentFormat])
+  })
 
   if (contentFormat === 'TEXT') {
     // .nt-article-body의 white-space: pre-wrap이 줄바꿈을 살린다
