@@ -143,6 +143,17 @@ cd /volume1/docker/hamsetech
 sudo docker exec hamsetech-postgres pg_dump -U hamsetech hamsetech | gzip > backup-$(date +%F).sql.gz
 ```
 
+**외래 키를 걸고 있는 마이그레이션은 백업 전에 정합성을 먼저 확인하세요.**
+`V4`(잔업 `user_id` 외래 키)는 `overtime_records`의 `user_id`가 실제 `users` 행을
+가리키지 않는 행이 하나라도 있으면 **적용에 실패하고, Flyway + `ddl-auto=validate`
+조합상 기동이 멈춥니다.** 아래가 0인 것을 확인한 뒤 올리세요.
+
+```bash
+sudo docker exec hamsetech-postgres psql -U hamsetech -d hamsetech -t -c \
+  "SELECT count(*) FROM overtime_records o \
+   LEFT JOIN users u ON u.id = o.user_id WHERE u.id IS NULL;"
+```
+
 3. 이미지를 적재합니다. 같은 태그가 이미 있으면 태그가 새 이미지로 옮겨가고 옛
    이미지는 태그 없이(dangling) 남습니다. 돌고 있는 컨테이너는 영향받지 않습니다.
 

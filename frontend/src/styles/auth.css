@@ -33,7 +33,7 @@
   --au-glow-c: rgba(124, 58, 237, 0.24);
 }
 
-/* .fl-page와 같은 방식으로 ui.css의 그라데이션 배경을 덮는다 */
+/* .fl-page와 같은 방식이다 — 전역 배경이 없으므로 여기서 정한다. */
 body:has(.au-shell) {
   background: var(--au-brand-bg);
 }
