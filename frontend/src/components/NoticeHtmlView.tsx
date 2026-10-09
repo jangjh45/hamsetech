@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { NoticeContentFormat } from '../api/notices'
 import { apiFetchBlob } from '../api/client'
 
@@ -33,7 +33,9 @@ async function runWithConcurrency<T>(items: T[], limit: number, task: (item: T) 
  * 경로로 그대로 뚫리기 때문이고, 신뢰 지점을 서버 한 곳으로 모으는 편이 낫다.
  */
 export default function NoticeHtmlView({ content, contentFormat }: Props) {
-  const ref = useRef<HTMLDivElement>(null)
+  // 이미지 주소를 blob 주소로 바꾼 뒤에도 리렌더 한 번으로 원래 HTML이 다시
+  // 그려질 수 있는데, 그래도 rel을 건드리지 않으므로 DOM을 따로 잡아 둘
+  // 필요가 없다.
 
   // 본문에 들어 있는 첨부 이미지 주소
   const imagePaths = useMemo(() => {
@@ -88,13 +90,18 @@ export default function NoticeHtmlView({ content, contentFormat }: Props) {
     return content.replace(ATTACHMENT_SRC, (path) => blobByPath[path] ?? '')
   }, [content, contentFormat, imagePaths, blobByPath])
 
-  // 링크는 새 탭으로 열리는데, opener를 남겨 두면 열린 페이지가 원래 탭을 조작할 수 있다.
-  useEffect(() => {
-    if (contentFormat !== 'HTML' || !ref.current) return
-    ref.current.querySelectorAll<HTMLAnchorElement>('a[target="_blank"]').forEach((a) => {
-      a.rel = 'noopener noreferrer'
-    })
-  }, [html, contentFormat])
+  // rel은 서버(NoticeHtmlSanitizer.requireRelNofollowOnLinks)가 저장 시점에
+  // "nofollow noopener noreferrer"로 넣어 둔다. 여기서 다시 만지면 두 가지가
+  // 잘못된다.
+  //
+  // 1. nofollow가 사라진다. 덮어쓰는 순간 서버가 넣은 값이 통째로 날아간다.
+  // 2. 어느 쪽이 이기는지 React 버전에 따라 갈린다. dangerouslySetInnerHTML로
+  //    그린 DOM은 React 소유라, 리렌더가 한 번이라도 일어나면 이 effect가 고친
+  //    rel이 원래대로 돌아간다. React 19.2에서는 리렌더가 effect 뒤에 와서
+  //    덮어쓴 값이 살아났고, 19.3에서는 반대가 되어 nofollow가 지워졌다.
+  //
+  // 새니타이징을 브라우저에 두면 API를 직접 호출하는 경로로 그대로 뚫리므로,
+  // 링크 보안은 서버 한 곳에서만 판다.
 
   if (contentFormat === 'TEXT') {
     // .nt-article-body의 white-space: pre-wrap이 줄바꿈을 살린다
@@ -105,7 +112,6 @@ export default function NoticeHtmlView({ content, contentFormat }: Props) {
   // 이게 없으면 에디터에서 만든 불릿이 상세 화면에서 마커 없이 나온다.
   return (
     <div
-      ref={ref}
       className="nt-article-body nt-article-html ql-editor"
       dangerouslySetInnerHTML={{ __html: html }}
     />
