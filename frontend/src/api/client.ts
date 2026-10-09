@@ -48,7 +48,9 @@ async function rawFetch(input: RequestInfo | URL, init: RequestInit = {}): Promi
   }
 
   const bodyData = await readResponseBody()
-  let message = ''
+  // 초기값을 ''로 두면 아래 if/else 양쪽에서 덮어써서 no-useless-assignment에 걸린다.
+  // v10의 eslint:recommended에 이 규칙이 편입되면서 lint 에러가 된 사례.
+  let message: string
 
   if (typeof bodyData === 'object' && bodyData !== null) {
     message = (bodyData as any).error || (bodyData as any).message || ''
