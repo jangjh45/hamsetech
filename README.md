@@ -4,7 +4,7 @@
 
 ## 기술 스택
 
-- **백엔드**: Java 21, Spring Boot 3.5, Spring Security (JWT + OAuth2 Client), Spring Data JPA / JDBC, MyBatis, PostgreSQL, Flyway
+- **백엔드**: Java 21, Spring Boot 3.5, Spring Security (JWT + OAuth2 Client), Spring Data JPA / JDBC, PostgreSQL, Flyway
 - **프론트엔드**: React 19, TypeScript, Vite, React Router
 - **인프라**: Docker / Docker Compose, GitHub Actions (CI, Docker 빌드, Trivy 이미지 스캔)
 
