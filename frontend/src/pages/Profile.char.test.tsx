@@ -30,6 +30,24 @@ vi.mock('../api/client', () => ({ apiFetch: api.fetch }))
 vi.mock('../api/overtimeRecords', () => overtime)
 vi.mock('../auth/token', () => auth)
 
+/**
+ * 테스트에서 입력하는 비밀번호. 한 곳에 모아 둔다.
+ *
+ * 실제 비밀번호처럼 생긴 문자열이 테스트 곳곳에 흩어져 있으면 스캐너가 실제로
+ * 유출된 값과 구분하지 못한다. 여기서 모은다고 경고가 닫히는 건 아니지만,
+ * 값을 바꿀 때 파일 여럿을 만지지 않게 하려는 것이다.
+ *
+ * current 는 로그인된 사용자의 기존 비밀번호, strong 은 바꿀 새 비밀번호,
+ * strongMismatch 는 strong 과 다른 값이라 일치하지 않아야 한다.
+ */
+const TEST_PASSWORDS = {
+  current: 'old1234',
+  wrong: 'wrongpwd',
+  tooShort: 'short1!',
+  strong: 'brandnew1!',
+  strongMismatch: 'brandnew2!',
+}
+
 const profile = (over: Record<string, unknown> = {}) => ({
   username: 'kim',
   email: 'kim@hamsetech.kr',
@@ -218,7 +236,7 @@ describe('ProfilePage — 비밀번호 변경', () => {
     const btn = () => screen.getByRole('button', { name: '비밀번호 변경' }) as HTMLButtonElement
     expect(btn().disabled).toBe(true)
 
-    fireEvent.change(screen.getByPlaceholderText('현재 비밀번호'), { target: { value: 'old1234' } })
+    fireEvent.change(screen.getByPlaceholderText('현재 비밀번호'), { target: { value: TEST_PASSWORDS.current } })
     expect(btn().disabled).toBe(true)
   })
 
@@ -226,9 +244,9 @@ describe('ProfilePage — 비밀번호 변경', () => {
     renderPage()
     await waitFor(loaded)
 
-    fireEvent.change(screen.getByPlaceholderText('현재 비밀번호'), { target: { value: 'old1234' } })
-    fireEvent.change(screen.getByPlaceholderText('8자 이상'), { target: { value: 'short1!' } })
-    fireEvent.change(screen.getByPlaceholderText('한 번 더 입력'), { target: { value: 'short1!' } })
+    fireEvent.change(screen.getByPlaceholderText('현재 비밀번호'), { target: { value: TEST_PASSWORDS.current } })
+    fireEvent.change(screen.getByPlaceholderText('8자 이상'), { target: { value: TEST_PASSWORDS.tooShort } })
+    fireEvent.change(screen.getByPlaceholderText('한 번 더 입력'), { target: { value: TEST_PASSWORDS.tooShort } })
     fireEvent.click(screen.getByRole('button', { name: '비밀번호 변경' }))
 
     await waitFor(() => expect(screen.getByText('새 비밀번호는 8자 이상이어야 합니다.')).toBeTruthy())
@@ -239,9 +257,9 @@ describe('ProfilePage — 비밀번호 변경', () => {
     renderPage()
     await waitFor(loaded)
 
-    fireEvent.change(screen.getByPlaceholderText('현재 비밀번호'), { target: { value: 'old1234' } })
-    fireEvent.change(screen.getByPlaceholderText('8자 이상'), { target: { value: 'brandnew1!' } })
-    fireEvent.change(screen.getByPlaceholderText('한 번 더 입력'), { target: { value: 'brandnew2!' } })
+    fireEvent.change(screen.getByPlaceholderText('현재 비밀번호'), { target: { value: TEST_PASSWORDS.current } })
+    fireEvent.change(screen.getByPlaceholderText('8자 이상'), { target: { value: TEST_PASSWORDS.strong } })
+    fireEvent.change(screen.getByPlaceholderText('한 번 더 입력'), { target: { value: TEST_PASSWORDS.strongMismatch } })
     fireEvent.click(screen.getByRole('button', { name: '비밀번호 변경' }))
 
     await waitFor(() => expect(screen.getByText('새 비밀번호가 일치하지 않습니다.')).toBeTruthy())
@@ -252,8 +270,8 @@ describe('ProfilePage — 비밀번호 변경', () => {
     renderPage()
     await waitFor(loaded)
 
-    fireEvent.change(screen.getByPlaceholderText('8자 이상'), { target: { value: 'brandnew1!' } })
-    fireEvent.change(screen.getByPlaceholderText('한 번 더 입력'), { target: { value: 'brandnew1!' } })
+    fireEvent.change(screen.getByPlaceholderText('8자 이상'), { target: { value: TEST_PASSWORDS.strong } })
+    fireEvent.change(screen.getByPlaceholderText('한 번 더 입력'), { target: { value: TEST_PASSWORDS.strong } })
     // 틀렸을 때는 바로 알려주고, 맞았을 때는 바로 맞다고 말해야 한다.
     await waitFor(() => expect(screen.getByText('비밀번호가 일치합니다')).toBeTruthy())
     expect(screen.queryByText('비밀번호가 일치하지 않습니다')).toBeNull()
@@ -263,9 +281,9 @@ describe('ProfilePage — 비밀번호 변경', () => {
     renderPage()
     await waitFor(loaded)
 
-    fireEvent.change(screen.getByPlaceholderText('현재 비밀번호'), { target: { value: 'old1234' } })
-    fireEvent.change(screen.getByPlaceholderText('8자 이상'), { target: { value: 'brandnew1!' } })
-    fireEvent.change(screen.getByPlaceholderText('한 번 더 입력'), { target: { value: 'brandnew1!' } })
+    fireEvent.change(screen.getByPlaceholderText('현재 비밀번호'), { target: { value: TEST_PASSWORDS.current } })
+    fireEvent.change(screen.getByPlaceholderText('8자 이상'), { target: { value: TEST_PASSWORDS.strong } })
+    fireEvent.change(screen.getByPlaceholderText('한 번 더 입력'), { target: { value: TEST_PASSWORDS.strong } })
     fireEvent.click(screen.getByRole('button', { name: '비밀번호 변경' }))
 
     await waitFor(() => expect(screen.getByText('비밀번호가 변경되었습니다.')).toBeTruthy())
@@ -310,7 +328,7 @@ describe('ProfilePage — 회원 탈퇴', () => {
     // 세션이 살아 있다는 사실만으로 탈퇴되면 안 된다.
     expect(btn.disabled).toBe(true)
 
-    fireEvent.change(withdrawPasswordInput(), { target: { value: 'old1234' } })
+    fireEvent.change(withdrawPasswordInput(), { target: { value: TEST_PASSWORDS.current } })
     expect(btn.disabled).toBe(false)
   })
 
@@ -336,7 +354,7 @@ describe('ProfilePage — 회원 탈퇴', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: '회원 탈퇴 신청' }))
-    fireEvent.change(withdrawPasswordInput(), { target: { value: 'old1234' } })
+    fireEvent.change(withdrawPasswordInput(), { target: { value: TEST_PASSWORDS.current } })
     fireEvent.change(
       screen.getByPlaceholderText('관리자에게 전달할 내용이 있다면 적어 주세요'),
       { target: { value: '이직' } },
@@ -381,7 +399,7 @@ describe('ProfilePage — 회원 탈퇴', () => {
     })
 
     fireEvent.click(screen.getByRole('button', { name: '회원 탈퇴 신청' }))
-    fireEvent.change(withdrawPasswordInput(), { target: { value: 'wrongpwd' } })
+    fireEvent.change(withdrawPasswordInput(), { target: { value: TEST_PASSWORDS.wrong } })
     fireEvent.click(screen.getByRole('button', { name: '탈퇴 신청하기' }))
 
     await waitFor(() => expect(screen.getByText('비밀번호가 맞지 않습니다')).toBeTruthy())

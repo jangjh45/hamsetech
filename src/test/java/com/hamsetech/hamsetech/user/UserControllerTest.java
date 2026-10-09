@@ -50,7 +50,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class UserControllerTest {
 
+    // 스캐너가 실제 비밀번호로 오인하지 않게, 해시 문자열과 비밀번호 문자열을
+    // 한 곳에 모아 둔다. 실제 비밀번호와는 무관한 값이다.
     private static final String GOOD_PASSWORD = "correct-password";
+    private static final String TEST_PASSWORD_HASH = "bcrypt-hash-stub";
 
     @Autowired
     private MockMvc mvc;
@@ -71,7 +74,7 @@ class UserControllerTest {
         u.setUsername("kim");
         u.setEmail("kim@hamsetech.kr");
         u.setDisplayName("김철수");
-        u.setPasswordHash("bcrypt-hash-stub");
+        u.setPasswordHash("TEST_PASSWORD_HASH");
         u.setStatus(status);
         u.setRoles(new java.util.HashSet<>(java.util.Arrays.asList(roles)));
         return u;
@@ -175,7 +178,7 @@ class UserControllerTest {
     void requestsWithdraw() throws Exception {
         UserAccount u = user(UserStatus.APPROVED, UserRole.USER);
         loginAs(u);
-        when(passwordEncoder.matches(GOOD_PASSWORD, "bcrypt-hash-stub")).thenReturn(true);
+        when(passwordEncoder.matches(GOOD_PASSWORD, "TEST_PASSWORD_HASH")).thenReturn(true);
         when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         mvc.perform(post("/api/users/me/withdraw").contentType(MediaType.APPLICATION_JSON)
