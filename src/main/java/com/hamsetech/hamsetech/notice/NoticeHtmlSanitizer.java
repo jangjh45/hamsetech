@@ -82,11 +82,23 @@ public class NoticeHtmlSanitizer {
     /**
      * 검색용 평문. 태그를 지우고 나면 &amp;lt; 같은 엔티티가 남으므로 되돌려 준다.
      * 그래야 사용자가 화면에서 본 그대로의 낱말로 검색된다.
+     *
+     * NBSP(U+00A0)와 전각 공백(U+3000)은 보통 공백으로 낮춘다. 새니타이저는
+     * &nbsp;를 NBSP 문자 자체로 되돌려 주기 때문에 unescapeEntities의 "&nbsp;"
+     * 치환은 이미 어긋나 있고, 남은 NBSP를 여기서 처리한다. 안 그러면 두 가지가
+     * 깨진다. Java의 \s와 String.trim()은 모두 U+0020 이하만 보기 때문에 NBSP는
+     * 살아남는다. (1) 검색용 사본에 그대로 붙어 있어, 화면에서는 공백으로 보이는
+     * 자리를 사용자가 일반 공백으로 쳐도 걸리지 않는다. (2) 앞뒤 공백이 잘리지
+     * 않아 실질적으로 같은 글이 서로 다른 검색어로 잡힌다.
      */
     public String toPlainText(String html) {
         if (html == null) return "";
         String stripped = TEXT_ONLY.sanitize(html);
-        return unescapeEntities(stripped).replaceAll("\\s+", " ").trim();
+        return unescapeEntities(stripped)
+                .replace('\u00A0', ' ')
+                .replace('\u3000', ' ')
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     /** 새니타이저가 내보내는 기본 엔티티만 되돌린다. &amp;는 반드시 마지막이다. */

@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    /* 테스트만 Node 타입을 쓴다(파일시스템 읽기). 앱 번들에는 들어가지 않는다.
+       vite/client도 필요하다 — 테스트가 컴포넌트를 끌어들이면 CSS import를 만나고,
+       *.css 선언은 vite/client가 준다. */
+    "types": ["node", "vitest/globals", "vite/client"]
+  },
+  "include": ["src/**/*.test.ts", "src/**/*.test.tsx"],
+  "exclude": []
+}

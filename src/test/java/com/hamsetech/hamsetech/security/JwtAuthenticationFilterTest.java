@@ -1,5 +1,6 @@
 package com.hamsetech.hamsetech.security;
 
+import com.hamsetech.hamsetech.TestJwtSecrets;
 import com.hamsetech.hamsetech.user.UserAccount;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
 import com.hamsetech.hamsetech.user.UserRole;
@@ -30,7 +31,9 @@ import static org.mockito.Mockito.when;
  */
 class JwtAuthenticationFilterTest {
 
-    private static final String SECRET = "test-only-secret-that-is-long-enough-for-hmac-sha";
+    // 서명용 키 문자열은 TestJwtSecrets 에 한 곳만 둔다. 실제 JWT_SECRET 과는
+    // 무관하고, 저장소에 커밋되는 값이 아니다.
+    private static final String SECRET = TestJwtSecrets.HMAC_SHA_KEY;
 
     private JwtService jwtService;
     private UserAccountRepository userRepository;

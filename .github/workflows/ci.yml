@@ -94,6 +94,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # 순수 함수(패킹·위젯 배치·잔업 계산)와 API 클라이언트 계약 테스트.
+      # 서버 미러가 어긋나거나 403/401 분기가 바뀌면 여기서 먼저 잡힌다.
+      - name: Test
+        run: npm run test
+
       # tsc -b && vite build. 타입 오류와 번들 오류를 함께 잡는다.
       - name: Build
         run: npm run build

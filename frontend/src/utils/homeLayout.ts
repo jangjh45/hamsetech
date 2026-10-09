@@ -68,8 +68,10 @@ export function loadLayout(): HomeLayout {
     const parsed = JSON.parse(raw) as Partial<HomeLayout>
 
     const storedOrder = Array.isArray(parsed.order) ? parsed.order.filter(isWidgetId) : []
-    // 저장된 순서 + 기본 순서에만 있는(신규) 위젯을 뒤에 이어붙임
-    const order: WidgetId[] = [...storedOrder]
+    // 저장된 순서 + 기본 순서에만 있는(신규) 위젯을 뒤에 이어붙임.
+    // Set으로 중복을 지운다 — 같은 id가 두 번 남아 있으면 그 위젯이 화면에
+    // 두 번 렌더된다. 손으로 localStorage를 편집하면 원래 생기는 상황이다.
+    const order: WidgetId[] = [...new Set(storedOrder)]
     for (const id of DEFAULT_ORDER) {
       if (!order.includes(id)) order.push(id)
     }

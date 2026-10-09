@@ -1,0 +1,45 @@
+/*
+ * 전역 기반 규칙.
+ *
+ * 여기 남은 건 화면 어디서나 필요한 것뿐이다 — 루트 높이, 본문 글꼴, 스크롤바.
+ * 나머지(클래스·색 토큰)는 리치 텍스트 이전의 Vite 스타터 유산이었다.
+ *
+ * 색은 각 디자인 시스템이 따로 가진다.
+ *   --fl-*  대시보드·헤더   dashboard.css
+ *   --au-*  인증 화면       auth.css
+ *   --nt-*  공지           notices.css
+ *   화면별로 imports/에서 갈아 끼우므로 전역 색 토큰은 두지 않는다.
+ *
+ * 본문 배경색은 여기에 두지 않는다. 모든 화면이 .fl-page 또는 .au-shell을 감싸고,
+ * 각 CSS가 body:has(...)로 자기 배경을 직접 정한다. 예전처럼 여기서 그라데이션을
+ * 깔고 뒤에서 덮어쓰는 방식은 화면 하나 빠뜨리면 그대로 보이는 구조였다.
+ */
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Outfit', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  letter-spacing: -0.02em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 242, 242, 0.14);
+  border-radius: 99px;
+  border: 2px solid transparent;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 120, 130, 0.4);
+}

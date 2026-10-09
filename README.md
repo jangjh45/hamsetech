@@ -4,8 +4,8 @@
 
 ## 기술 스택
 
-- **백엔드**: Java 21, Spring Boot 3.5, Spring Security (JWT + OAuth2 Client), Spring Data JPA / JDBC, MyBatis, PostgreSQL, Flyway
-- **프론트엔드**: React 19, TypeScript, Vite, React Router
+- **백엔드**: Java 21, Spring Boot 3.5, Spring Security (JWT + OAuth2 Client), Spring Data JPA / JDBC, PostgreSQL, Flyway
+- **프론트엔드**: React 19, TypeScript, Vite, React Router, Vitest
 - **인프라**: Docker / Docker Compose, GitHub Actions (CI, Docker 빌드, Trivy 이미지 스캔)
 
 > Redis 의존성(`spring-boot-starter-data-redis`)이 빌드에 들어 있지만 아직 실제로 쓰지 않습니다. Compose에 컨테이너가 없고 Actuator 헬스체크에서도 제외돼 있으며, 로그인 시도 제한은 인메모리로 동작합니다. 백엔드를 여러 인스턴스로 늘릴 때 Redis 도입이 선결 과제입니다.
@@ -40,6 +40,19 @@ cp .env.example .env
 `.env` 파일을 열어 DB 접속 정보, 32자 이상의 JWT 시크릿, 관리자 초기 계정 등을 채워주세요. `.env` 파일은 Git에 커밋하지 않습니다. 운영 환경에서는 `ADMIN_BOOTSTRAP_ENABLED=true`을 최초 기동 때만 사용하고, 계정 생성 뒤에는 `false`로 바꾸세요.
 
 비밀번호를 잊은 사용자는 관리자 화면에서 초기화합니다. 관리자 → 사용자 목록 → **비밀번호 초기화**를 누르면 임시 비밀번호가 한 번 표시되며, 그 계정의 기존 로그인은 모두 해제됩니다. 임시 비밀번호는 다시 볼 수 없으므로 그 자리에서 본인에게 전달하세요.
+
+#### 시크릿이 코드에 들어가지 않게 하기
+
+실제 시크릿은 전부 `.env`에서 옵니다. `.env`는 `.gitignore`에 있고 저장소에 커밋되지 않습니다. `.env.example`은 값이 비어 있는 **양식**이므로, 채운 실제 값을 이 파일에 복사하지 마세요.
+
+테스트에 실제처럼 보이는 값이 필요하면 재사용되는 상수에 두세요.
+
+- 백엔드 JWT 서명 키: `src/test/java/com/hamsetech/hamsetech/TestJwtSecrets.java`
+- 프론트 비밀번호: 각 `*.test.tsx` 파일 안의 상수
+
+이렇게 하면 시크릿 스캐너(GitGuardian 등)가 실제 키로 오인하는 일이 줄어듭니다. 다만 **스캐너는 값의 형태만 보고 "테스트 중"이라는 사실을 알 수 없으므로**, 이러한 값이 있다는 사실 자체를 대시보드에서 **false positive로 마킹**해야 경고가 사라집니다. 마킹할 주장은 "Test fixture value — production secret comes from `JWT_SECRET` env var, never committed" 입니다.
+
+한 가지 주의할 것은, 서로 다른 테스트가 같은 문자열을 각자 상수로 복사해 두면 스캐너는 "한 키를 두 코드가 공유"한 것처럼 봅니다. 같은 값이 두 곳에 필요하면 한 곳에 두고 import 하세요.
 
 ### 데이터베이스 스키마
 
@@ -143,6 +156,17 @@ cd /volume1/docker/hamsetech
 sudo docker exec hamsetech-postgres pg_dump -U hamsetech hamsetech | gzip > backup-$(date +%F).sql.gz
 ```
 
+**외래 키를 걸고 있는 마이그레이션은 백업 전에 정합성을 먼저 확인하세요.**
+`V4`(잔업 `user_id` 외래 키)는 `overtime_records`의 `user_id`가 실제 `users` 행을
+가리키지 않는 행이 하나라도 있으면 **적용에 실패하고, Flyway + `ddl-auto=validate`
+조합상 기동이 멈춥니다.** 아래가 0인 것을 확인한 뒤 올리세요.
+
+```bash
+sudo docker exec hamsetech-postgres psql -U hamsetech -d hamsetech -t -c \
+  "SELECT count(*) FROM overtime_records o \
+   LEFT JOIN users u ON u.id = o.user_id WHERE u.id IS NULL;"
+```
+
 3. 이미지를 적재합니다. 같은 태그가 이미 있으면 태그가 새 이미지로 옮겨가고 옛
    이미지는 태그 없이(dangling) 남습니다. 돌고 있는 컨테이너는 영향받지 않습니다.
 
@@ -207,7 +231,18 @@ npm run dev
 cd frontend
 npm run build
 npm run lint
+npm run test        # Vitest. 도메인 로직과 인증 가드
+npm run test:watch  # 파일을 고치면 자동으로 다시 돌린다
 ```
+
+프론트엔드 테스트는 두 갈래다. 하나는 도메인 로직 — `packing`(적재 알고리즘),
+`homeLayout`(위젯 배치), `overtime`(서버 `OvertimeRecordService`의 미러),
+`noticeHtml`, `api/client`(만료·권한 거부 분기). 다른 하나는 DOM을 그리는
+최소한의 컴포넌트 — `routes/routeGuards`(인증·관리자 가드),
+`components/NoticeHtmlView`(첨부 이미지 blob 처리와 링크 rel).
+
+`overtime` 테스트의 기대값은 서버 `work/OvertimeRecordServiceTest`와 같은
+입력을 쓴다. 휴게시간 상수를 한쪽만 고치면 양쪽 테스트가 같이 깨진다.
 
 ## 프로젝트 구조
 

@@ -59,7 +59,7 @@ class SchemaMigrationTest {
 				"SELECT version FROM flyway_schema_history WHERE success = true AND version IS NOT NULL "
 						+ "ORDER BY installed_rank", String.class);
 
-		assertThat(applied).containsExactly("1", "2", "3");
+		assertThat(applied).containsExactly("1", "2", "3", "4");
 	}
 
 	@Test
@@ -125,6 +125,32 @@ class SchemaMigrationTest {
 				"SELECT indexdef FROM pg_indexes WHERE indexname = 'idx_notice_attachments_orphan'", String.class);
 
 		assertThat(definition).contains("WHERE (notice_id IS NULL)");
+	}
+
+	@Test
+	@DisplayName("잔업 기록의 user_id에 외래 키가 있다")
+	void overtimeUserForeignKeyExists() {
+		// 값은 코드에서 이미 정확히 채워지고 있었다(user.getId()). 제약이 없으면
+		// 값이 틀리거나 행이 지워져도 아무도 몰랐다. 탈퇴는 논리 삭제라 ON DELETE는
+		// 사실상 발동하지 않고 RESTRICT로 충분하다.
+		String def = jdbc.queryForObject(
+				"SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+						+ "WHERE conname = 'fk_overtime_records_user'", String.class);
+
+		assertThat(def).isNotNull()
+				.contains("FOREIGN KEY (user_id)")
+				.contains("REFERENCES users")
+				.contains("RESTRICT");
+	}
+
+	@Test
+	@DisplayName("잔업 user_id 조회용 인덱스가 있다")
+	void overtimeUserIndexExists() {
+		// 같은 user_id로 집계하고 목록을 내는 경로가 많다. 제약은 인덱스를 만들지 않는다.
+		List<String> indexes = jdbc.queryForList(
+				"SELECT indexname FROM pg_indexes WHERE schemaname = 'public'", String.class);
+
+		assertThat(indexes).contains("idx_overtime_records_user_id");
 	}
 
 	@Test
