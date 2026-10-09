@@ -18,6 +18,7 @@ import {
 import { formatTime, payrollCycle } from '../utils/formatDate'
 
 import Pager from '../components/Pager'
+import { useChangeLogsTab } from '../hooks/useChangeLogsTab'
 import { KeyIcon, UserMinusIcon } from '../components/AdminIcons'
 import DisplayNameEditor from '../components/admin/DisplayNameEditor'
 import LogRows from '../components/admin/LogRows'
@@ -72,22 +73,7 @@ export default function AdminPage() {
   // 엑셀 내보내기 기간. 급여 주기 설정으로 채워지지만 관리자가 자유롭게 고칠 수 있다.
   const [exportRange, setExportRange] = useState({ from: '', to: '' })
   const [overtimeExporting, setOvertimeExporting] = useState(false)
-  const [logs, setLogs] = useState<AdminLog[]>([])
-  const [logsLoading, setLogsLoading] = useState(false)
   const [logStats, setLogStats] = useState<any>(null)
-  const [logPagination, setLogPagination] = useState({
-    currentPage: 0,
-    totalPages: 0,
-    totalElements: 0,
-    size: 20
-  })
-  const [logFilters, setLogFilters] = useState({
-    adminUsername: '',
-    entityType: '',
-    action: '',
-    startDate: '',
-    endDate: ''
-  })
   const [readLogs, setReadLogs] = useState<AdminLog[]>([])
   const [readLogsLoading, setReadLogsLoading] = useState(false)
   const [readLogPagination, setReadLogPagination] = useState({
@@ -103,6 +89,7 @@ export default function AdminPage() {
     endDate: ''
   })
   const navigate = useNavigate()
+  const logsTab = useChangeLogsTab(activeTab === 'logs')
 
   useEffect(() => {
     const me = getMe()
@@ -153,45 +140,6 @@ export default function AdminPage() {
       setWithdrawUsers(list as any[])
     } catch (e: any) {
       setError(e.message || 'load failed')
-    }
-  }
-
-  async function loadLogs(page: number = 0, customSize?: number) {
-    try {
-      setLogsLoading(true)
-      const pageSize = customSize !== undefined ? customSize : logPagination.size
-      const params = new URLSearchParams({
-        page: page.toString(),
-        size: pageSize.toString(),
-        ...Object.fromEntries(
-          Object.entries(logFilters).filter(([_, value]) => value && value.trim() !== '')
-        )
-      })
-      const result = await apiFetch(`/api/admin/logs?${params}`)
-
-      // 페이징 정보와 로그 데이터 분리
-      if (result.content) {
-        setLogs(result.content)
-        setLogPagination({
-          currentPage: result.number || 0,
-          totalPages: result.totalPages || 0,
-          totalElements: result.totalElements || 0,
-          size: result.size || 20
-        })
-      } else {
-        // 페이징이 없는 경우 (하위 호환성)
-        setLogs(result)
-        setLogPagination({
-          currentPage: 0,
-          totalPages: 1,
-          totalElements: result.length,
-          size: 20
-        })
-      }
-    } catch (e: any) {
-      setError(e.message || '로그 로드 실패')
-    } finally {
-      setLogsLoading(false)
     }
   }
 
@@ -358,7 +306,6 @@ export default function AdminPage() {
       loadWithdrawUsers()
     }
     if (activeTab === 'logs') {
-      loadLogs(0) // 탭 변경 시 첫 페이지로 이동
       loadLogStats()
     }
     if (activeTab === 'readLogs') {
@@ -374,12 +321,6 @@ export default function AdminPage() {
       setBulkOpen(false)
     }
   }, [activeTab])
-
-  useEffect(() => {
-    if (activeTab === 'logs') {
-      loadLogs(0) // 필터 변경 시 첫 페이지로 이동
-    }
-  }, [logFilters])
 
   useEffect(() => {
     if (activeTab === 'readLogs') {
@@ -863,20 +804,20 @@ export default function AdminPage() {
             <div className="fl-card-head">
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <span className="fl-card-title">변경 이력</span>
-                <span className="fl-card-count">총 {logPagination.totalElements}건</span>
+                <span className="fl-card-count">총 {logsTab.pagination.totalElements}건</span>
               </div>
               <div className="ad-filters">
                 <input
                   className="fl-input"
                   placeholder="관리자명"
-                  value={logFilters.adminUsername}
-                  onChange={(e) => setLogFilters((prev) => ({ ...prev, adminUsername: e.target.value }))}
+                  value={logsTab.filters.adminUsername}
+                  onChange={(e) => logsTab.patchFilter({ adminUsername: e.target.value })}
                   style={{ width: 130 }}
                 />
                 <select
                   className="fl-input"
-                  value={logFilters.entityType}
-                  onChange={(e) => setLogFilters((prev) => ({ ...prev, entityType: e.target.value }))}
+                  value={logsTab.filters.entityType}
+                  onChange={(e) => logsTab.patchFilter({ entityType: e.target.value })}
                   aria-label="엔티티 필터"
                 >
                   {LOG_ENTITY_OPTIONS.map((o) => (
@@ -885,8 +826,8 @@ export default function AdminPage() {
                 </select>
                 <select
                   className="fl-input"
-                  value={logFilters.action}
-                  onChange={(e) => setLogFilters((prev) => ({ ...prev, action: e.target.value }))}
+                  value={logsTab.filters.action}
+                  onChange={(e) => logsTab.patchFilter({ action: e.target.value })}
                   aria-label="작업 필터"
                 >
                   <option value="">모든 작업</option>
@@ -897,25 +838,21 @@ export default function AdminPage() {
                 <input
                   type="date"
                   className="fl-input"
-                  value={logFilters.startDate}
-                  onChange={(e) => setLogFilters((prev) => ({ ...prev, startDate: e.target.value }))}
+                  value={logsTab.filters.startDate}
+                  onChange={(e) => logsTab.patchFilter({ startDate: e.target.value })}
                   aria-label="시작일"
                 />
                 <input
                   type="date"
                   className="fl-input"
-                  value={logFilters.endDate}
-                  onChange={(e) => setLogFilters((prev) => ({ ...prev, endDate: e.target.value }))}
+                  value={logsTab.filters.endDate}
+                  onChange={(e) => logsTab.patchFilter({ endDate: e.target.value })}
                   aria-label="종료일"
                 />
                 <select
                   className="fl-input"
-                  value={logPagination.size}
-                  onChange={(e) => {
-                    const newSize = parseInt(e.target.value)
-                    setLogPagination((prev) => ({ ...prev, size: newSize, currentPage: 0 }))
-                    loadLogs(0, newSize)
-                  }}
+                  value={logsTab.pagination.size}
+                  onChange={(e) => logsTab.changePageSize(parseInt(e.target.value))}
                   aria-label="페이지당 항목 수"
                 >
                   <option value="10">10개씩</option>
@@ -925,9 +862,7 @@ export default function AdminPage() {
                 </select>
                 <button
                   className="fl-btn"
-                  onClick={() =>
-                    setLogFilters({ adminUsername: '', entityType: '', action: '', startDate: '', endDate: '' })
-                  }
+                  onClick={() => logsTab.resetFilters()}
                 >
                   초기화
                 </button>
@@ -943,14 +878,14 @@ export default function AdminPage() {
                 <div>IP 주소</div>
               </div>
 
-              <LogRows logs={logs} loading={logsLoading} />
+              <LogRows logs={logsTab.logs} loading={logsTab.loading} />
             </div>
 
             <Pager
-              page={logPagination.currentPage}
-              totalPages={logPagination.totalPages}
-              onChange={loadLogs}
-              disabled={logsLoading}
+              page={logsTab.pagination.currentPage}
+              totalPages={logsTab.pagination.totalPages}
+              onChange={logsTab.load}
+              disabled={logsTab.loading}
             />
           </section>
         </>
