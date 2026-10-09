@@ -41,6 +41,19 @@ cp .env.example .env
 
 비밀번호를 잊은 사용자는 관리자 화면에서 초기화합니다. 관리자 → 사용자 목록 → **비밀번호 초기화**를 누르면 임시 비밀번호가 한 번 표시되며, 그 계정의 기존 로그인은 모두 해제됩니다. 임시 비밀번호는 다시 볼 수 없으므로 그 자리에서 본인에게 전달하세요.
 
+#### 시크릿이 코드에 들어가지 않게 하기
+
+실제 시크릿은 전부 `.env`에서 옵니다. `.env`는 `.gitignore`에 있고 저장소에 커밋되지 않습니다. `.env.example`은 값이 비어 있는 **양식**이므로, 채운 실제 값을 이 파일에 복사하지 마세요.
+
+테스트에 실제처럼 보이는 값이 필요하면 재사용되는 상수에 두세요.
+
+- 백엔드 JWT 서명 키: `src/test/java/com/hamsetech/hamsetech/TestJwtSecrets.java`
+- 프론트 비밀번호: 각 `*.test.tsx` 파일 안의 상수
+
+이렇게 하면 시크릿 스캐너(GitGuardian 등)가 실제 키로 오인하는 일이 줄어듭니다. 다만 **스캐너는 값의 형태만 보고 "테스트 중"이라는 사실을 알 수 없으므로**, 이러한 값이 있다는 사실 자체를 대시보드에서 **false positive로 마킹**해야 경고가 사라집니다. 마킹할 주장은 "Test fixture value — production secret comes from `JWT_SECRET` env var, never committed" 입니다.
+
+한 가지 주의할 것은, 서로 다른 테스트가 같은 문자열을 각자 상수로 복사해 두면 스캐너는 "한 키를 두 코드가 공유"한 것처럼 봅니다. 같은 값이 두 곳에 필요하면 한 곳에 두고 import 하세요.
+
 ### 데이터베이스 스키마
 
 스키마는 Flyway가 관리합니다. `src/main/resources/db/migration/` 아래의 `V*.sql`이
