@@ -30,6 +30,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.testSecurityContext;
 
 /**
  * 본인 계정 엔드포인트 테스트.
@@ -90,7 +91,7 @@ class UserControllerTest {
     void readsMyProfile() throws Exception {
         loginAs(user(UserStatus.APPROVED, UserRole.USER));
 
-        mvc.perform(get("/api/users/me"))
+        mvc.perform(get("/api/users/me").with(testSecurityContext()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username").value("kim"))
                 .andExpect(jsonPath("$.email").value("kim@hamsetech.kr"))
@@ -107,7 +108,7 @@ class UserControllerTest {
         u.setDisplayName(null);
         loginAs(u);
 
-        mvc.perform(get("/api/users/me"))
+        mvc.perform(get("/api/users/me").with(testSecurityContext()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.displayName").value(""))
                 .andExpect(jsonPath("$.withdrawRequestedAt").doesNotExist())
@@ -124,7 +125,7 @@ class UserControllerTest {
         when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         mvc.perform(put("/api/users/me").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"displayName\":\"김영희\"}"))
+                        .content("{\"displayName\":\"김영희\"}").with(testSecurityContext()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.displayName").value("김영희"));
         assert u.getDisplayName().equals("김영희");
@@ -138,7 +139,7 @@ class UserControllerTest {
         when(userRepository.existsByDisplayName("남이름")).thenReturn(true);
 
         mvc.perform(put("/api/users/me").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"displayName\":\"남이름\"}"))
+                        .content("{\"displayName\":\"남이름\"}").with(testSecurityContext()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("이미 사용 중인 닉네임입니다."));
         verify(userRepository, never()).save(any());
@@ -155,7 +156,7 @@ class UserControllerTest {
         when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         mvc.perform(put("/api/users/me").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"displayName\":\"김철수\"}"))
+                        .content("{\"displayName\":\"김철수\"}").with(testSecurityContext()))
                 .andExpect(status().isOk());
     }
 
@@ -167,7 +168,7 @@ class UserControllerTest {
         loginAs(user(UserStatus.APPROVED, UserRole.USER));
         when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        mvc.perform(put("/api/users/me").contentType(MediaType.APPLICATION_JSON).content("{}"))
+        mvc.perform(put("/api/users/me").contentType(MediaType.APPLICATION_JSON).content("{}").with(testSecurityContext()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.displayName").value("김철수"));
     }
@@ -182,7 +183,7 @@ class UserControllerTest {
         when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         mvc.perform(post("/api/users/me/withdraw").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"password\":\"" + GOOD_PASSWORD + "\",\"reason\":\"  이직  \"}"))
+                        .content("{\"password\":\"" + GOOD_PASSWORD + "\",\"reason\":\"  이직  \"}").with(testSecurityContext()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.requested").value(true));
 
@@ -201,7 +202,7 @@ class UserControllerTest {
         loginAs(user(UserStatus.APPROVED, UserRole.SUPER_ADMIN, UserRole.ADMIN));
 
         mvc.perform(post("/api/users/me/withdraw").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"password\":\"" + GOOD_PASSWORD + "\"}"))
+                        .content("{\"password\":\"" + GOOD_PASSWORD + "\"}").with(testSecurityContext()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("SUPER_ADMIN 계정은 탈퇴할 수 없습니다."));
         verify(userRepository, never()).save(any());
@@ -214,7 +215,7 @@ class UserControllerTest {
         loginAs(user(UserStatus.WITHDRAW_REQUESTED, UserRole.USER));
 
         mvc.perform(post("/api/users/me/withdraw").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"password\":\"" + GOOD_PASSWORD + "\"}"))
+                        .content("{\"password\":\"" + GOOD_PASSWORD + "\"}").with(testSecurityContext()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("이미 탈퇴를 신청했습니다."));
         verify(userRepository, never()).save(any());
@@ -228,7 +229,7 @@ class UserControllerTest {
         when(passwordEncoder.matches(anyString(), anyString())).thenReturn(false);
 
         mvc.perform(post("/api/users/me/withdraw").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"password\":\"wrong\"}"))
+                        .content("{\"password\":\"wrong\"}").with(testSecurityContext()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("비밀번호가 올바르지 않습니다."));
         // 세션이 살아 있다는 사실만으로 탈퇴되면 안 된다.
@@ -242,7 +243,7 @@ class UserControllerTest {
         loginAs(user(UserStatus.APPROVED, UserRole.USER));
 
         // null을 matches에 넘기면 인증 구현에 따라 예외가 난다. 거절이 정답이다.
-        mvc.perform(post("/api/users/me/withdraw").contentType(MediaType.APPLICATION_JSON).content("{}"))
+        mvc.perform(post("/api/users/me/withdraw").contentType(MediaType.APPLICATION_JSON).content("{}").with(testSecurityContext()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("비밀번호가 올바르지 않습니다."));
     }
@@ -253,7 +254,7 @@ class UserControllerTest {
     void cancelsWithdraw() throws Exception {
         loginAs(user(UserStatus.WITHDRAW_REQUESTED, UserRole.USER));
 
-        mvc.perform(delete("/api/users/me/withdraw"))
+        mvc.perform(delete("/api/users/me/withdraw").with(testSecurityContext()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.canceled").value(true));
         verify(withdrawalService).cancelWithdrawRequest(any(UserAccount.class));
@@ -267,7 +268,7 @@ class UserControllerTest {
         org.mockito.Mockito.doThrow(new UserWithdrawalService.WithdrawalNotAllowedException("탈퇴 신청 상태가 아닙니다."))
                 .when(withdrawalService).cancelWithdrawRequest(any(UserAccount.class));
 
-        mvc.perform(delete("/api/users/me/withdraw"))
+        mvc.perform(delete("/api/users/me/withdraw").with(testSecurityContext()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("탈퇴 신청 상태가 아닙니다."));
     }
