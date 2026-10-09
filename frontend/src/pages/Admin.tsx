@@ -2,25 +2,14 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 import { getUsername as getMe, getRoles, onTokenExpired } from '../auth/token'
-import {
-  listAllOvertimeRecords,
-  approveOvertimeRecord,
-  rejectOvertimeRecord,
-  deleteOvertimeRecord,
-  getOvertimeSummary,
-  getOvertimeDefaults,
-  updateOvertimeDefaults,
-  downloadOvertimeExcel,
-  type OvertimeRecord,
-  type OvertimeSummary,
-  type OvertimeDefaults,
-} from '../api/overtimeRecords'
-import { formatTime, payrollCycle } from '../utils/formatDate'
+import type { OvertimeRecord } from '../api/overtimeRecords'
+import { formatTime } from '../utils/formatDate'
 
 import Pager from '../components/Pager'
 import { useChangeLogsTab } from '../hooks/useChangeLogsTab'
 import { useReadLogsTab } from '../hooks/useReadLogsTab'
 import { useUserTabs } from '../hooks/useUserTabs'
+import { useOvertimeTab } from '../hooks/useOvertimeTab'
 import { KeyIcon, UserMinusIcon } from '../components/AdminIcons'
 import DisplayNameEditor from '../components/admin/DisplayNameEditor'
 import LogRows from '../components/admin/LogRows'
@@ -53,21 +42,6 @@ export default function AdminPage() {
   const [error, setError] = useState('')
   const [tokenExpired, setTokenExpired] = useState(false)
   const [activeTab, setActiveTab] = useState<'users' | 'pending' | 'withdraw' | 'logs' | 'readLogs' | 'overtime'>('users')
-  const [overtimeRecords, setOvertimeRecords] = useState<OvertimeRecord[]>([])
-  const [overtimeLoading, setOvertimeLoading] = useState(false)
-  const [overtimeSummary, setOvertimeSummary] = useState<OvertimeSummary[]>([])
-  const [overtimeFilters, setOvertimeFilters] = useState({ username: '', type: '', status: '' })
-  const [overtimePagination, setOvertimePagination] = useState({ currentPage: 0, totalPages: 0, totalElements: 0, size: 20 })
-  const [overtimeMonth, setOvertimeMonth] = useState<string>(() => new Date().toISOString().slice(0, 7))
-  const [rejectingId, setRejectingId] = useState<number | null>(null)
-  const [rejectReason, setRejectReason] = useState('')
-  const [bulkOpen, setBulkOpen] = useState(false)
-  const [overtimeDefaults, setOvertimeDefaults] = useState<OvertimeDefaults | null>(null)
-  const [defaultsSaving, setDefaultsSaving] = useState(false)
-  const [defaultsMsg, setDefaultsMsg] = useState('')
-  // 엑셀 내보내기 기간. 급여 주기 설정으로 채워지지만 관리자가 자유롭게 고칠 수 있다.
-  const [exportRange, setExportRange] = useState({ from: '', to: '' })
-  const [overtimeExporting, setOvertimeExporting] = useState(false)
   const [logStats, setLogStats] = useState<any>(null)
   const navigate = useNavigate()
   const logsTab = useChangeLogsTab(activeTab === 'logs')
@@ -76,6 +50,39 @@ export default function AdminPage() {
     onError: setError,
     onSelfRevoked: () => navigate('/'),
   })
+
+  // 잔업특근 탭의 상태와 로딩. 이름을 그대로 풀어 쓴다 — 아래쪽 렌더가 전부 이
+  // 이름들을 참조하므로, 접두사를 붙이려면 렌더를 전부 손대야 한다.
+  const {
+    overtimeRecords,
+    overtimeLoading,
+    overtimeSummary,
+    overtimeFilters,
+    setOvertimeFilters,
+    overtimePagination,
+    overtimeMonth,
+    setOvertimeMonth,
+    rejectingId,
+    setRejectingId,
+    rejectReason,
+    setRejectReason,
+    bulkOpen,
+    setBulkOpen,
+    overtimeDefaults,
+    setOvertimeDefaults,
+    defaultsSaving,
+    defaultsMsg,
+    exportRange,
+    setExportRange,
+    overtimeExporting,
+    loadRecords,
+    loadSummary,
+    saveOvertimeDefaults,
+    exportOvertimeExcel,
+    approveOvertime,
+    rejectOvertime,
+    deleteOvertime,
+  } = useOvertimeTab(activeTab === 'overtime', { onError: setError })
 
   useEffect(() => {
     const me = getMe()
@@ -108,150 +115,13 @@ export default function AdminPage() {
     }
   }
 
-  async function loadOvertimeRecords(page: number = 0) {
-    try {
-      setOvertimeLoading(true)
-      const result = await listAllOvertimeRecords({
-        username: overtimeFilters.username || undefined,
-        type: (overtimeFilters.type || undefined) as any,
-        status: (overtimeFilters.status || undefined) as any,
-        page,
-        size: overtimePagination.size,
-      })
-      setOvertimeRecords(result.content)
-      setOvertimePagination(prev => ({
-        ...prev,
-        currentPage: result.number ?? 0,
-        totalPages: result.totalPages ?? 0,
-        totalElements: result.totalElements ?? 0,
-        size: result.size ?? prev.size,
-      }))
-    } catch (e: any) {
-      setError(e.message || '잔업/특근 기록 로드 실패')
-    } finally {
-      setOvertimeLoading(false)
-    }
-  }
-
-  async function loadOvertimeSummary() {
-    try {
-      const summary = await getOvertimeSummary(overtimeMonth)
-      setOvertimeSummary(summary)
-    } catch (e: any) {
-      setError(e.message || '월별 집계 로드 실패')
-    }
-  }
-
-  async function loadOvertimeDefaults() {
-    try {
-      const d = await getOvertimeDefaults()
-      setOvertimeDefaults(d)
-      setExportRange(payrollCycle(d.payrollStartDay))
-    } catch (e: any) {
-      setError(e.message || '기본 근무시간 로드 실패')
-    }
-  }
-
-  async function saveOvertimeDefaults() {
-    if (!overtimeDefaults) return
-    setDefaultsSaving(true)
-    setDefaultsMsg('')
-    try {
-      const saved = await updateOvertimeDefaults(overtimeDefaults)
-      setOvertimeDefaults(saved)
-      // 주기가 바뀌면 내보내기 기간도 새 주기로 다시 맞춰준다.
-      setExportRange(payrollCycle(saved.payrollStartDay))
-      setDefaultsMsg('저장되었습니다.')
-    } catch (e: any) {
-      setError(e.message || '기본 근무시간 저장 실패')
-    } finally {
-      setDefaultsSaving(false)
-    }
-  }
-
-  async function exportOvertimeExcel() {
-    if (!exportRange.from || !exportRange.to) return
-    setOvertimeExporting(true)
-    try {
-      const blob = await downloadOvertimeExcel(exportRange.from, exportRange.to)
-      // 개발 환경은 교차 출처라 서버가 준 Content-Disposition을 읽을 수 없어 파일명을 여기서 만든다.
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `잔업특근_${exportRange.from}_${exportRange.to}.xlsx`
-      link.click()
-      URL.revokeObjectURL(url)
-    } catch (e: any) {
-      setError(e.message || '엑셀 다운로드 실패')
-    } finally {
-      setOvertimeExporting(false)
-    }
-  }
-
-  async function approveOvertime(id: number) {
-    try {
-      await approveOvertimeRecord(id)
-      await Promise.all([loadOvertimeRecords(overtimePagination.currentPage), loadOvertimeSummary()])
-    } catch (e: any) {
-      setError(e.message || '승인 실패')
-    }
-  }
-
-  async function rejectOvertime(id: number) {
-    try {
-      await rejectOvertimeRecord(id, rejectReason)
-      setRejectingId(null)
-      setRejectReason('')
-      await loadOvertimeRecords(overtimePagination.currentPage)
-    } catch (e: any) {
-      setError(e.message || '반려 실패')
-    }
-  }
-
-  async function deleteOvertime(id: number) {
-    if (!window.confirm('이 기록을 삭제할까요? 삭제하면 되돌릴 수 없습니다.')) return
-    try {
-      await deleteOvertimeRecord(id)
-      // 마지막 페이지의 마지막 항목을 지우면 빈 페이지가 되므로, 필요 시 이전 페이지로 이동
-      const isLastItemOnPage = overtimeRecords.length === 1 && overtimePagination.currentPage > 0
-      const target = isLastItemOnPage ? overtimePagination.currentPage - 1 : overtimePagination.currentPage
-      await Promise.all([loadOvertimeRecords(target), loadOvertimeSummary()])
-    } catch (e: any) {
-      setError(e.message || '삭제 실패')
-    }
-  }
-
+  // 잔업특근 탭의 데이터는 useOvertimeTab이 스스로 읽는다. 여기서는 로그 두 탭이
+  // 함께 쓰는 통계만 챙긴다.
   useEffect(() => {
-    if (activeTab === 'logs') {
+    if (activeTab === 'logs' || activeTab === 'readLogs') {
       loadLogStats()
-    }
-    if (activeTab === 'readLogs') {
-      loadLogStats()
-    }
-    if (activeTab === 'overtime') {
-      loadOvertimeRecords(0)
-      loadOvertimeSummary()
-      loadOvertimeDefaults()
-    } else {
-      // 탭을 떠나면 모달도 닫는다. 남겨두면 다시 들어올 때 폼이 열린 채로 뜬다.
-      setBulkOpen(false)
     }
   }, [activeTab])
-
-  useEffect(() => {
-    if (activeTab === 'overtime') {
-      loadOvertimeRecords(0) // 필터 변경 시 첫 페이지로
-    }
-  }, [overtimeFilters])
-
-  useEffect(() => {
-    if (activeTab === 'overtime') {
-      loadOvertimeSummary()
-    }
-  }, [overtimeMonth])
-
-  // 승인·거절은 두 목록의 상태를 동시에 바꾸므로 양쪽을 다시 읽는다
-  // 탈퇴 확정은 되돌릴 수 없으므로 항상 사유를 묻고 한 번 더 확인한다
   return (
     <div className="fl-page">
       <div className="fl-titleband">
@@ -999,7 +869,7 @@ export default function AdminPage() {
             <Pager
               page={overtimePagination.currentPage}
               totalPages={overtimePagination.totalPages}
-              onChange={loadOvertimeRecords}
+              onChange={loadRecords}
               disabled={overtimeLoading}
             />
           </section>
@@ -1191,8 +1061,8 @@ export default function AdminPage() {
               defaults={overtimeDefaults}
               onClose={() => setBulkOpen(false)}
               onCreated={() => {
-                loadOvertimeRecords(0)
-                loadOvertimeSummary()
+                loadRecords(0)
+                loadSummary()
               }}
             />
           )}
