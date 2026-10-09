@@ -16,7 +16,7 @@ import com.hamsetech.hamsetech.work.OvertimeRecordService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -24,6 +24,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.testSecurityContext;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -39,6 +40,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * 진짜 SecurityConfig와 진짜 컨트롤러 매핑을 함께 올려, 필터 체인이 실제 경로에
  * 어떻게 걸리는지를 검증한다. 서비스·리포지토리는 목이라 DB가 필요 없다.
+ *
+ * 요청에 .with(testSecurityContext()) 를 붙인다. Boot 4에서 @WithMockUser 하나로는
+ * MockMvc 요청에 인증이 실리지 않는다. Boot 3.5까지 자동으로 걸려 있던
+ * springSecurity() MockMvc 설정이 모듈 분해 과정에서 없어졌고, 시큐리티 필터 체인은
+ * 이제 SecurityContextHolder 가 아니라 요청에서 SecurityContext 를 읽는다.
+ * testSecurityContext() 가 @WithMockUser 가 심어 둔 인증을 요청으로 옮긴다.
+ * 익명 요청을 검증하는 테스트에는 붙이지 않는다.
  */
 @WebMvcTest(controllers = {NoticeController.class, AdminController.class, AuthController.class,
         OvertimeRecordController.class})
@@ -89,7 +97,7 @@ class SecurityRulesTest {
     void userCannotReachAdminApi() throws Exception {
         // code를 빼먹으면 client.ts가 이 403을 토큰 만료로 오인해
         // 멀쩡히 로그인한 사용자를 로그아웃시킨다.
-        mvc.perform(get("/api/admin/users"))
+        mvc.perform(get("/api/admin/users").with(testSecurityContext()))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
     }
@@ -103,7 +111,8 @@ class SecurityRulesTest {
         // 두 겹이 모두 살아 있는지 확인하는 것이 목적이다.
         mvc.perform(post("/api/notices")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"title\":\"t\",\"content\":\"c\"}"))
+                        .content("{\"title\":\"t\",\"content\":\"c\"}")
+                        .with(testSecurityContext()))
                 .andExpect(status().isForbidden());
     }
 
@@ -111,7 +120,7 @@ class SecurityRulesTest {
     @WithMockUser(roles = "USER")
     @DisplayName("일반 사용자는 공지를 삭제할 수 없다")
     void userCannotDeleteNotice() throws Exception {
-        mvc.perform(delete("/api/notices/1"))
+        mvc.perform(delete("/api/notices/1").with(testSecurityContext()))
                 .andExpect(status().isForbidden());
     }
 
@@ -124,7 +133,7 @@ class SecurityRulesTest {
         // 이 경로는 SecurityConfig에 규칙이 없다. 오직 컨트롤러의 @PreAuthorize만이
         // 막고 있으므로, @EnableMethodSecurity가 빠지면 이 테스트가 바로 깨진다.
         // (공지 작성은 경로 규칙이 이중으로 막고 있어 같은 사고를 잡지 못한다.)
-        mvc.perform(get("/api/overtime-records"))
+        mvc.perform(get("/api/overtime-records").with(testSecurityContext()))
                 .andExpect(status().isForbidden());
     }
 
@@ -134,7 +143,8 @@ class SecurityRulesTest {
     void userCannotBulkCreateOvertimeRecords() throws Exception {
         mvc.perform(post("/api/overtime-records/bulk")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"userIds\":[1],\"workDate\":\"2026-08-31\",\"type\":\"OVERTIME\"}"))
+                        .content("{\"userIds\":[1],\"workDate\":\"2026-08-31\",\"type\":\"OVERTIME\"}")
+                        .with(testSecurityContext()))
                 .andExpect(status().isForbidden());
     }
 
@@ -143,7 +153,7 @@ class SecurityRulesTest {
     @DisplayName("관리자는 잔업 전체 목록을 볼 수 있다")
     void adminCanListAllOvertimeRecords() throws Exception {
         // 위 두 테스트가 "전부 막혀서" 통과하는 것이 아님을 확인한다.
-        mvc.perform(get("/api/overtime-records"))
+        mvc.perform(get("/api/overtime-records").with(testSecurityContext()))
                 .andExpect(status().isOk());
     }
 
@@ -157,7 +167,7 @@ class SecurityRulesTest {
         // 이게 "/**"로 바뀌면 일반 사용자가 자기 댓글도 못 지운다.
         org.mockito.Mockito.doNothing().when(noticeService).deleteComment(1L, 2L);
 
-        mvc.perform(delete("/api/notices/1/comments/2"))
+        mvc.perform(delete("/api/notices/1/comments/2").with(testSecurityContext()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.deleted").value(true));
     }

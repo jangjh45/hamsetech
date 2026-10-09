@@ -10,7 +10,7 @@ import com.hamsetech.hamsetech.web.ApiExceptions.NotFoundException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -20,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.testSecurityContext;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -83,7 +84,11 @@ class ErrorResponseContractTest {
     @DisplayName("권한 거부 403에는 반드시 code=FORBIDDEN이 실린다")
     void forbiddenCarriesCode() throws Exception {
         // 이 필드가 빠지면 client.ts가 정상 사용자를 로그아웃시킨다.
-        mvc.perform(get("/test-errors/forbidden"))
+        // Boot 4부터는 @WithMockUser 만으로 MockMvc 요청에 인증이 실리지 않는다.
+        // Boot 3.5까지 자동으로 붙어 있던 springSecurity() MockMvc 설정이 없어져서,
+        // 시큐리티 필터 체인이 SecurityContextHolder 대신 요청에서 컨텍스트를 읽는다.
+        // testSecurityContext()가 @WithMockUser 가 심어 둔 인증을 요청에 옮긴다.
+        mvc.perform(get("/test-errors/forbidden").with(testSecurityContext()))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"))
                 .andExpect(jsonPath("$.error").value("본인의 기록만 처리할 수 있습니다."));
@@ -94,7 +99,7 @@ class ErrorResponseContractTest {
     @DisplayName("404는 본문 없이 나간다")
     void notFoundHasEmptyBody() throws Exception {
         // 리팩터링 전 ResponseEntity.notFound().build()와 같은 모양을 유지한다.
-        mvc.perform(get("/test-errors/not-found"))
+        mvc.perform(get("/test-errors/not-found").with(testSecurityContext()))
                 .andExpect(status().isNotFound())
                 .andExpect(content().string(""));
     }
@@ -103,7 +108,7 @@ class ErrorResponseContractTest {
     @WithMockUser
     @DisplayName("409는 메시지를 그대로 전달한다")
     void conflictCarriesMessage() throws Exception {
-        mvc.perform(get("/test-errors/conflict"))
+        mvc.perform(get("/test-errors/conflict").with(testSecurityContext()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("이미 처리된 기록입니다"));
     }
@@ -114,7 +119,7 @@ class ErrorResponseContractTest {
     void illegalArgumentBecomes400() throws Exception {
         // 엑셀 내보내기의 기간 검증이 이 경로를 탄다. 예전에는 컨트롤러마다
         // try/catch로 직접 처리하거나, 빠뜨리면 500이 나갔다.
-        mvc.perform(get("/test-errors/illegal-argument"))
+        mvc.perform(get("/test-errors/illegal-argument").with(testSecurityContext()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("시작일이 종료일보다 늦을 수 없습니다"));
     }
@@ -123,7 +128,7 @@ class ErrorResponseContractTest {
     @WithMockUser
     @DisplayName("중복 위반은 제약 이름을 노출하지 않는다")
     void duplicateDoesNotLeakConstraintName() throws Exception {
-        mvc.perform(get("/test-errors/duplicate"))
+        mvc.perform(get("/test-errors/duplicate").with(testSecurityContext()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("이미 사용 중인 값이 있습니다. 다른 값을 입력해 주세요."));
     }

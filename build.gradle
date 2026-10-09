@@ -1,6 +1,6 @@
 plugins {
 	id 'java'
-	id 'org.springframework.boot' version '3.5.8'
+	id 'org.springframework.boot' version '4.1.1'
 	id 'io.spring.dependency-management' version '1.1.7'
 	id 'com.github.ben-manes.versions' version '0.64.0'
 }
@@ -39,9 +39,18 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	// 스키마는 이제 Flyway가 관리한다. ddl-auto=update + 손으로 쓴 SchemaFixer는
 	// 실패해도 조용히 넘어갔고, 무엇이 적용됐는지 기록도 남지 않았다.
-	implementation 'org.flywaydb:flyway-core'
+	//
+	// Boot 4에서 Flyway 자동설정이 spring-boot-flyway 로 분리됐다. flyway-core 만
+	// 직접 의존하면 FlywayAutoConfiguration 이 클래스패스에 없어서 마이그레이션이
+	// 조용히 한 번도 돌지 않는다(에러도 안 난다 — 도커·Testcontainers는 정상이라
+	// 문제가 감춰진다). 그러면 ddl-auto=validate 가 빈 데이터베이스를 보고
+	// "missing table [admin_logs]" 로 기동을 멈춘다. Flyway/JPA 순서 문제가 아니라
+	// Flyway 자동설정 자체가 없는 문제다.
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
+	// starter-flyway 는 flyway-core 만 가져온다. PostgreSQL 전용 dialect 지원은
+	// 따로 붙여야 한다.
 	implementation 'org.flywaydb:flyway-database-postgresql'
-	implementation 'org.springframework.boot:spring-boot-starter-aop'
+	implementation 'org.springframework.boot:spring-boot-starter-aspectj'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	// 관리자 잔업/특근 엑셀 내보내기. Spring Boot BOM이 관리하지 않아 버전을 명시한다.
 	implementation 'org.apache.poi:poi-ooxml:5.5.1'
@@ -58,12 +67,17 @@ dependencies {
 	annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
+	// Spring Boot 4 에서 슬라이스 테스트 어노테이션이 starter-test 에서 빠지고
+	// 모듈별 test 아티팩트로 독립했다. @WebMvcTest 는 webmvc-test,
+	// @DataJpaTest 는 data-jpa-test 가 있어야 보인다.
+	testImplementation 'org.springframework.boot:spring-boot-webmvc-test'
+	testImplementation 'org.springframework.boot:spring-boot-data-jpa-test'
 	// H2는 빠른 배선 확인(HamsetechApplicationTests)에만 쓴다.
 	// 스키마·마이그레이션 검증은 Testcontainers가 실제 PostgreSQL로 한다.
 	testRuntimeOnly 'com.h2database:h2'
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
-	testImplementation 'org.testcontainers:junit-jupiter'
-	testImplementation 'org.testcontainers:postgresql'
+	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+	testImplementation 'org.testcontainers:testcontainers-postgresql'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
