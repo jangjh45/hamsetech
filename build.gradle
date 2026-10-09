@@ -25,6 +25,10 @@ repositories {
 }
 
 dependencies {
+	// Thymeleaf는 넣지 않는다. 화면은 전부 React가 그린다. 서버렌더 잔재로 남아 있던
+	// spring-boot-starter-thymeleaf 와 thymeleaf-extras-springsecurity6 를 뺐는데,
+	// 후자는 Spring Security 7(Spring Boot 4)에서 이름이 바뀌어 막히는 의존성이다.
+	// 템플릿이 한 개도 없어 동작 변화는 없다.
 	implementation 'org.springframework.boot:spring-boot-starter-data-jdbc'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
@@ -32,7 +36,6 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	// 스키마는 이제 Flyway가 관리한다. ddl-auto=update + 손으로 쓴 SchemaFixer는
 	// 실패해도 조용히 넘어갔고, 무엇이 적용됐는지 기록도 남지 않았다.
@@ -40,7 +43,6 @@ dependencies {
 	implementation 'org.flywaydb:flyway-database-postgresql'
 	implementation 'org.springframework.boot:spring-boot-starter-aop'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
-	implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6'
 	// 관리자 잔업/특근 엑셀 내보내기. Spring Boot BOM이 관리하지 않아 버전을 명시한다.
 	implementation 'org.apache.poi:poi-ooxml:5.5.1'
 	// 공지 본문이 리치 텍스트(HTML)가 되면서 저장 전 새니타이징이 필요해졌다.
