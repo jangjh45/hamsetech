@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react'
-import { packIntoTrucks, MAX_PIECES, type PackResult } from '../utils/packing'
+import { MAX_PIECES } from '../utils/packing'
 import type { PackingScenario } from '../api/scenarios'
 import ScenarioRow from '../components/delivery/ScenarioRow'
 import TruckCard from '../components/delivery/TruckCard'
@@ -15,6 +15,7 @@ import {
   type ItemRow,
 } from '../components/delivery/deliveryShared'
 import { useScenarios } from '../hooks/useScenarios'
+import { usePackingCalc, usePackingStats } from '../hooks/usePackingCalc'
 import '../styles/delivery.css'
 
 export default function DeliveryPage() {
@@ -33,11 +34,19 @@ export default function DeliveryPage() {
 
   const nameMap = useMemo(() => Object.fromEntries(items.map((i) => [i.id, i.name])), [items])
 
-  // 계산 상태 및 결과
-  const [isCalculating, setIsCalculating] = useState<boolean>(false)
-  const [result, setResult] = useState<PackResult | null>(null)
-  const [collapsedTrucks, setCollapsedTrucks] = useState<Set<number>>(new Set())
-  const [visibleTrucks, setVisibleTrucks] = useState<number>(TRUCK_PAGE)
+  // 계산 상태 및 결과. 이름은 그대로 풀어 쓴다 — 아래쪽 렌더가 전부 이 이름들을
+  // 참조하고, 접두사를 붙이면 렌더 부분을 전부 손대야 한다.
+  const {
+    isCalculating,
+    result,
+    collapsedTrucks,
+    setCollapsedTrucks,
+    visibleTrucks,
+    setVisibleTrucks,
+    binW,
+    binH,
+    margin,
+  } = usePackingCalc({ binWStr, binHStr, marginStr, allowRotate, preserveOrder, items })
 
   // 방금 지운 행 (되돌리기용)
   const [lastRemoved, setLastRemoved] = useState<{ index: number; row: ItemRow } | null>(null)
@@ -107,62 +116,7 @@ export default function DeliveryPage() {
     closeScenarioModal,
   } = useScenarios({ getInput, applyScenario, onError: setError })
 
-  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // 행을 추가한 직후 그 행의 이름 칸으로 포커스를 옮기기 위한 표시
   const focusItemIdRef = useRef<number | null>(null)
-
-  const binW = toInt(binWStr)
-  const binH = toInt(binHStr)
-  const margin = toInt(marginStr)
-
-  // 디바운스된 계산 함수
-  const debouncedCalculation = useCallback(() => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current)
-    }
-
-    debounceTimerRef.current = setTimeout(() => {
-      const w = toInt(binWStr)
-      const h = toInt(binHStr)
-      const m = toInt(marginStr)
-      const rects = items.map((i) => ({ id: i.id, w: toInt(i.w), h: toInt(i.h), qty: toInt(i.qty) }))
-
-      if (rects.length === 0 || w <= 0 || h <= 0) {
-        setResult(null)
-        setIsCalculating(false)
-        return
-      }
-
-      setIsCalculating(true)
-
-      // 계산 자체는 동기라 한 틱 미뤄야 "계산 중" 표시가 실제로 그려진다
-      setTimeout(() => {
-        try {
-          setResult(packIntoTrucks(rects, w, h, { allowRotate, margin: m, preserveOrder }))
-        } catch (e: any) {
-          console.error('Packing calculation error:', e)
-          setResult(null)
-        } finally {
-          setIsCalculating(false)
-        }
-      }, 0)
-    }, 300) // 300ms 디바운스
-  }, [binWStr, binHStr, marginStr, items, allowRotate, preserveOrder])
-
-  // 입력 변경 시 디바운스 계산 트리거
-  useEffect(() => {
-    debouncedCalculation()
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current)
-      }
-    }
-  }, [debouncedCalculation])
-
-  // 결과가 새로 나오면 다시 앞에서부터 보여준다
-  useEffect(() => {
-    setVisibleTrucks(TRUCK_PAGE)
-  }, [result])
 
   // 입력을 브라우저에 남겨 새로고침해도 이어서 쓸 수 있게 한다
   useEffect(() => {
@@ -335,25 +289,7 @@ export default function DeliveryPage() {
 
   // ── 요약 ───────────────────────────────────────────────────
 
-  const stats = useMemo(() => {
-    const totalQty = items.reduce((sum, i) => sum + toInt(i.qty), 0)
-    const usedArea = result
-      ? result.trucks.reduce((sum, t) => sum + t.reduce((s, it) => s + it.w * it.h, 0), 0)
-      : 0
-    const totalArea = result ? result.count * binW * binH : 0
-    const binArea = binW * binH
-    // 면적만 따진 하한. 실제로는 모양 때문에 이보다 적게 실린다.
-    const idealCount = binArea > 0 && usedArea > 0 ? Math.ceil(usedArea / binArea) : 0
-    return {
-      truckCount: result?.count ?? 0,
-      utilization: totalArea > 0 ? Math.round((usedArea / totalArea) * 100) : 0,
-      kinds: items.length,
-      totalQty,
-      usedArea,
-      totalArea,
-      idealCount,
-    }
-  }, [result, items, binW, binH])
+  const stats = usePackingStats({ items, result, binW, binH })
 
   const unplaceableIds = useMemo(
     () => new Set(result?.unplaceable ?? []),
