@@ -15,6 +15,7 @@ import {
 import { isAuthenticated, isAdmin, getUsername } from '../auth/token'
 import { formatDateTime } from '../utils/formatDate'
 import CommentNode, { type CommentNodeData } from '../components/CommentNode'
+import { useConfirm } from '../components/ConfirmDialog'
 import NoticeHtmlView from '../components/NoticeHtmlView'
 import NoticeAttachmentList from '../components/NoticeAttachmentList'
 import '../styles/notices.css'
@@ -28,13 +29,8 @@ function buildCommentTree(flatComments: NoticeComment[]): CommentNodeData[] {
   flatComments.forEach((c) => {
     const node = map.get(c.id)!
     if (c.parentId != null && map.has(c.parentId)) {
-      const parent = map.get(c.parentId)!
-      if (parent.parentId === null) {
-        parent.replies.push(node)
-      } else {
-        roots.push(node)
-      }
-    } else if (c.parentId == null) {
+      map.get(c.parentId)!.replies.push(node)
+    } else {
       roots.push(node)
     }
   })
@@ -46,6 +42,22 @@ function buildCommentTree(flatComments: NoticeComment[]): CommentNodeData[] {
   sortByTime(roots)
 
   return roots
+}
+
+/** 삭제 시 대댓글 자손까지 포함한 낙관적 업데이트용 */
+function removeWithDescendants(flat: NoticeComment[], rootId: number): NoticeComment[] {
+  const removed = new Set<number>([rootId])
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const c of flat) {
+      if (c.parentId != null && removed.has(c.parentId) && !removed.has(c.id)) {
+        removed.add(c.id)
+        changed = true
+      }
+    }
+  }
+  return flat.filter((c) => !removed.has(c.id))
 }
 
 export default function NoticeDetailPage() {
@@ -60,6 +72,7 @@ export default function NoticeDetailPage() {
   const [text, setText] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const { confirm, dialog } = useConfirm()
 
   useEffect(() => {
     if (!noticeId) return
@@ -113,10 +126,17 @@ export default function NoticeDetailPage() {
   }
 
   async function onCommentDelete(commentId: number) {
-    if (!window.confirm('이 댓글을 삭제하시겠습니까?')) return
+    const ok = await confirm({
+      title: '댓글 삭제',
+      message: '이 댓글을 삭제하시겠습니까? 삭제된 댓글은 되돌릴 수 없습니다.',
+      confirmText: '삭제',
+      danger: true,
+    })
+    if (!ok) return
     try {
       await deleteComment(noticeId, commentId)
-      await refreshComments()
+      // 낙관적 업데이트: 삭제된 댓글과 그 자손들을 트리에서 즉시 제거
+      setComments((prev) => removeWithDescendants(prev, commentId))
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : '삭제 실패')
     }
@@ -124,7 +144,13 @@ export default function NoticeDetailPage() {
 
   async function onDelete() {
     if (!noticeId) return
-    if (!window.confirm('이 게시글을 삭제하시겠습니까?')) return
+    const ok = await confirm({
+      title: '공지사항 삭제',
+      message: '이 공지사항을 삭제하시겠습니까? 삭제된 공지사항은 되돌릴 수 없습니다.',
+      confirmText: '삭제',
+      danger: true,
+    })
+    if (!ok) return
     try {
       await deleteNotice(noticeId)
       navigate('/notices')
@@ -273,6 +299,7 @@ export default function NoticeDetailPage() {
           </section>
         )}
       </div>
+      {dialog}
     </div>
   )
 }

@@ -15,6 +15,13 @@ interface Props {
   onDelete: (commentId: number) => Promise<void>
 }
 
+/** 작성자명 기반으로 아바타 색상을 결정 (3색 순환) */
+function avatarColor(name: string): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = (hash + name.charCodeAt(i)) % 3
+  return ['a', 'b', 'c'][hash]
+}
+
 export default function CommentNode({ node, noticeId, depth = 0, onReply, onDelete }: Props) {
   const isReply = depth > 0
   const [replyOpen, setReplyOpen] = useState(false)
@@ -44,67 +51,74 @@ export default function CommentNode({ node, noticeId, depth = 0, onReply, onDele
   return (
     <div className="nt-comment-node">
       <div className={isReply ? 'nt-comment is-reply' : 'nt-comment'}>
-        <div className="nt-comment-head">
-          <span className="nt-comment-author">
-            {isReply && '↳ '}
-            {node.authorUsername}
+        <div className="nt-comment-meta">
+          <span className={`nt-avatar nt-avatar-${avatarColor(node.authorUsername)}`}>
+            {node.authorUsername.charAt(0)}
           </span>
-          <span className="nt-comment-date">{formatDateTime(node.createdAt)}</span>
-        </div>
-
-        <div className="nt-comment-body">{node.content}</div>
-
-        <div className="nt-comment-foot">
-          {isAuthenticated() && !isReply && (
-            <button
-              className="nt-textlink"
-              onClick={() => { setReplyOpen(!replyOpen); setReplyText(''); setError('') }}
-            >
-              {replyOpen ? '취소' : '답글'}
-            </button>
-          )}
-          {isAuthenticated() && (isAdmin() || getUsername() === node.authorUsername) && (
-            <button className="nt-textlink nt-danger" onClick={() => onDelete(node.id)}>
-              삭제
-            </button>
-          )}
-        </div>
-
-        {replyOpen && (
-          <form onSubmit={handleReplySubmit} className="nt-comment-form">
-            <textarea
-              className="fl-input nt-textarea"
-              placeholder="답글을 입력하세요..."
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value.slice(0, 500))}
-              rows={3}
-            />
-            {error && <p className="fl-error">{error}</p>}
-            <div className="nt-comment-form-foot">
-              <span className="nt-charcount">{replyText.length}/500</span>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  type="button"
-                  className="fl-btn fl-btn-sm"
-                  onClick={() => { setReplyOpen(false); setReplyText('') }}
-                >
-                  취소
-                </button>
-                <button
-                  type="submit"
-                  className="fl-btn fl-btn-primary fl-btn-sm"
-                  disabled={!replyText.trim() || submitting}
-                >
-                  {submitting ? '...' : '등록'}
-                </button>
-              </div>
+          <div className="nt-comment-main">
+            <div className="nt-comment-info">
+              <span className="nt-comment-author">{node.authorUsername}</span>
+              <span className="nt-comment-date">{formatDateTime(node.createdAt)}</span>
             </div>
-          </form>
-        )}
+
+            <div className="nt-comment-body">{node.content}</div>
+
+            <div className="nt-comment-foot">
+              {isAuthenticated() && (
+                <button
+                  className="nt-textlink"
+                  onClick={() => { setReplyOpen(!replyOpen); setReplyText(''); setError('') }}
+                >
+                  {replyOpen ? '취소' : '답글'}
+                </button>
+              )}
+              {isAuthenticated() && (isAdmin() || getUsername() === node.authorUsername) && (
+                <button className="nt-textlink nt-danger" onClick={() => onDelete(node.id)}>
+                  삭제
+                </button>
+              )}
+            </div>
+
+            {replyOpen && (
+              <form onSubmit={handleReplySubmit} className="nt-comment-form">
+                <textarea
+                  className="fl-input nt-textarea"
+                  placeholder="답글을 입력하세요..."
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value.slice(0, 500))}
+                  rows={3}
+                />
+                {error && <p className="fl-error">{error}</p>}
+                <div className="nt-comment-form-foot">
+                  <span className="nt-charcount">{replyText.length}/500</span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      className="fl-btn fl-btn-sm"
+                      onClick={() => { setReplyOpen(false); setReplyText('') }}
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="submit"
+                      className="fl-btn fl-btn-primary fl-btn-sm"
+                      disabled={!replyText.trim() || submitting}
+                    >
+                      {submitting ? '...' : '등록'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
       </div>
 
       {node.replies.length > 0 && (
-        <div className="nt-comment-replies">
+        <div
+          className="nt-comment-replies"
+          style={{ '--reply-depth': Math.min(depth + 1, 3) } as React.CSSProperties}
+        >
           {node.replies.map((reply) => (
             <CommentNode
               key={reply.id}

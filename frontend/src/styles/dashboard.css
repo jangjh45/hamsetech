@@ -1001,6 +1001,12 @@ button.fl-link {
   margin-left: auto;
 }
 
+.fl-modal-message {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--fl-muted);
+}
+
 /* ── 리스트 행 / 타일 ────────────────────────────────────────── */
 
 .fl-row {
