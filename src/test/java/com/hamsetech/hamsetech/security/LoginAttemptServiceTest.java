@@ -106,6 +106,21 @@ class LoginAttemptServiceTest {
     }
 
     @Test
+    @DisplayName("관리자 잠금 해제는 잠금과 실패 횟수를 지운다")
+    void unlockClearsLockAndFailureCount() {
+        LoginAttemptService service = service(3, 15);
+        for (int i = 0; i < 3; i++) {
+            service.recordFailure("kim");
+        }
+
+        assertThat(service.unlock("kim")).isTrue();
+        assertThat(service.isLocked("kim")).isFalse();
+        // 기존 실패 횟수가 남지 않아 다음 실패는 1회부터 센다.
+        assertThat(service.recordFailure("kim")).isFalse();
+        assertThat(service.unlock("kim")).isFalse();
+    }
+
+    @Test
     @DisplayName("잠금 시간이 지나면 저절로 풀린다")
     void lockExpires() {
         LoginAttemptService service = service(3, 15);

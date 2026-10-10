@@ -1,6 +1,8 @@
 package com.hamsetech.hamsetech.admin;
 
 import com.hamsetech.hamsetech.security.SecurityUtils;
+import com.hamsetech.hamsetech.security.LoginAttemptService;
+import com.hamsetech.hamsetech.security.LoginProperties;
 import com.hamsetech.hamsetech.user.UserAccount;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
 import com.hamsetech.hamsetech.user.UserRole;
@@ -29,6 +31,7 @@ class AdminPasswordResetServiceTest {
     private UserAccountRepository userRepository;
     private SecurityUtils securityUtils;
     private PasswordEncoder passwordEncoder;
+    private LoginAttemptService loginAttemptService;
     private AdminPasswordResetService service;
 
     @BeforeEach
@@ -36,7 +39,8 @@ class AdminPasswordResetServiceTest {
         userRepository = mock(UserAccountRepository.class);
         securityUtils = mock(SecurityUtils.class);
         passwordEncoder = new BCryptPasswordEncoder();
-        service = new AdminPasswordResetService(userRepository, passwordEncoder, securityUtils);
+        loginAttemptService = new LoginAttemptService(new LoginProperties(), java.time.Clock.systemUTC());
+        service = new AdminPasswordResetService(userRepository, passwordEncoder, securityUtils, loginAttemptService);
         when(userRepository.save(org.mockito.ArgumentMatchers.any(UserAccount.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
     }
@@ -105,15 +109,20 @@ class AdminPasswordResetServiceTest {
     }
 
     @Test
-    @DisplayName("저장되는 것은 임시 비밀번호의 해시이지 평문이 아니다")
-    void storesHashNotPlaintext() {
+    @DisplayName("임시 비밀번호는 해시로 저장되고 초기화와 함께 로그인 잠금을 해제한다")
+    void storesHashNotPlaintextAndUnlocksAccount() {
         when(securityUtils.isSuperAdmin()).thenReturn(false);
         UserAccount target = account(UserStatus.APPROVED, UserRole.USER);
+        for (int i = 0; i < 5; i++) {
+            loginAttemptService.recordFailure(target.getUsername());
+        }
+        assertThat(loginAttemptService.isLocked(target.getUsername())).isTrue();
 
         String temporary = service.resetPassword(target);
 
         assertThat(target.getPasswordHash()).isNotEqualTo(temporary);
         assertThat(passwordEncoder.matches(temporary, target.getPasswordHash())).isTrue();
+        assertThat(loginAttemptService.isLocked(target.getUsername())).isFalse();
         // 옛 비밀번호로는 더 이상 로그인되지 않아야 한다
         assertThat(passwordEncoder.matches("original-password", target.getPasswordHash())).isFalse();
     }

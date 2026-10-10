@@ -1,5 +1,6 @@
 package com.hamsetech.hamsetech.admin;
 
+import com.hamsetech.hamsetech.security.LoginAttemptService;
 import com.hamsetech.hamsetech.security.SecurityUtils;
 import com.hamsetech.hamsetech.user.UserAccount;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
@@ -38,13 +39,16 @@ public class AdminPasswordResetService {
     private final UserAccountRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final SecurityUtils securityUtils;
+    private final LoginAttemptService loginAttemptService;
 
     public AdminPasswordResetService(UserAccountRepository userRepository,
                                      PasswordEncoder passwordEncoder,
-                                     SecurityUtils securityUtils) {
+                                     SecurityUtils securityUtils,
+                                     LoginAttemptService loginAttemptService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.securityUtils = securityUtils;
+        this.loginAttemptService = loginAttemptService;
     }
 
     /** 초기화가 허용되지 않는 대상일 때. 호출부가 400으로 바꾼다. */
@@ -77,6 +81,8 @@ public class AdminPasswordResetService {
         // 그대로 살아 있으면 초기화의 의미가 없다.
         target.bumpTokenVersion();
         userRepository.save(target);
+        // 임시 비밀번호를 발급했으면 기존 로그인 잠금과 실패 횟수도 해제한다.
+        loginAttemptService.unlock(target.getUsername());
 
         return tempPassword;
     }

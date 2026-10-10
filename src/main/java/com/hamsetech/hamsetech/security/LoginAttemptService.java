@@ -85,6 +85,17 @@ public class LoginAttemptService {
         attempts.remove(key(username));
     }
 
+    /** 관리자 비밀번호 초기화·수동 해제 시 실패 횟수와 잠금을 함께 지운다. */
+    public boolean unlock(String username) {
+        String key = key(username);
+        java.util.concurrent.atomic.AtomicBoolean wasLocked = new java.util.concurrent.atomic.AtomicBoolean();
+        attempts.computeIfPresent(key, (k, current) -> {
+            wasLocked.set(current.count() >= maxAttempts && !isExpired(current));
+            return null;
+        });
+        return wasLocked.get();
+    }
+
     /** 남은 잠금 시간(분). 사용자에게 안내할 값이라 올림한다. */
     public long lockoutMinutesRemaining(String username) {
         Attempts current = attempts.get(key(username));

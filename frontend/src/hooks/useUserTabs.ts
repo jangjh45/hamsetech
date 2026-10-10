@@ -109,6 +109,14 @@ export function useUserTabs(opts: {
     }
   }
 
+  async function refreshUsers() {
+    try {
+      await loadUsers(query)
+    } catch (e: any) {
+      opts.onError(e.message || '사용자 목록을 불러오지 못했습니다')
+    }
+  }
+
   /**
    * 비밀번호 초기화.
    *
@@ -119,7 +127,7 @@ export function useUserTabs(opts: {
     const label = `${u.username}${u.displayName ? ` (${u.displayName})` : ''}`
     const ok = await confirm({
       title: '비밀번호 초기화',
-      message: `${label} 계정의 비밀번호를 초기화합니다.\n\n임시 비밀번호가 발급되고 이 계정의 기존 로그인은 모두 해제됩니다.\n임시 비밀번호는 지금 한 번만 표시됩니다.`,
+      message: `${label} 계정의 비밀번호를 초기화합니다.\n\n임시 비밀번호가 발급되고 로그인 잠금과 기존 로그인이 모두 해제됩니다.\n임시 비밀번호는 지금 한 번만 표시됩니다.`,
       confirmText: '초기화',
       variant: 'warning',
     })
@@ -127,9 +135,33 @@ export function useUserTabs(opts: {
     try {
       const res = await apiFetch(`/api/admin/users/${u.id}/reset-password`, { method: 'POST' })
       setTempPassword({ username: res.username, password: res.temporaryPassword })
+      // 비밀번호 초기화와 함께 잠금 상태가 바뀌므로 목록도 새로 읽는다.
+      try {
+        await loadUsers(query)
+      } catch (e: any) {
+        opts.onError(e.message || '초기화는 완료됐지만 사용자 목록을 갱신하지 못했습니다')
+      }
     } catch (e: any) {
       opts.onError(e.message)
     }
+  }
+
+  async function unlockLogin(u: any) {
+    const label = `${u.username}${u.displayName ? ` (${u.displayName})` : ''}`
+    const ok = await confirm({
+      title: '로그인 잠금 해제',
+      message: `${label} 계정의 로그인 잠금을 해제합니다.\n\n비밀번호는 변경되지 않습니다.`,
+      confirmText: '잠금 해제',
+      variant: 'warning',
+    })
+    if (!ok) return
+    try {
+      await apiFetch(`/api/admin/users/${u.id}/unlock-login`, { method: 'POST' })
+    } catch (e: any) {
+      opts.onError(e.message)
+      return
+    }
+    await refreshUsers()
   }
 
   async function grant(id: number) {
@@ -170,12 +202,14 @@ export function useUserTabs(opts: {
     tempPassword,
     setTempPassword,
     loadUsers,
+    refreshUsers,
     loadPendingUsers,
     loadWithdrawUsers,
     decideUser,
     withdrawUser,
     rejectWithdraw,
     resetPassword,
+    unlockLogin,
     grant,
     revoke,
   }

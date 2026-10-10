@@ -6,6 +6,7 @@ import com.hamsetech.hamsetech.user.UserAccountSpecification;
 import com.hamsetech.hamsetech.user.UserRole;
 import com.hamsetech.hamsetech.user.UserStatus;
 import com.hamsetech.hamsetech.user.UserWithdrawalService;
+import com.hamsetech.hamsetech.security.LoginAttemptService;
 import org.springframework.data.domain.Page;
 import org.springframework.security.core.Authentication;
 import org.springframework.data.domain.PageRequest;
@@ -39,15 +40,17 @@ public class AdminController {
     private final AdminReadLogRepository adminReadLogRepo;
     private final UserWithdrawalService withdrawalService;
     private final AdminPasswordResetService passwordResetService;
+    private final LoginAttemptService loginAttemptService;
 
     public AdminController(UserAccountRepository userRepo, AdminLogRepository adminLogRepo,
             AdminReadLogRepository adminReadLogRepo, UserWithdrawalService withdrawalService,
-            AdminPasswordResetService passwordResetService) {
+            AdminPasswordResetService passwordResetService, LoginAttemptService loginAttemptService) {
         this.userRepo = userRepo;
         this.adminLogRepo = adminLogRepo;
         this.adminReadLogRepo = adminReadLogRepo;
         this.withdrawalService = withdrawalService;
         this.passwordResetService = passwordResetService;
+        this.loginAttemptService = loginAttemptService;
     }
 
     @GetMapping("/ping")
@@ -56,14 +59,16 @@ public class AdminController {
     }
 
     public record UserDto(Long id, String username, String displayName, Set<UserRole> roles, UserStatus status,
+            boolean loginLocked,
             String withdrawRequestedAt, String withdrawnAt, String withdrawReason, String withdrawnBy) {}
 
     public record UpdateDisplayNameReq(String displayName) {}
 
     public record WithdrawUserReq(String reason) {}
 
-    private static UserDto toDto(UserAccount u) {
+    private UserDto toDto(UserAccount u) {
         return new UserDto(u.getId(), u.getUsername(), u.getDisplayName(), u.getRoles(), u.getStatus(),
+                loginAttemptService.isLocked(u.getUsername()),
                 u.getWithdrawRequestedAt() == null ? null : u.getWithdrawRequestedAt().toString(),
                 u.getWithdrawnAt() == null ? null : u.getWithdrawnAt().toString(),
                 u.getWithdrawReason(), u.getWithdrawnBy());
@@ -80,7 +85,7 @@ public class AdminController {
                     UserAccountSpecification.withFilters(q, parseStatus(status)),
                     Sort.by(Sort.Direction.DESC, "id"))
                 .stream()
-                .map(AdminController::toDto)
+                .map(this::toDto)
                 .collect(Collectors.toList());
     }
 
@@ -238,6 +243,21 @@ public class AdminController {
                     } catch (AdminPasswordResetService.ResetNotAllowedException e) {
                         return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
                     }
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    /** 비밀번호는 변경하지 않고 로그인 실패 횟수와 잠금만 해제한다. */
+    @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.USER, details = "로그인 잠금 해제")
+    @PostMapping("/users/{id}/unlock-login")
+    public ResponseEntity<?> unlockLogin(@PathVariable(name = "id") @NonNull Long id) {
+        return userRepo.findById(id)
+                .<ResponseEntity<?>>map(u -> {
+                    if (u.isWithdrawn()) {
+                        return ResponseEntity.badRequest().body(Map.of("error", "탈퇴 처리된 계정입니다."));
+                    }
+                    boolean unlocked = loginAttemptService.unlock(u.getUsername());
+                    return ResponseEntity.ok(Map.of("unlocked", unlocked));
                 })
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
