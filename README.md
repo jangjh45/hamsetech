@@ -4,7 +4,7 @@
 
 ## 기술 스택
 
-- **백엔드**: Java 24, Spring Boot 4.1, Spring Security (JWT + OAuth2 Client), Spring Data JPA / JDBC, PostgreSQL, Flyway
+- **백엔드**: Java 25 (LTS), Spring Boot 4.1, Spring Security (JWT + OAuth2 Client), Spring Data JPA / JDBC, PostgreSQL, Flyway
 - **프론트엔드**: React 19, TypeScript, Vite, React Router, Vitest
 - **인프라**: Docker / Docker Compose, GitHub Actions (CI, Docker 빌드, Trivy 이미지 스캔)
 
@@ -27,7 +27,7 @@
 
 ### 사전 요구사항
 
-- JDK 24
+- JDK 25 (LTS)
 - Node.js (프론트엔드 빌드용)
 - Docker / Docker Compose (권장)
 
