@@ -26,6 +26,16 @@ public class UserAccount {
     @Column(name = "display_name", length = 120, unique = true)
     private String displayName;
 
+    /** 서버 생성 이미지 저장 경로와 난수 공개 키. 실제 파일명은 API 응답에 노출하지 않는다. */
+    @Column(name = "avatar_path", length = 255)
+    private String avatarPath;
+
+    @Column(name = "avatar_content_type", length = 100)
+    private String avatarContentType;
+
+    @Column(name = "avatar_key", length = 36, unique = true)
+    private String avatarKey;
+
     /**
      * EAGER를 유지한다. 인증 필터와 UserDetailsService가 트랜잭션 밖에서 이 값을
      * 읽으므로 LAZY로 바꾸면 인증 경로가 통째로 깨진다.
@@ -84,6 +94,12 @@ public class UserAccount {
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
     public String getDisplayName() { return displayName; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
+    public String getAvatarPath() { return avatarPath; }
+    public void setAvatarPath(String avatarPath) { this.avatarPath = avatarPath; }
+    public String getAvatarContentType() { return avatarContentType; }
+    public void setAvatarContentType(String avatarContentType) { this.avatarContentType = avatarContentType; }
+    public String getAvatarKey() { return avatarKey; }
+    public void setAvatarKey(String avatarKey) { this.avatarKey = avatarKey; }
     public Set<UserRole> getRoles() { return roles; }
     public void setRoles(Set<UserRole> roles) { this.roles = roles; }
     public UserStatus getStatus() { return status; }

@@ -52,6 +52,7 @@ export interface NoticeDetail {
   viewCount: number
   authorUsername: string
   authorDisplayName?: string
+  authorAvatarUrl?: string | null
   createdAt: string
   updatedAt: string
   attachments: NoticeAttachment[]
@@ -61,6 +62,8 @@ export interface NoticeComment {
   id: number
   content: string
   authorUsername: string
+  authorDisplayName?: string
+  authorAvatarUrl?: string | null
   parentId: number | null
   createdAt: string
 }

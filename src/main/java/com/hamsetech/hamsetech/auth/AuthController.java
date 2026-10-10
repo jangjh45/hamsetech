@@ -8,6 +8,7 @@ import com.hamsetech.hamsetech.user.UserAccount;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
 import com.hamsetech.hamsetech.user.UserRole;
 import com.hamsetech.hamsetech.user.UserStatus;
+import com.hamsetech.hamsetech.user.UserAvatarService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -158,7 +159,13 @@ public class AuthController {
         loginAttemptService.recordSuccess(user.getUsername());
         logAuthEvent(user.getUsername(), AdminLog.Action.CREATE, AdminLog.EntityType.AUTH, user.getId(), "로그인 성공");
         String token = jwtService.generateToken(user);
-        return ResponseEntity.ok(Map.of("token", token, "username", user.getUsername(), "displayName", user.getDisplayName(), "roles", user.getRoles()));
+        String avatarUrl = UserAvatarService.avatarUrl(user.getAvatarKey());
+        return ResponseEntity.ok(Map.of(
+                "token", token,
+                "username", user.getUsername(),
+                "displayName", user.getDisplayName() == null ? "" : user.getDisplayName(),
+                "avatarUrl", avatarUrl == null ? "" : avatarUrl,
+                "roles", user.getRoles()));
     }
 
     @PostMapping("/change-password")

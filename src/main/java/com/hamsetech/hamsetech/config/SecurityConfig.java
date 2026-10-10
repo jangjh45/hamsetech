@@ -79,6 +79,9 @@ public class SecurityConfig {
                 // 인증/오류/헬스체크만 열고 나머지는 전부 로그인 뒤로 둔다.
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**", "/error", "/actuator/health").permitAll()
+                        // 아바타 URL은 UUID 난수 키로만 찾을 수 있고 이미지 바이트만 반환한다.
+                        // <img> 요청에는 localStorage Bearer 토큰을 붙일 수 없어 공개 경로로 둔다.
+                        .requestMatchers(HttpMethod.GET, "/api/users/avatars/*").permitAll()
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN","SUPER_ADMIN")
                         // 공지 쓰기는 관리자만. 컨트롤러의 @PreAuthorize와 중복이지만,
                         // 메서드 시큐리티가 다시 꺼지더라도 이 규칙은 살아남는다.

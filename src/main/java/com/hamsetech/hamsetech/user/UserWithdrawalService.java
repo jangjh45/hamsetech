@@ -35,17 +35,20 @@ public class UserWithdrawalService {
     private final PackingScenarioRepository scenarioRepo;
     private final PasswordEncoder passwordEncoder;
     private final AdminLogService adminLogService;
+    private final UserAvatarService avatarService;
 
     public UserWithdrawalService(UserAccountRepository userRepo,
                                  TodoRepository todoRepo,
-                                 PackingScenarioRepository scenarioRepo,
-                                 PasswordEncoder passwordEncoder,
-                                 AdminLogService adminLogService) {
+                                  PackingScenarioRepository scenarioRepo,
+                                  PasswordEncoder passwordEncoder,
+                                  AdminLogService adminLogService,
+                                  UserAvatarService avatarService) {
         this.userRepo = userRepo;
         this.todoRepo = todoRepo;
         this.scenarioRepo = scenarioRepo;
         this.passwordEncoder = passwordEncoder;
         this.adminLogService = adminLogService;
+        this.avatarService = avatarService;
     }
 
     /** 호출부가 400으로 변환한다. */
@@ -76,6 +79,8 @@ public class UserWithdrawalService {
         // 타인에게 노출되지 않는 개인 콘텐츠다. 업무 기록 가치가 없으므로 함께 지운다.
         todoRepo.deleteByUser(user);
         scenarioRepo.deleteByUser(user);
+        // 작성자 기록은 남기되 탈퇴한 사용자의 프로필 사진은 공개 경로에서도 제거한다.
+        avatarService.clear(user);
 
         // username/email/display_name이 전부 UNIQUE라 익명화 값에 id를 섞어야 충돌하지 않는다.
         // username은 그대로 둔다. 잔업·공지·캘린더가 username 문자열로 작성자를 식별하므로

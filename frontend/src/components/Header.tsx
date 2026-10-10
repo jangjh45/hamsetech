@@ -1,14 +1,16 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { clearToken, getToken, onAuthChange, isAdmin, getDisplayName } from '../auth/token'
+import { clearToken, getToken, onAuthChange, isAdmin, getDisplayName, getAvatarUrl } from '../auth/token'
 import { useEffect, useState } from 'react'
 import useIsMobile from '../hooks/useIsMobile'
 import useTheme from '../hooks/useTheme'
+import UserAvatar from './UserAvatar'
 
 export default function Header() {
   const navigate = useNavigate()
   const [authed, setAuthed] = useState(!!getToken())
   const [admin, setAdmin] = useState(isAdmin())
   const [displayName, setDisplayName] = useState<string | null>(getDisplayName())
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(getAvatarUrl())
   const { theme, toggle: toggleTheme } = useTheme()
   const isMobile = useIsMobile()
   const [showMobileMenu, setShowMobileMenu] = useState<boolean>(false)
@@ -18,6 +20,7 @@ export default function Header() {
       setAuthed(!!getToken())
       setAdmin(isAdmin())
       setDisplayName(getDisplayName())
+      setAvatarUrl(getAvatarUrl())
     })
     return () => off()
   }, [])
@@ -61,7 +64,7 @@ export default function Header() {
 
   const userChip = displayName ? (
     <Link to="/profile" className="fl-userchip" onClick={() => setShowMobileMenu(false)}>
-      <span className="fl-avatar">{displayName.charAt(0)}</span>
+      <UserAvatar className="fl-avatar" src={avatarUrl} label={`${displayName} 프로필 사진`} size="sm" />
       <span className="fl-userchip-name">{displayName}님</span>
     </Link>
   ) : null
@@ -102,12 +105,12 @@ export default function Header() {
             {authed && displayName && (
               <Link
                 to="/profile"
-                className="fl-avatar fl-avatar-link"
+                className="fl-avatar-link"
                 aria-label={`${displayName}님 프로필`}
                 title={`${displayName}님`}
                 onClick={() => setShowMobileMenu(false)}
               >
-                {displayName.charAt(0)}
+                <UserAvatar src={avatarUrl} label={`${displayName} 프로필 사진`} size="sm" />
               </Link>
             )}
             <button

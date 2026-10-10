@@ -1,6 +1,9 @@
 package com.hamsetech.hamsetech.notice;
 
 import com.hamsetech.hamsetech.security.SecurityUtils;
+import com.hamsetech.hamsetech.user.UserAccount;
+import com.hamsetech.hamsetech.user.UserAccountRepository;
+import com.hamsetech.hamsetech.user.UserAvatarService;
 import com.hamsetech.hamsetech.web.ApiExceptions.ForbiddenException;
 import com.hamsetech.hamsetech.web.ApiExceptions.NotFoundException;
 import org.springframework.data.domain.Page;
@@ -17,6 +20,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -35,6 +40,7 @@ public class NoticeService {
     private final NoticeViewService noticeViewService;
     private final NoticeHtmlSanitizer sanitizer;
     private final SecurityUtils securityUtils;
+    private final UserAccountRepository userRepository;
 
     public NoticeService(NoticeRepository noticeRepository,
                          NoticeCommentRepository commentRepository,
@@ -42,7 +48,8 @@ public class NoticeService {
                          NoticeAttachmentService attachmentService,
                          NoticeViewService noticeViewService,
                          NoticeHtmlSanitizer sanitizer,
-                         SecurityUtils securityUtils) {
+                         SecurityUtils securityUtils,
+                         UserAccountRepository userRepository) {
         this.noticeRepository = noticeRepository;
         this.commentRepository = commentRepository;
         this.attachmentRepository = attachmentRepository;
@@ -50,6 +57,7 @@ public class NoticeService {
         this.noticeViewService = noticeViewService;
         this.sanitizer = sanitizer;
         this.securityUtils = securityUtils;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -122,7 +130,7 @@ public class NoticeService {
 
         noticeViewService.recordView(id, securityUtils.currentUsername(), n.getAuthorUsername());
 
-        return NoticeDetailDto.of(n, attachmentService.listFor(id));
+        return toDetailDto(n, attachmentService.listFor(id));
     }
 
     @Transactional(readOnly = true)
@@ -159,7 +167,7 @@ public class NoticeService {
         Notice saved = noticeRepository.save(n);
         attachmentService.claim(saved, attachmentIds, saved.getContent());
         // 첨부는 저장 직후에 붙으므로, 목록을 다시 읽어 응답에 담는다
-        return NoticeDetailDto.of(saved, attachmentService.listFor(saved.getId()));
+        return toDetailDto(saved, attachmentService.listFor(saved.getId()));
     }
 
     public NoticeDetailDto updateNotice(@NonNull Long id, String title, String content,
@@ -175,7 +183,14 @@ public class NoticeService {
 
         Notice saved = noticeRepository.save(n);
         attachmentService.claim(saved, attachmentIds, saved.getContent());
-        return NoticeDetailDto.of(saved, attachmentService.listFor(saved.getId()));
+        return toDetailDto(saved, attachmentService.listFor(saved.getId()));
+    }
+
+    private NoticeDetailDto toDetailDto(Notice notice, List<NoticeAttachmentDto> attachments) {
+        String avatarUrl = userRepository.findByUsername(notice.getAuthorUsername())
+                .map(user -> UserAvatarService.avatarUrl(user.getAvatarKey()))
+                .orElse(null);
+        return NoticeDetailDto.of(notice, attachments, avatarUrl);
     }
 
     /**
@@ -214,13 +229,17 @@ public class NoticeService {
 
     @Transactional(readOnly = true)
     public List<NoticeCommentDto> listComments(@NonNull Long noticeId) {
-        return commentRepository.findByNoticeIdOrderByCreatedAtAsc(noticeId).stream()
-                .map(c -> new NoticeCommentDto(
-                        c.getId(),
-                        c.getContent(),
-                        c.getAuthorUsername(),
-                        c.getParent() == null ? null : c.getParent().getId(),
-                        c.getCreatedAt()))
+        List<NoticeComment> comments = commentRepository.findByNoticeIdOrderByCreatedAtAsc(noticeId);
+        Set<String> usernames = comments.stream()
+                .map(NoticeComment::getAuthorUsername)
+                .collect(Collectors.toSet());
+        Map<String, UserAccount> authors = usernames.isEmpty()
+                ? Map.of()
+                : userRepository.findByUsernameIn(usernames).stream()
+                        .collect(Collectors.toMap(UserAccount::getUsername, user -> user));
+
+        return comments.stream()
+                .map(comment -> toCommentDto(comment, authors.get(comment.getAuthorUsername())))
                 .toList();
     }
 
@@ -241,12 +260,22 @@ public class NoticeService {
         }
 
         NoticeComment saved = commentRepository.save(c);
+        UserAccount author = userRepository.findByUsername(saved.getAuthorUsername()).orElse(null);
+        return toCommentDto(saved, author);
+    }
+
+    private NoticeCommentDto toCommentDto(NoticeComment comment, UserAccount author) {
+        String displayName = author == null || author.getDisplayName() == null || author.getDisplayName().isBlank()
+                ? comment.getAuthorUsername()
+                : author.getDisplayName();
         return new NoticeCommentDto(
-                saved.getId(),
-                saved.getContent(),
-                saved.getAuthorUsername(),
-                saved.getParent() == null ? null : saved.getParent().getId(),
-                saved.getCreatedAt());
+                comment.getId(),
+                comment.getContent(),
+                comment.getAuthorUsername(),
+                displayName,
+                author == null ? null : UserAvatarService.avatarUrl(author.getAvatarKey()),
+                comment.getParent() == null ? null : comment.getParent().getId(),
+                comment.getCreatedAt());
     }
 
     public void deleteComment(@NonNull Long noticeId, @NonNull Long commentId) {

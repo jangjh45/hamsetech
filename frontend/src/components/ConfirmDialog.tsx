@@ -25,7 +25,7 @@ export interface PromptOptions extends ConfirmOptions {
   required?: boolean
 }
 
-type DialogResult = boolean | string | null
+type DialogResult = boolean | string | null | undefined
 
 type DialogRequest = {
   id: number
@@ -33,11 +33,13 @@ type DialogRequest = {
 } & (
   | { type: 'confirm'; options: ConfirmOptions }
   | { type: 'prompt'; options: PromptOptions }
+  | { type: 'alert'; options: ConfirmOptions }
 )
 
 interface ConfirmContextValue {
   confirm: (options: ConfirmOptions) => Promise<boolean>
   prompt: (options: PromptOptions) => Promise<string | null>
+  alert: (options: ConfirmOptions) => Promise<void>
 }
 
 const ConfirmContext = createContext<ConfirmContextValue | null>(null)
@@ -81,6 +83,15 @@ export function ConfirmProvider({ children }: ConfirmProviderProps) {
     })
   }), [enqueue])
 
+  const alert = useCallback((options: ConfirmOptions) => new Promise<void>((resolve) => {
+    enqueue({
+      id: nextIdRef.current++,
+      type: 'alert',
+      options,
+      resolve: () => resolve(),
+    })
+  }), [enqueue])
+
   const settle = useCallback((value: DialogResult) => {
     const current = activeRef.current
     if (!current) return
@@ -89,7 +100,7 @@ export function ConfirmProvider({ children }: ConfirmProviderProps) {
     showNext()
   }, [showNext])
 
-  const contextValue = useMemo(() => ({ confirm, prompt }), [confirm, prompt])
+  const contextValue = useMemo(() => ({ confirm, prompt, alert }), [confirm, prompt, alert])
 
   return (
     <ConfirmContext.Provider value={contextValue}>
@@ -116,6 +127,7 @@ interface ConfirmDialogProps {
 
 function ConfirmDialog({ request, onResolve }: ConfirmDialogProps) {
   const isPrompt = request.type === 'prompt'
+  const isAlert = request.type === 'alert'
   const initialValue = request.type === 'prompt' ? request.options.defaultValue ?? '' : ''
   const [inputValue, setInputValue] = useState(initialValue)
   const [inputError, setInputError] = useState('')
@@ -123,7 +135,10 @@ function ConfirmDialog({ request, onResolve }: ConfirmDialogProps) {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const confirmRef = useRef<HTMLButtonElement>(null)
 
-  const cancel = useCallback(() => onResolve(isPrompt ? null : false), [isPrompt, onResolve])
+  const cancel = useCallback(
+    () => onResolve(isPrompt ? null : isAlert ? undefined : false),
+    [isAlert, isPrompt, onResolve],
+  )
 
   useEffect(() => {
     const previouslyFocused = document.activeElement instanceof HTMLElement
@@ -223,9 +238,11 @@ function ConfirmDialog({ request, onResolve }: ConfirmDialogProps) {
         </div>
         <div className="fl-modal-foot">
           <div className="fl-modal-foot-actions">
-            <button className="fl-btn" onClick={cancel}>
-              {request.options.cancelText ?? '취소'}
-            </button>
+            {!isAlert && (
+              <button className="fl-btn" onClick={cancel}>
+                {request.options.cancelText ?? '취소'}
+              </button>
+            )}
             <button ref={confirmRef} className={confirmClass} onClick={submit}>
               {request.options.confirmText ?? '확인'}
             </button>

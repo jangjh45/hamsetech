@@ -49,6 +49,7 @@ class UserWithdrawalServiceTest {
     @Mock private TodoRepository todoRepo;
     @Mock private PackingScenarioRepository scenarioRepo;
     @Mock private AdminLogService adminLogService;
+    @Mock private UserAvatarService avatarService;
 
     /** 실제로 돌린다. encode()가 같은 비밀번호를 다르게 만들어 주어야 하는지까지 본다. */
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
@@ -60,7 +61,7 @@ class UserWithdrawalServiceTest {
     @BeforeEach
     void setUp() {
         service = new UserWithdrawalService(
-                userRepo, todoRepo, scenarioRepo, passwordEncoder, adminLogService);
+                userRepo, todoRepo, scenarioRepo, passwordEncoder, adminLogService, avatarService);
     }
 
     private UserAccount user(UserRole... roles) {
@@ -89,6 +90,7 @@ class UserWithdrawalServiceTest {
         assertThat(u.getEmail()).isEqualTo("withdrawn+null@invalid.local");
         assertThat(u.getDisplayName()).isEqualTo("탈퇴한 사용자(null)");
         assertThat(u.getWithdrawReason()).isEqualTo("이직");
+        verify(avatarService).clear(u);
     }
 
     @Test

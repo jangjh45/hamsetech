@@ -3,9 +3,16 @@ package com.hamsetech.hamsetech.user;
 import com.hamsetech.hamsetech.admin.AdminLog;
 import com.hamsetech.hamsetech.admin.AdminLoggable;
 import com.hamsetech.hamsetech.security.SecurityUtils;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -21,18 +28,24 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
     private final UserWithdrawalService withdrawalService;
     private final SecurityUtils securityUtils;
+    private final UserAvatarService avatarService;
 
     public UserController(UserAccountRepository userRepo,
                           PasswordEncoder passwordEncoder,
                           UserWithdrawalService withdrawalService,
-                          SecurityUtils securityUtils) {
+                          SecurityUtils securityUtils,
+                          UserAvatarService avatarService) {
         this.userRepo = userRepo;
         this.passwordEncoder = passwordEncoder;
         this.withdrawalService = withdrawalService;
         this.securityUtils = securityUtils;
+        this.avatarService = avatarService;
     }
 
     public record UpdateProfileRequest(String displayName) {}
+    public record ChangeEmailRequest(
+            @NotBlank(message = "이메일을 입력해 주세요") @Email(message = "이메일 형식이 올바르지 않습니다") String email,
+            @NotBlank(message = "현재 비밀번호를 입력해 주세요") String currentPassword) {}
 
     public record WithdrawRequest(String password, String reason) {}
 
@@ -42,6 +55,7 @@ public class UserController {
         body.put("username", user.getUsername());
         body.put("email", user.getEmail());
         body.put("displayName", user.getDisplayName() != null ? user.getDisplayName() : "");
+        body.put("avatarUrl", UserAvatarService.avatarUrl(user.getAvatarKey()));
         body.put("roles", user.getRoles());
         body.put("status", user.getStatus() == null ? null : user.getStatus().name());
         Instant requestedAt = user.getWithdrawRequestedAt();
@@ -74,6 +88,60 @@ public class UserController {
         @SuppressWarnings("null")
         UserAccount savedUser = userRepo.save(user);
         return ResponseEntity.ok(toProfileResponse(savedUser));
+    }
+
+    /** 이메일은 메일 인증 없이 변경하므로 현재 비밀번호를 다시 확인한다. */
+    @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.USER,
+            details = "내 이메일 변경", adminOnly = false)
+    @PutMapping("/me/email")
+    public ResponseEntity<?> changeMyEmail(@Valid @RequestBody ChangeEmailRequest req) {
+        UserAccount user = securityUtils.currentUser();
+        if (!passwordEncoder.matches(req.currentPassword(), user.getPasswordHash())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "현재 비밀번호가 올바르지 않습니다."));
+        }
+
+        String email = req.email().trim();
+        if (email.equalsIgnoreCase(user.getEmail())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "새 이메일이 현재 이메일과 같습니다."));
+        }
+        if (userRepo.existsByEmailIgnoreCase(email)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "이미 사용 중인 이메일입니다."));
+        }
+
+        user.setEmail(email);
+        return ResponseEntity.ok(toProfileResponse(userRepo.save(user)));
+    }
+
+    @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.USER,
+            details = "내 프로필 사진 변경", adminOnly = false)
+    @PostMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadMyAvatar(@RequestParam("file") MultipartFile file) {
+        UserAccount savedUser = avatarService.replace(securityUtils.currentUser(), file);
+        return ResponseEntity.ok(toProfileResponse(savedUser));
+    }
+
+    @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.USER,
+            details = "내 프로필 사진 삭제", adminOnly = false)
+    @DeleteMapping("/me/avatar")
+    public ResponseEntity<?> deleteMyAvatar() {
+        UserAccount savedUser = avatarService.clear(securityUtils.currentUser());
+        return ResponseEntity.ok(toProfileResponse(savedUser));
+    }
+
+    /** 아바타는 댓글 작성자 정보로 의도적으로 노출되는 이미지이며 URL 키는 UUID다. */
+    @GetMapping(value = "/avatars/{avatarKey}")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<Resource> getAvatar(@PathVariable String avatarKey) {
+        UserAvatarService.AvatarFile avatar = avatarService.findByKey(avatarKey).orElse(null);
+        if (avatar == null) return ResponseEntity.notFound().build();
+
+        Resource resource = avatar.resource();
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(avatar.contentType()))
+                .header("X-Content-Type-Options", "nosniff")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=600, immutable")
+                .body(resource);
     }
 
     /**

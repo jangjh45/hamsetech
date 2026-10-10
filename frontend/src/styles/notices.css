@@ -249,18 +249,9 @@
   background: var(--fl-border);
 }
 
-.nt-avatar-sm {
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  background: var(--fl-primary-soft);
-  color: var(--fl-primary);
-  font-size: 11px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+.nt-article-avatar {
+  border: 1px solid var(--fl-border);
+  box-shadow: var(--fl-shadow);
 }
 
 .nt-article-body {
@@ -524,9 +515,11 @@
 
 /* ── 아바타 ── */
 .nt-avatar {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
+  border: 1px solid var(--fl-border);
+  box-shadow: var(--fl-shadow);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -536,25 +529,12 @@
   user-select: none;
 }
 
-.nt-avatar-a {
-  background: var(--fl-primary-soft);
-  color: var(--fl-primary);
-}
-
-.nt-avatar-b {
-  background: var(--fl-neutral-soft);
-  color: var(--fl-neutral);
-}
-
-.nt-avatar-c {
-  background: var(--fl-danger-soft);
-  color: var(--fl-danger);
-}
+.nt-avatar .ua-avatar-icon { width: 72%; height: 72%; }
 
 /* ── 댓글 메타 (아바타 + 본문 묶음) ── */
 .nt-comment-meta {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   padding: 10px 0;
 }
 
@@ -877,4 +857,7 @@
     margin-left: 8px;
     padding-left: 10px;
   }
+
+  /* hover가 없는 터치 화면에서도 댓글 동작을 찾을 수 있게 상시 노출한다. */
+  .nt-comment-foot { opacity: 1; }
 }

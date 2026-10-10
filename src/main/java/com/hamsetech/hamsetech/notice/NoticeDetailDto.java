@@ -19,15 +19,20 @@ public record NoticeDetailDto(
         long viewCount,
         String authorUsername,
         String authorDisplayName,
+        String authorAvatarUrl,
         Instant createdAt,
         Instant updatedAt,
         List<NoticeAttachmentDto> attachments) {
 
     public static NoticeDetailDto of(Notice n) {
-        return of(n, List.of());
+        return of(n, List.of(), null);
     }
 
     public static NoticeDetailDto of(Notice n, List<NoticeAttachmentDto> attachments) {
+        return of(n, attachments, null);
+    }
+
+    public static NoticeDetailDto of(Notice n, List<NoticeAttachmentDto> attachments, String authorAvatarUrl) {
         return new NoticeDetailDto(
                 n.getId(),
                 n.getTitle(),
@@ -38,6 +43,7 @@ public record NoticeDetailDto(
                 n.getViewCount(),
                 n.getAuthorUsername(),
                 n.getAuthorDisplayName(),
+                authorAvatarUrl,
                 n.getCreatedAt(),
                 n.getUpdatedAt(),
                 attachments);

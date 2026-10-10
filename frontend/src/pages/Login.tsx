@@ -12,7 +12,9 @@ export default function LoginPage() {
   // 토큰 만료 처리(App의 setupAutoLogout)는 pathname/search/hash만 넘기므로
   // 둘 다 받는 Partial<Path>로 읽는다. 역할과 무관하게 여기로 돌아가고,
   // 없으면 모두 메인 페이지로 들어온다.
-  const from = (location.state as { from?: Partial<Path> } | null)?.from
+  const locationState = location.state as { from?: Partial<Path>; notice?: string } | null
+  const from = locationState?.from
+  const notice = locationState?.notice
   const redirectTo = from?.pathname && from.pathname !== '/login' ? from : '/'
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -28,9 +30,9 @@ export default function LoginPage() {
         method: 'POST',
         body: JSON.stringify({ username, password }),
       })
-      const { token, roles, username: uname, displayName } = data as any
+      const { token, roles, username: uname, displayName, avatarUrl } = data as any
       const roleList: string[] = roles ?? []
-      saveAuth(token, roleList, uname)
+      saveAuth(token, roleList, uname, avatarUrl ?? null)
       if (displayName) saveDisplayName(displayName)
       // replace로 이동해야 로그인 성공 후 뒤로 가기가 로그인 폼으로 돌아가지 않는다
       navigate(redirectTo, { replace: true })
@@ -58,6 +60,7 @@ export default function LoginPage() {
       </div>
 
       <form className="au-fields" onSubmit={onSubmit}>
+        {notice && <div className="fl-hint" role="status">{notice}</div>}
         <div className="fl-field">
           <label className="fl-field-label" htmlFor="login-username">
             아이디

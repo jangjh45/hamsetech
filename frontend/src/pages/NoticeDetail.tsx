@@ -16,6 +16,7 @@ import { isAuthenticated, isAdmin, getUsername } from '../auth/token'
 import { formatDateTime } from '../utils/formatDate'
 import CommentNode, { type CommentNodeData } from '../components/CommentNode'
 import { useConfirm } from '../components/ConfirmDialog'
+import UserAvatar from '../components/UserAvatar'
 import NoticeHtmlView from '../components/NoticeHtmlView'
 import NoticeAttachmentList from '../components/NoticeAttachmentList'
 import '../styles/notices.css'
@@ -202,7 +203,12 @@ export default function NoticeDetailPage() {
                 {notice.pinned && <span className="nt-badge-pin">공지</span>}
                 <span className="nt-meta-sep" />
                 <span className="nt-article-meta-author">
-                  <span className="nt-avatar-sm">{author.charAt(0)}</span>
+                  <UserAvatar
+                    className="nt-article-avatar"
+                    src={notice.authorAvatarUrl}
+                    label={`${author} 프로필 사진`}
+                    size="sm"
+                  />
                   {author}
                 </span>
                 <span className="nt-meta-sep" />

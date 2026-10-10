@@ -6,7 +6,7 @@ import { ConfirmProvider, useConfirm } from './ConfirmDialog'
 afterEach(cleanup)
 
 function Harness() {
-  const { confirm, prompt } = useConfirm()
+  const { confirm, prompt, alert } = useConfirm()
   const [result, setResult] = useState('')
 
   return (
@@ -31,6 +31,14 @@ function Harness() {
         }).then((value) => setResult(`prompt:${value ?? '취소'}`))}
       >
         사유 입력 열기
+      </button>
+      <button
+        onClick={() => void alert({
+          title: '완료',
+          message: '저장이 끝났습니다.',
+        }).then(() => setResult('alert:closed'))}
+      >
+        안내 열기
       </button>
       <output>{result}</output>
     </div>
@@ -84,5 +92,17 @@ describe('ConfirmProvider', () => {
     fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '취소' }))
 
     expect(await screen.findByText('prompt:취소')).toBeTruthy()
+  })
+
+  it('안내 모달은 확인 버튼 하나로 닫힌다', async () => {
+    renderHarness()
+    fireEvent.click(screen.getByRole('button', { name: '안내 열기' }))
+
+    const dialog = screen.getByRole('alertdialog')
+    expect(within(dialog).getByText('저장이 끝났습니다.')).toBeTruthy()
+    expect(within(dialog).queryByRole('button', { name: '취소' })).toBeNull()
+    fireEvent.click(within(dialog).getByRole('button', { name: '확인' }))
+
+    expect(await screen.findByText('alert:closed')).toBeTruthy()
   })
 })

@@ -59,7 +59,7 @@ class SchemaMigrationTest {
 				"SELECT version FROM flyway_schema_history WHERE success = true AND version IS NOT NULL "
 						+ "ORDER BY installed_rank", String.class);
 
-		assertThat(applied).containsExactly("1", "2", "3", "4");
+		assertThat(applied).containsExactly("1", "2", "3", "4", "5");
 	}
 
 	@Test
@@ -163,5 +163,18 @@ class SchemaMigrationTest {
 						+ "AND indexdef LIKE '%notice_id%' AND indexdef LIKE '%username%'", Integer.class);
 
 		assertThat(count).isGreaterThanOrEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("사용자 아바타 메타데이터와 난수 키 인덱스가 추가된다")
+	void userAvatarColumnsAndKeyIndexExist() {
+		Integer columns = jdbc.queryForObject(
+				"SELECT count(*) FROM information_schema.columns WHERE table_name = 'users' "
+						+ "AND column_name IN ('avatar_path', 'avatar_content_type', 'avatar_key')", Integer.class);
+		List<String> indexes = jdbc.queryForList(
+				"SELECT indexname FROM pg_indexes WHERE schemaname = 'public'", String.class);
+
+		assertThat(columns).isEqualTo(3);
+		assertThat(indexes).contains("uk_users_avatar_key");
 	}
 }

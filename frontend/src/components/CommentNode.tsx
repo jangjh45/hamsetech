@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { NoticeComment } from '../api/notices'
 import { isAuthenticated, isAdmin, getUsername } from '../auth/token'
 import { formatDateTime } from '../utils/formatDate'
+import UserAvatar from './UserAvatar'
 
 export interface CommentNodeData extends NoticeComment {
   replies: CommentNodeData[]
@@ -15,15 +16,9 @@ interface Props {
   onDelete: (commentId: number) => Promise<void>
 }
 
-/** 작성자명 기반으로 아바타 색상을 결정 (3색 순환) */
-function avatarColor(name: string): string {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) hash = (hash + name.charCodeAt(i)) % 3
-  return ['a', 'b', 'c'][hash]
-}
-
 export default function CommentNode({ node, noticeId, depth = 0, onReply, onDelete }: Props) {
   const isReply = depth > 0
+  const authorName = node.authorDisplayName?.trim() || node.authorUsername
   const [replyOpen, setReplyOpen] = useState(false)
   const [replyText, setReplyText] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -52,12 +47,15 @@ export default function CommentNode({ node, noticeId, depth = 0, onReply, onDele
     <div className="nt-comment-node">
       <div className={isReply ? 'nt-comment is-reply' : 'nt-comment'}>
         <div className="nt-comment-meta">
-          <span className={`nt-avatar nt-avatar-${avatarColor(node.authorUsername)}`}>
-            {node.authorUsername.charAt(0)}
-          </span>
+          <UserAvatar
+            className="nt-avatar"
+            src={node.authorAvatarUrl}
+            label={`${authorName} 프로필 사진`}
+            size="md"
+          />
           <div className="nt-comment-main">
             <div className="nt-comment-info">
-              <span className="nt-comment-author">{node.authorUsername}</span>
+              <span className="nt-comment-author">{authorName}</span>
               <span className="nt-comment-date">{formatDateTime(node.createdAt)}</span>
             </div>
 

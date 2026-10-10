@@ -1,6 +1,7 @@
 ﻿import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { ConfirmProvider } from '../components/ConfirmDialog'
 import ProfilePage from './Profile'
 
 /**
@@ -19,14 +20,15 @@ import ProfilePage from './Profile'
  * - 표시 이름을 바꾸면 헤더 칩도 따라간다(재로그인까지 옛 이름을 물고 있지 않게).
  */
 
-const api = vi.hoisted(() => ({ fetch: vi.fn() }))
+const api = vi.hoisted(() => ({ fetch: vi.fn(), upload: vi.fn() }))
 const auth = vi.hoisted(() => ({
   clearToken: vi.fn(),
   saveDisplayName: vi.fn(),
+  saveAvatarUrl: vi.fn(),
 }))
 const overtime = vi.hoisted(() => ({ listMyOvertimeRecords: vi.fn() }))
 
-vi.mock('../api/client', () => ({ apiFetch: api.fetch }))
+vi.mock('../api/client', () => ({ apiFetch: api.fetch, apiUpload: api.upload }))
 vi.mock('../api/overtimeRecords', () => overtime)
 vi.mock('../auth/token', () => auth)
 
@@ -78,6 +80,8 @@ beforeEach(() => {
   })
   auth.clearToken.mockClear()
   auth.saveDisplayName.mockClear()
+  auth.saveAvatarUrl.mockClear()
+  api.upload.mockReset()
 })
 
 afterEach(() => {
@@ -88,7 +92,9 @@ afterEach(() => {
 function renderPage() {
   return render(
     <MemoryRouter>
-      <ProfilePage />
+      <ConfirmProvider>
+        <ProfilePage />
+      </ConfirmProvider>
     </MemoryRouter>,
   )
 }
@@ -111,6 +117,11 @@ function pwToggle(): HTMLElement {
 /** 탈퇴 신청 폼의 비밀번호 칸. 비밀번호 변경 칸과 placeholder가 같다. */
 function withdrawPasswordInput(): HTMLInputElement {
   return byId('pf-wd-pw')
+}
+
+async function openPasswordChangeForm() {
+  fireEvent.click(screen.getByRole('button', { name: '변경하기' }))
+  await waitFor(() => expect(byId('pf-current')).toBeTruthy())
 }
 
 describe('ProfilePage — 불러오기', () => {
@@ -150,13 +161,29 @@ describe('ProfilePage — 이번 달 잔업 지표', () => {
     renderPage()
     await waitFor(loaded)
     // 지표는 부가 정보다. 실패하면 아예 없는 게 맞다 — 0으로 보이면 거짓말이 된다.
-    expect(screen.queryByText('이번 달 잔업·특근')).toBeNull()
+    expect(screen.queryByText('이번 달 승인 실적')).toBeNull()
   })
 
   it('0분이면 0시간이 아니라 없음이라고 본다', async () => {
     renderPage()
-    await waitFor(() => expect(screen.getByText('이번 달 잔업·특근')).toBeTruthy())
-    expect(screen.getByText('없음')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('이번 달 승인 실적')).toBeTruthy())
+    expect(screen.getAllByText('없음')).toHaveLength(2)
+  })
+
+  it('잔업과 특근을 나눠 승인 완료 건만 합산한다', async () => {
+    overtime.listMyOvertimeRecords.mockResolvedValue([
+      { type: 'OVERTIME', status: 'APPROVED', totalMinutes: 180 },
+      { type: 'SPECIAL', status: 'APPROVED', totalMinutes: 60 },
+      { type: 'OVERTIME', status: 'PENDING', totalMinutes: 120 },
+      { type: 'SPECIAL', status: 'REJECTED', totalMinutes: 90 },
+    ])
+    renderPage()
+
+    const overtimeMetric = (await screen.findByText('잔업')).closest('.pf-metric') as HTMLElement
+    const specialMetric = screen.getByText('특근').closest('.pf-metric') as HTMLElement
+    expect(within(overtimeMetric).getByText('3시간')).toBeTruthy()
+    expect(within(specialMetric).getByText('1시간')).toBeTruthy()
+    expect(screen.getByText('승인 대기 1건은 합계에서 제외')).toBeTruthy()
   })
 
   it('이번 달 1일~月末 사이만 물어본다', async () => {
@@ -229,10 +256,95 @@ describe('ProfilePage — 표시 이름', () => {
   })
 })
 
-describe('ProfilePage — 비밀번호 변경', () => {
-  it('세 칸을 다 채우기 전에는 버튼이 눌리지 않는다', async () => {
+describe('ProfilePage — 이메일 변경', () => {
+  it('새 이메일을 두 번 확인하고 현재 비밀번호와 함께 저장한다', async () => {
     renderPage()
     await waitFor(loaded)
+
+    api.fetch.mockImplementation((url: string, init?: RequestInit) => {
+      calls.push({
+        url,
+        method: init?.method,
+        body: init?.body ? JSON.parse(String(init.body)) : undefined,
+      })
+      if (url === '/api/users/me/email' && init?.method === 'PUT') {
+        return Promise.resolve(profile({ email: 'new@hamsetech.kr' }))
+      }
+      return Promise.resolve(profile())
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: '이메일 수정' }))
+    fireEvent.change(screen.getByLabelText('새 이메일'), { target: { value: 'new@hamsetech.kr' } })
+    fireEvent.change(screen.getByLabelText('새 이메일 확인'), { target: { value: 'new@hamsetech.kr' } })
+    fireEvent.change(screen.getByLabelText('변경 확인용 현재 비밀번호'), { target: { value: TEST_PASSWORDS.current } })
+    fireEvent.click(screen.getByRole('button', { name: '이메일 변경' }))
+
+    await waitFor(() => expect(screen.getByText(/새 주소는 별도 인증되지 않았습니다/)).toBeTruthy())
+    expect(screen.getAllByText('new@hamsetech.kr').length).toBeGreaterThan(0)
+    const update = calls.find((call) => call.url === '/api/users/me/email')
+    expect(update?.method).toBe('PUT')
+    expect(update?.body).toEqual({ email: 'new@hamsetech.kr', currentPassword: TEST_PASSWORDS.current })
+  })
+
+  it('이메일 확인 값이 다르면 서버에 보내지 않는다', async () => {
+    renderPage()
+    await waitFor(loaded)
+
+    fireEvent.click(screen.getByRole('button', { name: '이메일 수정' }))
+    fireEvent.change(screen.getByLabelText('새 이메일'), { target: { value: 'new@hamsetech.kr' } })
+    fireEvent.change(screen.getByLabelText('새 이메일 확인'), { target: { value: 'other@hamsetech.kr' } })
+    fireEvent.change(screen.getByLabelText('변경 확인용 현재 비밀번호'), { target: { value: TEST_PASSWORDS.current } })
+    fireEvent.click(screen.getByRole('button', { name: '이메일 변경' }))
+
+    await waitFor(() => expect(screen.getByText('새 이메일 주소가 서로 일치하지 않습니다.')).toBeTruthy())
+    expect(calls.some((call) => call.url === '/api/users/me/email')).toBe(false)
+  })
+})
+
+describe('ProfilePage — 프로필 사진', () => {
+  it('사진을 업로드하고 헤더의 아바타 정보를 갱신한다', async () => {
+    api.upload.mockResolvedValue(profile({ avatarUrl: '/api/users/avatars/new-key' }))
+    renderPage()
+    await waitFor(loaded)
+
+    const file = new File(['image-bytes'], 'profile.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText('프로필 사진 파일 선택'), { target: { files: [file] } })
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText('프로필 사진을 변경했습니다.')).toBeTruthy()
+    expect(api.upload).toHaveBeenCalledWith('/api/users/me/avatar', expect.any(FormData))
+    expect(auth.saveAvatarUrl).toHaveBeenCalledWith('/api/users/avatars/new-key')
+    fireEvent.click(within(dialog).getByRole('button', { name: '확인' }))
+  })
+
+  it('기존 사진을 삭제하고 기본 아이콘으로 돌아간다', async () => {
+    api.fetch.mockImplementation((url: string, init?: RequestInit) => {
+      if (url === '/api/users/me' && !init?.method) {
+        return Promise.resolve(profile({ avatarUrl: '/api/users/avatars/old-key' }))
+      }
+      if (url === '/api/users/me/avatar' && init?.method === 'DELETE') {
+        return Promise.resolve(profile())
+      }
+      return Promise.resolve({})
+    })
+    renderPage()
+    await waitFor(loaded)
+
+    fireEvent.click(screen.getByRole('button', { name: '사진 삭제' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText('프로필 사진을 삭제했습니다.')).toBeTruthy()
+    expect(auth.saveAvatarUrl).toHaveBeenCalledWith(null)
+    fireEvent.click(within(dialog).getByRole('button', { name: '확인' }))
+  })
+})
+
+describe('ProfilePage — 비밀번호 변경', () => {
+  it('기본은 접혀 있고 펼치면 세 칸 입력 전까지 저장할 수 없다', async () => {
+    renderPage()
+    await waitFor(loaded)
+    expect(screen.queryByLabelText('현재 비밀번호')).toBeNull()
+    await openPasswordChangeForm()
+
     const btn = () => screen.getByRole('button', { name: '비밀번호 변경' }) as HTMLButtonElement
     expect(btn().disabled).toBe(true)
 
@@ -243,6 +355,7 @@ describe('ProfilePage — 비밀번호 변경', () => {
   it('8자 미만이면 서버에 보내지 않는다', async () => {
     renderPage()
     await waitFor(loaded)
+    await openPasswordChangeForm()
 
     fireEvent.change(screen.getByPlaceholderText('현재 비밀번호'), { target: { value: TEST_PASSWORDS.current } })
     fireEvent.change(screen.getByPlaceholderText('8자 이상'), { target: { value: TEST_PASSWORDS.tooShort } })
@@ -256,6 +369,7 @@ describe('ProfilePage — 비밀번호 변경', () => {
   it('두 칸이 다르면 서버에 보내지 않는다', async () => {
     renderPage()
     await waitFor(loaded)
+    await openPasswordChangeForm()
 
     fireEvent.change(screen.getByPlaceholderText('현재 비밀번호'), { target: { value: TEST_PASSWORDS.current } })
     fireEvent.change(screen.getByPlaceholderText('8자 이상'), { target: { value: TEST_PASSWORDS.strong } })
@@ -269,6 +383,7 @@ describe('ProfilePage — 비밀번호 변경', () => {
   it('일치하면 바로 알려준다', async () => {
     renderPage()
     await waitFor(loaded)
+    await openPasswordChangeForm()
 
     fireEvent.change(screen.getByPlaceholderText('8자 이상'), { target: { value: TEST_PASSWORDS.strong } })
     fireEvent.change(screen.getByPlaceholderText('한 번 더 입력'), { target: { value: TEST_PASSWORDS.strong } })
@@ -280,22 +395,25 @@ describe('ProfilePage — 비밀번호 변경', () => {
   it('바꾸면 세 칸을 모두 비운다', async () => {
     renderPage()
     await waitFor(loaded)
+    await openPasswordChangeForm()
 
     fireEvent.change(screen.getByPlaceholderText('현재 비밀번호'), { target: { value: TEST_PASSWORDS.current } })
     fireEvent.change(screen.getByPlaceholderText('8자 이상'), { target: { value: TEST_PASSWORDS.strong } })
     fireEvent.change(screen.getByPlaceholderText('한 번 더 입력'), { target: { value: TEST_PASSWORDS.strong } })
     fireEvent.click(screen.getByRole('button', { name: '비밀번호 변경' }))
 
-    await waitFor(() => expect(screen.getByText('비밀번호가 변경되었습니다.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText(/새 비밀번호로 다시 로그인해 주세요/)).toBeTruthy())
     // 새 비밀번호가 화면에 남아 있으면 눈치챌 수 있다. 다 비워야 한다.
     expect((screen.getByPlaceholderText('8자 이상') as HTMLInputElement).value).toBe('')
     expect((screen.getByPlaceholderText('현재 비밀번호') as HTMLInputElement).value).toBe('')
     expect((screen.getByPlaceholderText('한 번 더 입력') as HTMLInputElement).value).toBe('')
+    expect(auth.clearToken).toHaveBeenCalledOnce()
   })
 
   it('보기/숨기기가 세 칸을 함께 다룬다', async () => {
     renderPage()
     await waitFor(loaded)
+    await openPasswordChangeForm()
 
     expect(byId('pf-current').type).toBe('password')
     fireEvent.click(pwToggle())
@@ -303,6 +421,19 @@ describe('ProfilePage — 비밀번호 변경', () => {
     expect(byId('pf-new').type).toBe('text')
     fireEvent.click(pwToggle())
     expect(byId('pf-current').type).toBe('password')
+  })
+
+  it('취소하면 입력값을 지우고 다시 접는다', async () => {
+    renderPage()
+    await waitFor(loaded)
+    await openPasswordChangeForm()
+
+    fireEvent.change(screen.getByPlaceholderText('현재 비밀번호'), { target: { value: TEST_PASSWORDS.current } })
+    fireEvent.click(screen.getByRole('button', { name: '취소' }))
+
+    expect(screen.queryByLabelText('현재 비밀번호')).toBeNull()
+    expect(screen.getByRole('button', { name: '변경하기' })).toBeTruthy()
+    expect(calls.some((call) => call.url.includes('change-password'))).toBe(false)
   })
 })
 
@@ -330,6 +461,14 @@ describe('ProfilePage — 회원 탈퇴', () => {
 
     fireEvent.change(withdrawPasswordInput(), { target: { value: TEST_PASSWORDS.current } })
     expect(btn.disabled).toBe(false)
+  })
+
+  it('기본 상태에서는 탈퇴 상세와 입력란을 접어 둔다', async () => {
+    renderPage()
+    await waitFor(loaded)
+
+    expect(screen.queryByLabelText('본인 확인을 위해 현재 비밀번호를 입력하세요')).toBeNull()
+    expect(screen.getByRole('button', { name: '회원 탈퇴 신청' })).toBeTruthy()
   })
 
   it('신청해도 로그아웃하지 않는다', async () => {
@@ -364,6 +503,7 @@ describe('ProfilePage — 회원 탈퇴', () => {
     await waitFor(() => expect(screen.getByText(/탈퇴를 신청했습니다/)).toBeTruthy())
     // 여기서 로그아웃하면 관리자 확정 전에 계정을 잃는다.
     expect(auth.clearToken).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: '상세 보기' }))
     expect(screen.getByRole('button', { name: '탈퇴 신청 취소' })).toBeTruthy()
   })
 
@@ -384,6 +524,7 @@ describe('ProfilePage — 회원 탈퇴', () => {
     renderPage()
     await waitFor(() => expect(screen.getByText(/탈퇴를 신청했습니다/)).toBeTruthy())
 
+    fireEvent.click(screen.getByRole('button', { name: '상세 보기' }))
     fireEvent.click(screen.getByRole('button', { name: '탈퇴 신청 취소' }))
     await waitFor(() => expect(screen.getByRole('button', { name: '회원 탈퇴 신청' })).toBeTruthy())
     expect(canceled).toBe(true)

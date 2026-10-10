@@ -28,12 +28,10 @@
 /* ── 요약 헤더 ───────────────────────────────────────────────── */
 
 .pf-summary {
-  display: flex;
-  /* .fl-card가 column이므로 가로 배치는 여기서 다시 지정해야 한다 */
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
   align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
+  gap: 24px;
   padding: 24px 26px;
 }
 
@@ -50,6 +48,77 @@
   justify-content: center;
   flex-shrink: 0;
 }
+
+.pf-avatar-control {
+  position: relative;
+  width: fit-content;
+  flex-shrink: 0;
+}
+
+.pf-avatar-change {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--fl-border);
+  border-radius: 50%;
+  background: var(--fl-surface);
+  color: var(--fl-primary);
+  box-shadow: var(--fl-shadow);
+  cursor: pointer;
+}
+
+.pf-avatar-change:hover:not(:disabled) {
+  background: var(--fl-primary-soft);
+}
+
+.pf-avatar-change:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.pf-avatar-change svg {
+  width: 16px;
+  height: 16px;
+}
+
+.pf-avatar-remove {
+  margin-top: 4px;
+  border: 0;
+  padding: 2px 0;
+  background: transparent;
+  color: var(--fl-muted-2);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.pf-avatar-remove:hover:not(:disabled) { color: var(--fl-danger); }
+.pf-avatar-remove:disabled { opacity: 0.6; cursor: wait; }
+
+.pf-summary-identity {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.pf-avatar-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.pf-avatar-file { display: none; }
+
+.pf-summary-identity .pf-identity { min-width: 0; }
+.pf-summary-identity .pf-note { padding: 6px 8px; }
+.pf-summary-feedback { grid-column: 1 / -1; margin: 0; }
 
 .pf-identity {
   display: flex;
@@ -71,22 +140,35 @@
   letter-spacing: -0.035em;
 }
 
-.pf-handle {
-  font-size: 14px;
-  color: var(--fl-muted);
-  overflow-wrap: anywhere;
-}
-
-/* 요약 헤더 오른쪽의 이번 달 잔업 지표 */
+/* 요약 헤더 오른쪽의 이번 달 승인 실적 */
 .pf-metrics {
   display: flex;
-  gap: 26px;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 0;
+}
+
+.pf-metrics-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fl-muted);
+}
+
+.pf-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
 }
 
 .pf-metric {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
+  min-width: 0;
+  padding: 11px 13px;
+  border: 1px solid var(--fl-border);
+  border-radius: 11px;
+  background: var(--fl-sunken);
 }
 
 .pf-metric-label {
@@ -95,17 +177,34 @@
 }
 
 .pf-metric-value {
-  font-size: 19px;
+  font-size: 18px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.pf-metric.is-overtime .pf-metric-value { color: var(--fl-primary); }
+.pf-metric.is-special .pf-metric-value { color: var(--fl-special); }
+
+.pf-pending-note {
+  font-size: 11.5px;
+  color: var(--fl-warn);
+  text-align: right;
 }
 
 /* ── 2단 배치 ────────────────────────────────────────────────── */
 
 .pf-cols {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
   gap: 16px;
   align-items: start;
+}
+
+.pf-security-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
 }
 
 /* ── 계정 정보 (읽기 위주) ───────────────────────────────────── */
@@ -144,6 +243,38 @@
   gap: 9px;
 }
 
+.pf-emailfield {
+  padding: 15px 0;
+  border-bottom: 1px solid var(--fl-divider-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pf-email-value {
+  font-size: 15px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.pf-emailedit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  animation: fl-rise 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.pf-emailedit .fl-input {
+  width: 100%;
+  background: var(--fl-surface);
+}
+
+.pf-email-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .pf-namefield-head {
   display: flex;
   justify-content: space-between;
@@ -179,10 +310,34 @@
 
 /* ── 비밀번호 변경 ───────────────────────────────────────────── */
 
+.pf-security-head {
+  align-items: center;
+}
+
+.pf-security-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pf-security-sub {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--fl-muted);
+}
+
 .pf-pwbody {
   display: flex;
   flex-direction: column;
   gap: 15px;
+  animation: fl-rise 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.pf-pw-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .pf-pw-wrap {
@@ -329,10 +484,34 @@
   color: var(--fl-danger);
 }
 
+.pf-danger-head { align-items: center; }
+
+.pf-danger-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pf-danger-sub {
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--fl-muted);
+}
+
 .pf-danger-body {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 11px;
+}
+
+.pf-withdraw-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12.5px;
+  color: var(--fl-muted);
 }
 
 .pf-danger-desc {
@@ -370,6 +549,10 @@
 /* ── 모바일 ──────────────────────────────────────────────────── */
 
 @media (max-width: 900px) {
+  .pf-summary {
+    grid-template-columns: 1fr;
+  }
+
   .pf-cols {
     grid-template-columns: 1fr;
   }
@@ -377,8 +560,13 @@
 
 @media (max-width: 768px) {
   .pf-summary {
-    gap: 15px;
+    grid-template-columns: 1fr;
+    gap: 16px;
     padding: 20px;
+  }
+
+  .pf-summary-identity {
+    gap: 14px;
   }
 
   .pf-avatar {
@@ -391,10 +579,10 @@
     font-size: 19px;
   }
 
-  /* 좁은 화면에서는 지표가 아바타 줄 아래로 떨어진다 */
-  .pf-metrics {
-    width: 100%;
-  }
+  .pf-metrics-grid { gap: 8px; }
+  .pf-metric { padding: 10px; }
+  .pf-metric-value { font-size: 16px; }
+  .pf-pending-note { text-align: left; }
 
   .pf-rows {
     padding: 4px 18px 16px;
@@ -410,6 +598,7 @@
    직계 자식이 아니고 전역 규칙이 닿지 않으므로 따로 꺼줘야 한다. */
 @media (prefers-reduced-motion: reduce) {
   .pf-nameedit,
+  .pf-pwbody,
   .pf-note {
     animation: none;
   }

@@ -15,6 +15,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.util.Optional;
 import java.util.Set;
@@ -26,6 +27,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -62,6 +64,7 @@ class UserControllerTest {
     @MockitoBean private UserAccountRepository userRepository;
     @MockitoBean private PasswordEncoder passwordEncoder;
     @MockitoBean private UserWithdrawalService withdrawalService;
+    @MockitoBean private UserAvatarService avatarService;
     // SecurityConfig를 끌어오면 인증 필터가 같이 올라와 JwtService를 요구한다.
     @MockitoBean private JwtService jwtService;
 
@@ -89,13 +92,17 @@ class UserControllerTest {
     @Test
     @DisplayName("내 프로필을 읽는다")
     void readsMyProfile() throws Exception {
-        loginAs(user(UserStatus.APPROVED, UserRole.USER));
+        UserAccount u = user(UserStatus.APPROVED, UserRole.USER);
+        u.setAvatarKey("8f3b0e7f-7cae-4b66-b4a3-c62815de4440");
+        loginAs(u);
 
         mvc.perform(get("/api/users/me").with(testSecurityContext()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.username").value("kim"))
                 .andExpect(jsonPath("$.email").value("kim@hamsetech.kr"))
                 .andExpect(jsonPath("$.displayName").value("김철수"))
+                .andExpect(jsonPath("$.avatarUrl").value(
+                        "/api/users/avatars/8f3b0e7f-7cae-4b66-b4a3-c62815de4440"))
                 .andExpect(jsonPath("$.status").value("APPROVED"));
     }
 
@@ -171,6 +178,79 @@ class UserControllerTest {
         mvc.perform(put("/api/users/me").contentType(MediaType.APPLICATION_JSON).content("{}").with(testSecurityContext()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.displayName").value("김철수"));
+    }
+
+    @WithMockUser
+    @Test
+    @DisplayName("현재 비밀번호와 이메일 중복을 확인한 뒤 이메일을 변경한다")
+    void changesEmailWithPasswordCheck() throws Exception {
+        UserAccount u = user(UserStatus.APPROVED, UserRole.USER);
+        loginAs(u);
+        when(passwordEncoder.matches(GOOD_PASSWORD, "TEST_PASSWORD_HASH")).thenReturn(true);
+        when(userRepository.existsByEmailIgnoreCase("new@hamsetech.kr")).thenReturn(false);
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        mvc.perform(put("/api/users/me/email").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"new@hamsetech.kr\",\"currentPassword\":\"" + GOOD_PASSWORD + "\"}")
+                        .with(testSecurityContext()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("new@hamsetech.kr"));
+        assert u.getEmail().equals("new@hamsetech.kr");
+    }
+
+    @WithMockUser
+    @Test
+    @DisplayName("이메일 변경에는 현재 비밀번호가 필요하다")
+    void refusesEmailChangeWithWrongPassword() throws Exception {
+        loginAs(user(UserStatus.APPROVED, UserRole.USER));
+        when(passwordEncoder.matches(anyString(), anyString())).thenReturn(false);
+
+        mvc.perform(put("/api/users/me/email").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"new@hamsetech.kr\",\"currentPassword\":\"wrong\"}")
+                        .with(testSecurityContext()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("현재 비밀번호가 올바르지 않습니다."));
+        verify(userRepository, never()).save(any());
+    }
+
+    @WithMockUser
+    @Test
+    @DisplayName("이미 사용 중인 이메일은 변경하지 않는다")
+    void refusesDuplicateEmail() throws Exception {
+        loginAs(user(UserStatus.APPROVED, UserRole.USER));
+        when(passwordEncoder.matches(GOOD_PASSWORD, "TEST_PASSWORD_HASH")).thenReturn(true);
+        when(userRepository.existsByEmailIgnoreCase("used@hamsetech.kr")).thenReturn(true);
+
+        mvc.perform(put("/api/users/me/email").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"used@hamsetech.kr\",\"currentPassword\":\"" + GOOD_PASSWORD + "\"}")
+                        .with(testSecurityContext()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("이미 사용 중인 이메일입니다."));
+        verify(userRepository, never()).save(any());
+    }
+
+    @WithMockUser
+    @Test
+    @DisplayName("업로드한 프로필 사진의 공개 URL을 프로필 응답에 포함한다")
+    void uploadsAvatar() throws Exception {
+        UserAccount u = user(UserStatus.APPROVED, UserRole.USER);
+        u.setAvatarKey("8f3b0e7f-7cae-4b66-b4a3-c62815de4440");
+        loginAs(u);
+        when(avatarService.replace(any(UserAccount.class), any())).thenReturn(u);
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "avatar.png", MediaType.IMAGE_PNG_VALUE, new byte[]{1, 2, 3});
+
+        mvc.perform(multipart("/api/users/me/avatar").file(file).with(testSecurityContext()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.avatarUrl").value(
+                        "/api/users/avatars/8f3b0e7f-7cae-4b66-b4a3-c62815de4440"));
+    }
+
+    @Test
+    @DisplayName("비로그인 요청도 아바타 이미지 URL을 조회할 수 있다")
+    void avatarContentIsPubliclyReachable() throws Exception {
+        mvc.perform(get("/api/users/avatars/8f3b0e7f-7cae-4b66-b4a3-c62815de4440"))
+                .andExpect(status().isNotFound());
     }
 
     @WithMockUser

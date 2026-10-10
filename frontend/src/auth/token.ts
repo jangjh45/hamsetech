@@ -3,10 +3,14 @@ export function saveToken(token: string) {
   window.dispatchEvent(new Event('auth-changed'))
 }
 
-export function saveAuth(token: string, roles: string[] = [], username?: string) {
+export function saveAuth(token: string, roles: string[] = [], username?: string, avatarUrl?: string | null) {
   localStorage.setItem('auth_token', token)
   localStorage.setItem('auth_roles', JSON.stringify(roles))
   if (username) localStorage.setItem('auth_username', username)
+  if (avatarUrl !== undefined) {
+    if (avatarUrl) localStorage.setItem('auth_avatar_url', avatarUrl)
+    else localStorage.removeItem('auth_avatar_url')
+  }
   window.dispatchEvent(new Event('auth-changed'))
 }
 
@@ -45,12 +49,23 @@ export function getDisplayName(): string | null {
   return localStorage.getItem('auth_display_name')
 }
 
+export function saveAvatarUrl(url: string | null) {
+  if (url) localStorage.setItem('auth_avatar_url', url)
+  else localStorage.removeItem('auth_avatar_url')
+  window.dispatchEvent(new Event('auth-changed'))
+}
+
+export function getAvatarUrl(): string | null {
+  return localStorage.getItem('auth_avatar_url')
+}
+
 export function clearToken() {
   localStorage.removeItem('auth_token')
   localStorage.removeItem('auth_roles')
   // 이름/아이디를 남겨두면 다음 사용자가 로그인할 때까지 헤더 칩에 옛 값이 붙는다
   localStorage.removeItem('auth_username')
   localStorage.removeItem('auth_display_name')
+  localStorage.removeItem('auth_avatar_url')
   window.dispatchEvent(new Event('auth-changed'))
 }
 
