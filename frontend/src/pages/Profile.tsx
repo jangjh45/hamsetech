@@ -735,103 +735,102 @@ export default function ProfilePage() {
               로그아웃
             </button>
           </section>
-        </div>
-      </div>
+          {/* 로그아웃 다음에 계정 탈퇴 영역을 둔다. */}
+          {!isSuperAdmin && (
+            <section className="fl-card pf-danger">
+              <div className="fl-card-head pf-danger-head">
+                <div className="pf-danger-heading">
+                  <span className="fl-card-title">회원 탈퇴</span>
+                  <span className="pf-danger-sub">
+                    {withdrawRequested
+                      ? '탈퇴를 신청했습니다 · 관리자 확정 전까지 취소할 수 있습니다.'
+                      : '관리자 확인 후 확정됩니다. 근로 기록은 보존됩니다.'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="fl-btn fl-btn-sm"
+                  aria-expanded={withdrawOpen}
+                  aria-controls="pf-withdraw-panel"
+                  onClick={toggleWithdrawPanel}
+                >
+                  {withdrawOpen ? '접기' : withdrawRequested ? '상세 보기' : '회원 탈퇴 신청'}
+                </button>
+              </div>
+              <div id="pf-withdraw-panel" hidden={!withdrawOpen}>
+                {withdrawOpen && (
+                  <div className="fl-card-body pf-danger-body">
+                    {withdrawRequested ? (
+                      <>
+                        <div className="pf-withdraw-meta">
+                          <span>신청 {requestedAtText || '—'}</span>
+                          {profile?.withdrawReason && <span>사유: {profile.withdrawReason}</span>}
+                        </div>
+                        <button className="fl-btn" onClick={handleCancelWithdraw} disabled={withdrawBusy}>
+                          탈퇴 신청 취소
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="pf-danger-desc">
+                          확정되면 로그인할 수 없고 같은 아이디로 재가입할 수 없습니다. 근로 기록은 보존됩니다.
+                        </p>
+                        <div className="fl-field">
+                          <label className="fl-field-label" htmlFor="pf-wd-pw">
+                            본인 확인을 위해 현재 비밀번호를 입력하세요
+                          </label>
+                          <input
+                            id="pf-wd-pw"
+                            type="password"
+                            className="fl-input"
+                            autoComplete="current-password"
+                            value={withdrawPassword}
+                            onChange={(e) => setWithdrawPassword(e.target.value)}
+                            placeholder="현재 비밀번호"
+                          />
+                        </div>
 
-      {/* 회원 탈퇴 */}
-      {!isSuperAdmin && (
-        <section className="fl-card pf-danger">
-          <div className="fl-card-head pf-danger-head">
-            <div className="pf-danger-heading">
-              <span className="fl-card-title">회원 탈퇴</span>
-              <span className="pf-danger-sub">
-                {withdrawRequested
-                  ? '탈퇴를 신청했습니다 · 관리자 확정 전까지 취소할 수 있습니다.'
-                  : '관리자 확인 후 확정됩니다. 근로 기록은 보존됩니다.'}
-              </span>
-            </div>
-            <button
-              type="button"
-              className="fl-btn fl-btn-sm"
-              aria-expanded={withdrawOpen}
-              aria-controls="pf-withdraw-panel"
-              onClick={toggleWithdrawPanel}
-            >
-              {withdrawOpen ? '접기' : withdrawRequested ? '상세 보기' : '회원 탈퇴 신청'}
-            </button>
-          </div>
-          <div id="pf-withdraw-panel" hidden={!withdrawOpen}>
-            {withdrawOpen && (
-              <div className="fl-card-body pf-danger-body">
-                {withdrawRequested ? (
-                  <>
-                    <div className="pf-withdraw-meta">
-                      <span>신청 {requestedAtText || '—'}</span>
-                      {profile?.withdrawReason && <span>사유: {profile.withdrawReason}</span>}
-                    </div>
-                    <button className="fl-btn" onClick={handleCancelWithdraw} disabled={withdrawBusy}>
-                      탈퇴 신청 취소
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <p className="pf-danger-desc">
-                      확정되면 로그인할 수 없고 같은 아이디로 재가입할 수 없습니다. 근로 기록은 보존됩니다.
-                    </p>
-                    <div className="fl-field">
-                      <label className="fl-field-label" htmlFor="pf-wd-pw">
-                        본인 확인을 위해 현재 비밀번호를 입력하세요
-                      </label>
-                      <input
-                        id="pf-wd-pw"
-                        type="password"
-                        className="fl-input"
-                        autoComplete="current-password"
-                        value={withdrawPassword}
-                        onChange={(e) => setWithdrawPassword(e.target.value)}
-                        placeholder="현재 비밀번호"
-                      />
-                    </div>
+                        <div className="fl-field">
+                          <label className="fl-field-label" htmlFor="pf-wd-reason">
+                            탈퇴 사유 (선택)
+                          </label>
+                          <textarea
+                            id="pf-wd-reason"
+                            className="fl-input pf-danger-reason"
+                            rows={3}
+                            value={withdrawReason}
+                            onChange={(e) => setWithdrawReason(e.target.value)}
+                            placeholder="관리자에게 전달할 내용이 있다면 적어 주세요"
+                          />
+                        </div>
 
-                    <div className="fl-field">
-                      <label className="fl-field-label" htmlFor="pf-wd-reason">
-                        탈퇴 사유 (선택)
-                      </label>
-                      <textarea
-                        id="pf-wd-reason"
-                        className="fl-input pf-danger-reason"
-                        rows={3}
-                        value={withdrawReason}
-                        onChange={(e) => setWithdrawReason(e.target.value)}
-                        placeholder="관리자에게 전달할 내용이 있다면 적어 주세요"
-                      />
-                    </div>
-
-                    <div className="pf-danger-actions">
-                      <button
-                        className="fl-btn fl-btn-danger"
-                        onClick={handleRequestWithdraw}
-                        disabled={!withdrawPassword || withdrawBusy}
-                      >
-                        탈퇴 신청하기
-                      </button>
-                      <button className="fl-btn" onClick={toggleWithdrawPanel}>
-                        취소
-                      </button>
-                    </div>
-                  </>
-                )}
-                {withdrawError && (
-                  <div className="pf-note">
-                    <span className="pf-glyph">!</span>
-                    {withdrawError}
+                        <div className="pf-danger-actions">
+                          <button
+                            className="fl-btn fl-btn-danger"
+                            onClick={handleRequestWithdraw}
+                            disabled={!withdrawPassword || withdrawBusy}
+                          >
+                            탈퇴 신청하기
+                          </button>
+                          <button className="fl-btn" onClick={toggleWithdrawPanel}>
+                            취소
+                          </button>
+                        </div>
+                      </>
+                    )}
+                    {withdrawError && (
+                      <div className="pf-note">
+                        <span className="pf-glyph">!</span>
+                        {withdrawError}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        </section>
-      )}
+            </section>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
