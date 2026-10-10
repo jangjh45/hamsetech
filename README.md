@@ -16,6 +16,7 @@
 | --- | --- |
 | `notice` | 공지사항 CRUD, 리치 텍스트(HTML) 콘텐츠, 첨부파일, 댓글, 조회수 |
 | `work` | 잔업/특근 기록 관리, 기본 근무시간 설정, 엑셀(xlsx) 내보내기 |
+| `vendor` | 업체 주소록, 여러 담당자 연락처, 관리자 분류 관리 |
 | `calendar` | 캘린더 일정 관리 |
 | `todo` | 할 일 목록 |
 | `scenario` | 적재(패킹) 시나리오 계산 |
@@ -258,6 +259,7 @@ src/main/java/com/hamsetech/hamsetech/
 ├── security/   # JWT 발급/검증
 ├── todo/       # 할 일 목록
 ├── user/       # 회원 계정
+├── vendor/     # 업체 주소록 및 분류
 └── work/       # 잔업/특근 기록
 
 frontend/       # React + TypeScript + Vite 프론트엔드

@@ -59,7 +59,7 @@ class SchemaMigrationTest {
 				"SELECT version FROM flyway_schema_history WHERE success = true AND version IS NOT NULL "
 						+ "ORDER BY installed_rank", String.class);
 
-        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6");
+        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8");
 	}
 
 	@Test
@@ -74,7 +74,20 @@ class SchemaMigrationTest {
 				"calendar_events", "todos",
 				"packing_scenarios", "packing_items",
 				"overtime_records", "overtime_default_times", "overtime_payroll_setting",
+				"vendors", "vendor_contacts", "vendor_categories",
 				"admin_logs", "admin_read_logs");
+	}
+
+	@Test
+	@DisplayName("주소록 기본 분류가 준비되고 이름 중복을 대소문자 구분 없이 막는다")
+	void vendorCategoriesAreSeededAndCaseInsensitiveUnique() {
+		List<String> categories = jdbc.queryForList(
+				"SELECT name FROM vendor_categories ORDER BY name", String.class);
+		Integer indexes = jdbc.queryForObject(
+				"SELECT count(*) FROM pg_indexes WHERE indexname = 'ux_vendor_categories_name_ci'", Integer.class);
+
+		assertThat(categories).contains("운송·택배", "포장재", "원자재·부품", "장비·시설", "외주·용역", "기타");
+		assertThat(indexes).isEqualTo(1);
 	}
 
 	@Test

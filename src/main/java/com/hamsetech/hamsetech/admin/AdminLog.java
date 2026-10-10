@@ -39,6 +39,7 @@ public class AdminLog {
 
     public enum EntityType {
         TODO, CALENDAR_EVENT, NOTICE, NOTICE_COMMENT, SCENARIO, OVERTIME_RECORD,
+        VENDOR, VENDOR_CATEGORY,
         // 사용자 계정(권한/프로필) 및 인증(로그인·비밀번호) 이벤트
         USER, AUTH,
         // 삭제된 기능이지만 과거 로그가 남아 있어 조회를 위해 유지
