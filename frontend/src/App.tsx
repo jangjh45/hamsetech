@@ -15,6 +15,7 @@ import ForgotPasswordPage from './pages/ForgotPassword'
 import DeliveryPage from './pages/Delivery'
 import ProfilePage from './pages/Profile'
 import OvertimeRecordsPage from './pages/OvertimeRecords'
+import VendorsPage from './pages/Vendors'
 import { setupAutoLogout } from './auth/token'
 
 // 인증 화면은 AuthShell이 화면 전체를 좌우 2단으로 쓰고 왼쪽 브랜드 면에
@@ -54,6 +55,7 @@ export default function App() {
           <Route path="/delivery" element={<DeliveryPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/overtime" element={<OvertimeRecordsPage />} />
+          <Route path="/vendors" element={<VendorsPage />} />
         </Route>
         {/* 없는 경로는 홈으로. 비로그인이면 홈이 다시 로그인으로 보낸다 */}
         <Route path="*" element={<Navigate to="/" replace />} />

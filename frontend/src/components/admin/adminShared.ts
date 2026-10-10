@@ -43,6 +43,8 @@ export const LOG_ENTITY_OPTIONS = [
   { value: 'NOTICE_COMMENT', label: '댓글' },
   { value: 'SCENARIO', label: '적재 시뮬레이션' },
   { value: 'OVERTIME_RECORD', label: '잔업/특근' },
+  { value: 'VENDOR', label: '업체 주소록' },
+  { value: 'VENDOR_CATEGORY', label: '업체 분류' },
   { value: 'USER', label: '사용자 계정' },
   { value: 'AUTH', label: '인증(로그인/비밀번호)' },
   // 이전 기능이라 이제는 새 값이 들어오지 않는다. 그래도 선택지에 남겨 두는 이유는

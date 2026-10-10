@@ -50,6 +50,7 @@ export default function Header() {
     { to: '/notices', label: '공지사항', end: false },
     { to: '/delivery', label: '적재 시뮬레이터', end: false },
     ...(authed ? [{ to: '/overtime', label: '잔업특근', end: false }] : []),
+    ...(authed ? [{ to: '/vendors', label: '업체 주소록', end: false }] : []),
     ...(admin ? [{ to: '/admin', label: '관리자', end: false }] : []),
   ]
 
