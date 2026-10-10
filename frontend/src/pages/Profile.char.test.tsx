@@ -438,6 +438,18 @@ describe('ProfilePage — 비밀번호 변경', () => {
 })
 
 describe('ProfilePage — 회원 탈퇴', () => {
+  it('회원 탈퇴 영역은 이 기기에서 로그아웃 바로 아래에 있다', async () => {
+    renderPage()
+    await waitFor(loaded)
+
+    const logoutCard = screen.getByText('이 기기에서 로그아웃').closest('section')
+    const withdrawCard = screen.getByText('회원 탈퇴').closest('section')
+
+    if (!logoutCard || !withdrawCard) throw new Error('설정 영역을 찾을 수 없습니다.')
+    expect(logoutCard.parentElement).toBe(withdrawCard.parentElement)
+    expect(logoutCard.compareDocumentPosition(withdrawCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('SUPER_ADMIN에게는 탈퇴 버튼이 없다', async () => {
     api.fetch.mockImplementation((url: string, init?: RequestInit) =>
       url === '/api/users/me' && !init?.method
