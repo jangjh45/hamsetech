@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.lang.NonNull;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -275,7 +276,24 @@ public class NoticeService {
                 displayName,
                 author == null ? null : UserAvatarService.avatarUrl(author.getAvatarKey()),
                 comment.getParent() == null ? null : comment.getParent().getId(),
-                comment.getCreatedAt());
+                comment.getCreatedAt(),
+                comment.getUpdatedAt());
+    }
+
+    public NoticeCommentDto updateComment(@NonNull Long noticeId, @NonNull Long commentId, String content) {
+        NoticeComment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new NotFoundException("댓글을 찾을 수 없습니다."));
+        if (!comment.getNotice().getId().equals(noticeId)) {
+            throw new NotFoundException("댓글을 찾을 수 없습니다.");
+        }
+        requireCanEdit(comment.getAuthorUsername());
+
+        comment.setContent(content);
+        // @PreUpdate가 flush 시점에 동작할 수 있으므로 응답 DTO에도 수정 시각을 바로 담는다.
+        comment.setUpdatedAt(Instant.now());
+        NoticeComment saved = commentRepository.save(comment);
+        UserAccount author = userRepository.findByUsername(saved.getAuthorUsername()).orElse(null);
+        return toCommentDto(saved, author);
     }
 
     public void deleteComment(@NonNull Long noticeId, @NonNull Long commentId) {

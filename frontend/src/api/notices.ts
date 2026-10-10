@@ -66,6 +66,7 @@ export interface NoticeComment {
   authorAvatarUrl?: string | null
   parentId: number | null
   createdAt: string
+  updatedAt?: string
 }
 
 export interface Page<T> {
@@ -140,6 +141,17 @@ export async function listComments(id: number): Promise<NoticeComment[]> {
 
 export async function addComment(id: number, data: { content: string; parentId?: number }): Promise<NoticeComment> {
   return apiFetch(`/api/notices/${id}/comments`, { method: 'POST', body: JSON.stringify(data) })
+}
+
+export async function updateComment(
+  noticeId: number,
+  commentId: number,
+  content: string,
+): Promise<NoticeComment> {
+  return apiFetch(`/api/notices/${noticeId}/comments/${commentId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ content }),
+  })
 }
 
 export async function deleteComment(noticeId: number, commentId: number): Promise<void> {

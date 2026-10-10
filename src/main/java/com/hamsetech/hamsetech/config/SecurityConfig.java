@@ -86,7 +86,7 @@ public class SecurityConfig {
                         // 공지 쓰기는 관리자만. 컨트롤러의 @PreAuthorize와 중복이지만,
                         // 메서드 시큐리티가 다시 꺼지더라도 이 규칙은 살아남는다.
                         // "/api/notices/*"는 한 세그먼트만 매치하므로
-                        // DELETE /api/notices/{id}/comments/{id}(일반 사용자 허용)는 걸리지 않는다.
+                        // 댓글 수정/삭제 경로는 걸리지 않고, 서비스가 작성자/관리자 권한을 검사한다.
                         .requestMatchers(HttpMethod.POST,   "/api/notices").hasAnyRole("ADMIN","SUPER_ADMIN")
                         .requestMatchers(HttpMethod.POST,   "/api/notices/attachments").hasAnyRole("ADMIN","SUPER_ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/notices/attachments/*").hasAnyRole("ADMIN","SUPER_ADMIN")

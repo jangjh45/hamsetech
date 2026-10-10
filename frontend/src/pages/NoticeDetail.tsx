@@ -7,6 +7,7 @@ import {
   listComments,
   deleteNotice,
   deleteComment,
+  updateComment,
   NOTICE_CATEGORY_LABELS,
   type NoticeDetail,
   type NoticeNeighbors,
@@ -124,6 +125,11 @@ export default function NoticeDetailPage() {
   async function onReply(nid: number, parentId: number, content: string) {
     await addComment(nid, { content, parentId })
     await refreshComments()
+  }
+
+  async function onCommentEdit(commentId: number, content: string) {
+    const updated = await updateComment(noticeId, commentId, content)
+    setComments((prev) => prev.map((comment) => comment.id === commentId ? updated : comment))
   }
 
   async function onCommentDelete(commentId: number) {
@@ -285,6 +291,7 @@ export default function NoticeDetailPage() {
                     node={root}
                     noticeId={noticeId}
                     onReply={onReply}
+                    onEdit={onCommentEdit}
                     onDelete={onCommentDelete}
                   />
                 ))}

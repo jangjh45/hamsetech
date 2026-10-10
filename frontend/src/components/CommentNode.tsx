@@ -13,15 +13,19 @@ interface Props {
   noticeId: number
   depth?: number
   onReply: (noticeId: number, parentId: number, content: string) => Promise<void>
+  onEdit: (commentId: number, content: string) => Promise<void>
   onDelete: (commentId: number) => Promise<void>
 }
 
-export default function CommentNode({ node, noticeId, depth = 0, onReply, onDelete }: Props) {
+export default function CommentNode({ node, noticeId, depth = 0, onReply, onEdit, onDelete }: Props) {
   const isReply = depth > 0
   const authorName = node.authorDisplayName?.trim() || node.authorUsername
   const [replyOpen, setReplyOpen] = useState(false)
   const [replyText, setReplyText] = useState('')
+  const [editOpen, setEditOpen] = useState(false)
+  const [editText, setEditText] = useState(node.content)
   const [submitting, setSubmitting] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
   const [error, setError] = useState('')
 
   async function handleReplySubmit(e: React.FormEvent) {
@@ -43,6 +47,31 @@ export default function CommentNode({ node, noticeId, depth = 0, onReply, onDele
     }
   }
 
+  async function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!editText.trim()) {
+      setError('댓글을 입력해주세요.')
+      return
+    }
+    setSavingEdit(true)
+    setError('')
+    try {
+      await onEdit(node.id, editText)
+      setEditOpen(false)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '수정 실패')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  function openEdit() {
+    setEditText(node.content)
+    setError('')
+    setEditOpen(true)
+    setReplyOpen(false)
+  }
+
   return (
     <div className="nt-comment-node">
       <div className={isReply ? 'nt-comment is-reply' : 'nt-comment'}>
@@ -59,9 +88,48 @@ export default function CommentNode({ node, noticeId, depth = 0, onReply, onDele
               <span className="nt-comment-date">{formatDateTime(node.createdAt)}</span>
             </div>
 
-            <div className="nt-comment-body">{node.content}</div>
+            {editOpen ? (
+              <form onSubmit={handleEditSubmit} className="nt-comment-form nt-comment-edit-form">
+                <textarea
+                  className="fl-input nt-textarea"
+                  aria-label="댓글 수정"
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value.slice(0, 500))}
+                  rows={3}
+                  autoFocus
+                />
+                {error && <p className="fl-error">{error}</p>}
+                <div className="nt-comment-form-foot">
+                  <span className="nt-charcount">{editText.length}/500</span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      className="fl-btn fl-btn-sm"
+                      onClick={() => { setEditOpen(false); setError('') }}
+                      disabled={savingEdit}
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="submit"
+                      className="fl-btn fl-btn-primary fl-btn-sm"
+                      disabled={!editText.trim() || savingEdit || editText === node.content}
+                    >
+                      {savingEdit ? '저장 중...' : '저장'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            ) : (
+              <>
+                <div className="nt-comment-body">{node.content}</div>
+                {node.updatedAt && node.updatedAt !== node.createdAt && (
+                  <span className="nt-comment-edited">수정됨</span>
+                )}
+              </>
+            )}
 
-            <div className="nt-comment-foot">
+            {!editOpen && <div className="nt-comment-foot">
               {isAuthenticated() && (
                 <button
                   className="nt-textlink"
@@ -71,11 +139,12 @@ export default function CommentNode({ node, noticeId, depth = 0, onReply, onDele
                 </button>
               )}
               {isAuthenticated() && (isAdmin() || getUsername() === node.authorUsername) && (
-                <button className="nt-textlink nt-danger" onClick={() => onDelete(node.id)}>
-                  삭제
-                </button>
+                <>
+                  <button className="nt-textlink" onClick={openEdit}>수정</button>
+                  <button className="nt-textlink nt-danger" onClick={() => onDelete(node.id)}>삭제</button>
+                </>
               )}
-            </div>
+            </div>}
 
             {replyOpen && (
               <form onSubmit={handleReplySubmit} className="nt-comment-form">
@@ -124,6 +193,7 @@ export default function CommentNode({ node, noticeId, depth = 0, onReply, onDele
               noticeId={noticeId}
               depth={depth + 1}
               onReply={onReply}
+              onEdit={onEdit}
               onDelete={onDelete}
             />
           ))}

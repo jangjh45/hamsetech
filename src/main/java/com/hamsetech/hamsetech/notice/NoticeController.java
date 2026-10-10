@@ -113,6 +113,15 @@ public class NoticeController {
         return noticeService.addComment(id, req.content(), req.parentId());
     }
 
+    @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.NOTICE_COMMENT, details = "공지사항 댓글 수정")
+    @PreAuthorize("isAuthenticated()")
+    @PutMapping("/{noticeId}/comments/{commentId}")
+    public NoticeCommentDto updateComment(@PathVariable @NonNull Long noticeId,
+                                          @PathVariable @NonNull Long commentId,
+                                          @Valid @RequestBody CommentReq req) {
+        return noticeService.updateComment(noticeId, commentId, req.content());
+    }
+
     @AdminLoggable(action = AdminLog.Action.DELETE, entityType = AdminLog.EntityType.NOTICE_COMMENT, details = "공지사항 댓글 삭제")
     @PreAuthorize("isAuthenticated()")
     @DeleteMapping("/{noticeId}/comments/{commentId}")
