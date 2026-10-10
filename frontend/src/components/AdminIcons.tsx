@@ -33,6 +33,26 @@ export function KeyIcon({ className }: IconProps) {
   )
 }
 
+/** 로그인 잠금 해제. 열린 자물쇠. */
+export function UnlockIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0 1 9.8-1.2" />
+      <circle cx="12" cy="16.5" r="1" />
+    </svg>
+  )
+}
+
 /** 탈퇴 처리. 사람에서 빼기. */
 export function UserMinusIcon({ className }: IconProps) {
   return (

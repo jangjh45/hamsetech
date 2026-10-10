@@ -10,7 +10,7 @@ import { useChangeLogsTab } from '../hooks/useChangeLogsTab'
 import { useReadLogsTab } from '../hooks/useReadLogsTab'
 import { useUserTabs } from '../hooks/useUserTabs'
 import { useOvertimeTab } from '../hooks/useOvertimeTab'
-import { KeyIcon, UserMinusIcon } from '../components/AdminIcons'
+import { KeyIcon, UnlockIcon, UserMinusIcon } from '../components/AdminIcons'
 import DisplayNameEditor from '../components/admin/DisplayNameEditor'
 import LogRows from '../components/admin/LogRows'
 import OvertimeBulkModal from '../components/admin/OvertimeBulkModal'
@@ -194,10 +194,13 @@ export default function AdminPage() {
                 placeholder="사번 · 이름 검색"
                 value={userTabs.query}
                 onChange={(e) => userTabs.setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && userTabs.loadUsers(userTabs.query)}
+                onKeyDown={(e) => e.key === 'Enter' && userTabs.refreshUsers()}
               />
-              <button className="fl-btn" onClick={() => userTabs.loadUsers(userTabs.query)}>
+              <button className="fl-btn" onClick={userTabs.refreshUsers}>
                 검색
+              </button>
+              <button className="fl-btn" onClick={userTabs.refreshUsers}>
+                새로고침
               </button>
             </div>
           </div>
@@ -251,6 +254,11 @@ export default function AdminPage() {
                           {statusBadge.label}
                         </span>
                       )}
+                      {!isWithdrawn && u.loginLocked && (
+                        <span className="fl-badge fl-tone-warn" style={{ marginLeft: 6 }}>
+                          로그인 잠금
+                        </span>
+                      )}
                     </span>
 
                     <span>
@@ -294,9 +302,9 @@ export default function AdminPage() {
                       )}
 
                       {/*
-                        가끔 쓰는 두 동작은 아이콘으로 접는다. 글자 버튼 세 개는
+                        보조 동작은 아이콘으로 접는다. 글자 버튼 세 개는
                         칸을 넘겨 줄바꿈되면서 행 높이가 제각각이 됐다.
-                        둘 다 누르면 확인 창이 먼저 뜬다.
+                        위험하거나 되돌리기 어려운 동작은 확인 창이 먼저 뜬다.
                       */}
                       <span className="ad-row-tools">
                         {!isWithdrawn && (
@@ -307,6 +315,16 @@ export default function AdminPage() {
                             aria-label={`${u.username} 비밀번호 초기화`}
                           >
                             <KeyIcon />
+                          </button>
+                        )}
+                        {!isWithdrawn && u.loginLocked && (
+                          <button
+                            className="fl-btn-icon ad-row-action"
+                            onClick={() => userTabs.unlockLogin(u)}
+                            title="로그인 잠금 해제"
+                            aria-label={`${u.username} 로그인 잠금 해제`}
+                          >
+                            <UnlockIcon />
                           </button>
                         )}
                         {canWithdraw && (

@@ -10,6 +10,8 @@ import com.hamsetech.hamsetech.config.SecurityConfig;
 import com.hamsetech.hamsetech.notice.NoticeController;
 import com.hamsetech.hamsetech.notice.NoticeService;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
+import com.hamsetech.hamsetech.user.UserAccount;
+import com.hamsetech.hamsetech.user.UserStatus;
 import com.hamsetech.hamsetech.user.UserWithdrawalService;
 import com.hamsetech.hamsetech.work.OvertimeRecordController;
 import com.hamsetech.hamsetech.work.OvertimeRecordService;
@@ -23,6 +25,8 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.Optional;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.testSecurityContext;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -155,6 +159,31 @@ class SecurityRulesTest {
         // 위 두 테스트가 "전부 막혀서" 통과하는 것이 아님을 확인한다.
         mvc.perform(get("/api/overtime-records").with(testSecurityContext()))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("관리자는 사용자 로그인 잠금을 해제할 수 있다")
+    void adminCanUnlockLogin() throws Exception {
+        UserAccount target = new UserAccount();
+        target.setUsername("kim");
+        target.setStatus(UserStatus.APPROVED);
+        org.mockito.Mockito.when(userAccountRepository.findById(1L)).thenReturn(Optional.of(target));
+        org.mockito.Mockito.when(loginAttemptService.unlock("kim")).thenReturn(true);
+
+        mvc.perform(post("/api/admin/users/1/unlock-login").with(testSecurityContext()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.unlocked").value(true));
+
+        org.mockito.Mockito.verify(loginAttemptService).unlock("kim");
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    @DisplayName("일반 사용자는 관리자 로그인 잠금 해제 API를 호출할 수 없다")
+    void userCannotUnlockLogin() throws Exception {
+        mvc.perform(post("/api/admin/users/1/unlock-login").with(testSecurityContext()))
+                .andExpect(status().isForbidden());
     }
 
     // ── 경로 매처의 경계 ──────────────────────────────────────────────

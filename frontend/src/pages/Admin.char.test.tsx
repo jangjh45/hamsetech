@@ -245,6 +245,40 @@ describe('AdminPage — 사용자 검색', () => {
   })
 })
 
+describe('AdminPage — 로그인 잠금 해제', () => {
+  it('잠긴 계정에만 표시하고 확인 후 관리자 잠금 해제 API를 호출한다', async () => {
+    let userListCalls = 0
+    fetchMock.mockImplementation(async (url: unknown) => {
+      const path = String(url)
+      if (path === '/api/admin/users') {
+        userListCalls += 1
+        return [{
+          id: 41,
+          username: 'locked-user',
+          displayName: '테스트 사용자',
+          roles: ['USER'],
+          status: 'APPROVED',
+          loginLocked: userListCalls === 1,
+        }]
+      }
+      return []
+    })
+    renderAdmin()
+
+    await waitFor(() => expect(screen.getByText('로그인 잠금')).toBeTruthy())
+    fireEvent.click(screen.getByRole('button', { name: 'locked-user 로그인 잠금 해제' }))
+    fireEvent.click(screen.getByRole('button', { name: '잠금 해제' }))
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/admin/users/41/unlock-login',
+        expect.objectContaining({ method: 'POST' }),
+      )
+      expect(screen.queryByText('로그인 잠금')).toBeNull()
+    })
+  })
+})
+
 describe('AdminPage — 세션 만료', () => {
   it('만료되면 안내를 띄운다', async () => {
     // 이 배너가 사라지면 사용자가 왜 멈췄는지 알 수 없다.

@@ -11,7 +11,16 @@ import TempPasswordModal from './TempPasswordModal'
  */
 const TEST_PASSWORD = 'Xk3!pQ'
 
-afterEach(cleanup)
+const originalExecCommand = Object.getOwnPropertyDescriptor(document, 'execCommand')
+
+afterEach(() => {
+  cleanup()
+  if (originalExecCommand) {
+    Object.defineProperty(document, 'execCommand', originalExecCommand)
+  } else {
+    Reflect.deleteProperty(document, 'execCommand')
+  }
+})
 
 describe('TempPasswordModal', () => {
   it('비밀번호를 한 번만 보여 준다', () => {
@@ -34,6 +43,11 @@ describe('TempPasswordModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('임시 비밀번호 발급 시 로그인 잠금도 해제됨을 안내한다', () => {
+    render(<TempPasswordModal username="kim" password={TEST_PASSWORD} onClose={() => {}} />)
+    expect(screen.getByText(/로그인 잠금이 해제되었습니다/)).toBeTruthy()
+  })
+
   it('복사하면 복사됨이라고 말한다', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     Object.assign(navigator, { clipboard: { writeText } })
@@ -44,15 +58,31 @@ describe('TempPasswordModal', () => {
     expect(await screen.findByText('복사됨')).toBeTruthy()
   })
 
-  it('클립보드를 못 써도 값은 그대로 보여 준다', async () => {
-    // 비 HTTPS 등 권한이 없을 때다. 이때 창을 닫아 버리면 임시 비밀번호를
-    // 다시 발급해야 하는데, 안내 없이 조용히 실패하면 관리자가 이유를 모른다.
+  it('Clipboard API가 거부되면 레거시 복사를 시도한다', async () => {
     const writeText = vi.fn().mockRejectedValue(new Error('denied'))
     Object.assign(navigator, { clipboard: { writeText } })
+    const execCommand = vi.fn().mockReturnValue(true)
+    Object.defineProperty(document, 'execCommand', { configurable: true, value: execCommand })
+    render(<TempPasswordModal username="kim" password={TEST_PASSWORD} onClose={() => {}} />)
+
+    fireEvent.click(screen.getByText('복사'))
+    expect(await screen.findByText('복사됨')).toBeTruthy()
+    expect(execCommand).toHaveBeenCalledWith('copy')
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('두 복사 방식이 모두 실패하면 직접 복사 안내를 보여 준다', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'))
+    Object.assign(navigator, { clipboard: { writeText } })
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: vi.fn().mockReturnValue(false),
+    })
     render(<TempPasswordModal username="kim" password={TEST_PASSWORD} onClose={() => {}} />)
 
     fireEvent.click(screen.getByText('복사'))
     expect(screen.getByText(TEST_PASSWORD)).toBeTruthy()
-    expect(screen.queryByText('복사됨')).toBeNull()
+    const status = await screen.findByRole('status')
+    expect(status.textContent).toContain('직접 선택해 복사해 주세요')
   })
 })
