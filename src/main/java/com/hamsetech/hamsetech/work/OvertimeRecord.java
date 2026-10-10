@@ -13,6 +13,14 @@ public class OvertimeRecord {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * 동시에 수정된 기록을 조용히 덮어쓰지 않도록 하는 낙관적 잠금 버전.
+     * 승인·반려의 조건부 갱신도 이 값을 올려, 이미 읽어 둔 오래된 엔티티의 저장을 막는다.
+     */
+    @Version
+    @Column(nullable = false)
+    private int version;
+
     @Column(nullable = false)
     private Long userId;
 

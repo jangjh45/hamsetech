@@ -11,6 +11,7 @@ import com.hamsetech.hamsetech.user.UserRole;
 import com.hamsetech.hamsetech.user.UserStatus;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -23,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -57,6 +59,12 @@ class AuthControllerTest {
     @MockitoBean private JwtService jwtService;
     @MockitoBean private AdminLogService adminLogService;
     @MockitoBean private LoginAttemptService loginAttemptService;
+
+    @BeforeEach
+    void runLoginInsideTestLock() {
+        when(loginAttemptService.withLoginLock(anyString(), org.mockito.ArgumentMatchers.<Supplier<Object>>any()))
+                .thenAnswer(invocation -> ((Supplier<?>) invocation.getArgument(1)).get());
+    }
 
     private UserAccount user(UserStatus status) {
         UserAccount user = new UserAccount();

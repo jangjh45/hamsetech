@@ -4,6 +4,7 @@ import com.hamsetech.hamsetech.web.ApiExceptions.ConflictException;
 import com.hamsetech.hamsetech.web.ApiExceptions.ForbiddenException;
 import com.hamsetech.hamsetech.web.ApiExceptions.NotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -58,6 +59,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<Map<String, String>> handleConflict(ConflictException ex) {
         return error(HttpStatus.CONFLICT, message(ex.getMessage(), "지금은 처리할 수 없는 요청입니다."));
+    }
+
+    /** 동시 수정에서 오래된 엔티티가 저장되려 하면 최신 내용을 다시 확인하도록 409를 준다. */
+    @ExceptionHandler({OptimisticLockingFailureException.class, jakarta.persistence.OptimisticLockException.class})
+    public ResponseEntity<Map<String, String>> handleOptimisticLock(RuntimeException ex) {
+        return error(HttpStatus.CONFLICT, "다른 요청에서 먼저 변경했습니다. 최신 내용을 새로고침한 뒤 다시 시도해 주세요.");
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

@@ -126,6 +126,10 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
+        return loginAttemptService.withLoginLock(req.username(), () -> loginWithAttemptLock(req));
+    }
+
+    private ResponseEntity<?> loginWithAttemptLock(LoginRequest req) {
         // 비밀번호 대조 이전에 끊는다. 잠긴 계정에는 bcrypt 비교도 하지 않는다.
         if (loginAttemptService.isLocked(req.username())) {
             long minutes = loginAttemptService.lockoutMinutesRemaining(req.username());

@@ -1,6 +1,7 @@
 package com.hamsetech.hamsetech.work;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -11,6 +12,37 @@ import java.util.List;
 
 public interface OvertimeRecordRepository extends JpaRepository<OvertimeRecord, Long>,
         JpaSpecificationExecutor<OvertimeRecord> {
+
+    /** PENDING일 때만 승인한다. 버전을 함께 올려 오래된 엔티티의 후속 저장도 충돌시킨다. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update OvertimeRecord r
+            set r.status = :approved, r.approverUsername = :approver,
+                r.approvedAt = :now, r.rejectReason = null,
+                r.updatedAt = :now, r.version = r.version + 1
+            where r.id = :id and r.status = :pending
+            """)
+    int approveIfPending(@Param("id") Long id,
+                         @Param("approver") String approver,
+                         @Param("now") java.time.Instant now,
+                         @Param("pending") OvertimeRecord.Status pending,
+                         @Param("approved") OvertimeRecord.Status approved);
+
+    /** PENDING일 때만 반려한다. 동시 승인·반려 중 DB에서 먼저 성공한 하나만 반영된다. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update OvertimeRecord r
+            set r.status = :rejected, r.approverUsername = :approver,
+                r.approvedAt = :now, r.rejectReason = :reason,
+                r.updatedAt = :now, r.version = r.version + 1
+            where r.id = :id and r.status = :pending
+            """)
+    int rejectIfPending(@Param("id") Long id,
+                        @Param("approver") String approver,
+                        @Param("now") java.time.Instant now,
+                        @Param("reason") String reason,
+                        @Param("pending") OvertimeRecord.Status pending,
+                        @Param("rejected") OvertimeRecord.Status rejected);
 
     List<OvertimeRecord> findByUserIdOrderByWorkDateDesc(Long userId);
 

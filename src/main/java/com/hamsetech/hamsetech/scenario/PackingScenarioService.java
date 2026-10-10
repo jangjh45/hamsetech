@@ -90,8 +90,13 @@ public class PackingScenarioService {
 
     public PackingScenario toggleFavorite(@NonNull Long id) {
         PackingScenario scenario = requireOwned(id);
-        scenario.setIsFavorite(!scenario.getIsFavorite());
-        return scenarioRepository.save(scenario);
+        int updated = scenarioRepository.toggleFavoriteAtomically(
+                id, scenario.getUser().getId(), java.time.LocalDateTime.now());
+        if (updated == 0) {
+            throw new NotFoundException("시나리오를 찾을 수 없습니다.");
+        }
+        return scenarioRepository.findWithItemsById(id)
+                .orElseThrow(() -> new NotFoundException("시나리오를 찾을 수 없습니다."));
     }
 
     public void delete(@NonNull Long id) {

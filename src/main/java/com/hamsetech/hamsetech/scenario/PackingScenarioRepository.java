@@ -3,6 +3,7 @@ package com.hamsetech.hamsetech.scenario;
 import com.hamsetech.hamsetech.user.UserAccount;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -31,6 +32,22 @@ public interface PackingScenarioRepository extends JpaRepository<PackingScenario
     );
     
     boolean existsByUserAndName(UserAccount user, String name);
+
+    /** 동시 토글 요청이 오래된 엔티티 값으로 서로 덮이지 않게 DB에서 직접 뒤집는다. */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            update PackingScenario s
+            set s.isFavorite = case when s.isFavorite = true then false else true end,
+                s.updatedAt = :updatedAt
+            where s.id = :id and s.user.id = :userId
+            """)
+    int toggleFavoriteAtomically(@Param("id") Long id,
+                                 @Param("userId") Long userId,
+                                 @Param("updatedAt") java.time.LocalDateTime updatedAt);
+
+    @EntityGraph(attributePaths = "items")
+    @Query("select s from PackingScenario s where s.id = :id")
+    java.util.Optional<PackingScenario> findWithItemsById(@Param("id") Long id);
     
     @Query("SELECT s FROM PackingScenario s WHERE s.user = :user AND s.name = :name AND s.id != :excludeId")
     List<PackingScenario> findByUserAndNameExcludingId(@Param("user") UserAccount user, @Param("name") String name, @Param("excludeId") Long excludeId);

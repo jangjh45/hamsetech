@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class OvertimeRecordServiceTest {
 
-    private final OvertimeRecordService service = new OvertimeRecordService(null, null, null, null, null, null);
+    private final OvertimeRecordService service = new OvertimeRecordService(null, null, null, null, null, null, null);
 
     private int minutes(OvertimeType type, String start, String end) {
         return service.resolveTotalMinutes(type, LocalTime.parse(start), LocalTime.parse(end), null);

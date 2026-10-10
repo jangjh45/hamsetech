@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -60,6 +61,11 @@ class ErrorResponseContractTest {
         @GetMapping("/test-errors/conflict")
         public String conflict() {
             throw new ConflictException("이미 처리된 기록입니다");
+        }
+
+        @GetMapping("/test-errors/optimistic-lock")
+        public String optimisticLock() {
+            throw new ObjectOptimisticLockingFailureException("OvertimeRecord", 1L);
         }
 
         @GetMapping("/test-errors/illegal-argument")
@@ -111,6 +117,16 @@ class ErrorResponseContractTest {
         mvc.perform(get("/test-errors/conflict").with(testSecurityContext()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("이미 처리된 기록입니다"));
+    }
+
+    @Test
+    @WithMockUser
+    @DisplayName("동시 수정 충돌은 409로 안내한다")
+    void optimisticLockBecomesConflict() throws Exception {
+        mvc.perform(get("/test-errors/optimistic-lock").with(testSecurityContext()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value(
+                        "다른 요청에서 먼저 변경했습니다. 최신 내용을 새로고침한 뒤 다시 시도해 주세요."));
     }
 
     @Test

@@ -7,6 +7,13 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -193,5 +200,49 @@ class LoginAttemptServiceTest {
 
         assertThat(service.isLocked("kim")).isFalse();
         assertThat(service.lockoutMinutesRemaining("kim")).isZero();
+    }
+
+    @Test
+    @DisplayName("같은 계정의 병렬 로그인도 잠금 임계치를 넘겨 비밀번호 대조하지 않는다")
+    void serializesConcurrentLoginAttemptsPerUsername() throws Exception {
+        int requestCount = 20;
+        LoginAttemptService service = service(5, 15);
+        ExecutorService executor = Executors.newFixedThreadPool(requestCount);
+        CountDownLatch ready = new CountDownLatch(requestCount);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<Boolean>> results = new ArrayList<>();
+
+        try {
+            for (int i = 0; i < requestCount; i++) {
+                results.add(executor.submit(() -> {
+                    ready.countDown();
+                    if (!start.await(5, TimeUnit.SECONDS)) {
+                        throw new AssertionError("동시 요청 시작 신호를 받지 못했습니다");
+                    }
+                    return service.withLoginLock("kim", () -> {
+                        if (service.isLocked("kim")) {
+                            return false;
+                        }
+                        service.recordFailure("kim");
+                        return true;
+                    });
+                }));
+            }
+
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+
+            long processed = 0;
+            for (Future<Boolean> result : results) {
+                if (result.get(5, TimeUnit.SECONDS)) {
+                    processed++;
+                }
+            }
+
+            assertThat(processed).isEqualTo(5);
+            assertThat(service.isLocked("kim")).isTrue();
+        } finally {
+            executor.shutdownNow();
+        }
     }
 }

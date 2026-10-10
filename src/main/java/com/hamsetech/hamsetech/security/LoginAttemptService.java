@@ -9,6 +9,8 @@ import java.time.Instant;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
 /**
  * 로그인 시도 횟수 제한.
@@ -30,6 +32,8 @@ public class LoginAttemptService {
     private final Clock clock;
     private final int maxAttempts;
     private final Duration lockout;
+    /** 같은 계정의 로그인 확인·비밀번호 대조·실패 기록을 한 번에 하나씩 처리한다. */
+    private final ReentrantLock[] loginLocks = createLoginLocks();
 
     /** username(소문자) -> 연속 실패 기록 */
     private final Map<String, Attempts> attempts = new ConcurrentHashMap<>();
@@ -59,6 +63,23 @@ public class LoginAttemptService {
             return false;
         }
         return current.count() >= maxAttempts;
+    }
+
+    /**
+     * 같은 정규화 아이디의 로그인 요청을 순서대로 실행한다.
+     * 카운터 증가 자체는 원자적이지만, 잠금 확인과 비밀번호 대조 사이에 여러 요청이
+     * 동시에 끼어드는 것을 막아 계정 잠금 임계치를 병렬 요청으로 우회하지 못하게 한다.
+     * 고정된 stripe 수를 사용해 임의 아이디마다 락 객체가 계속 쌓이지 않는다.
+     */
+    public <T> T withLoginLock(String username, Supplier<T> operation) {
+        String normalized = key(username);
+        ReentrantLock lock = loginLocks[Math.floorMod(normalized.hashCode(), loginLocks.length)];
+        lock.lock();
+        try {
+            return operation.get();
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
@@ -122,5 +143,13 @@ public class LoginAttemptService {
     /** 아이디 대소문자를 다르게 써서 카운터를 우회하지 못하게 한다. */
     private String key(String username) {
         return username == null ? "" : username.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static ReentrantLock[] createLoginLocks() {
+        ReentrantLock[] locks = new ReentrantLock[256];
+        for (int i = 0; i < locks.length; i++) {
+            locks[i] = new ReentrantLock();
+        }
+        return locks;
     }
 }

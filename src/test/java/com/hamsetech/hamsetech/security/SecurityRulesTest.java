@@ -16,6 +16,7 @@ import com.hamsetech.hamsetech.user.UserWithdrawalService;
 import com.hamsetech.hamsetech.work.OvertimeRecordController;
 import com.hamsetech.hamsetech.work.OvertimeRecordService;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -27,7 +28,9 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Optional;
+import java.util.function.Supplier;
 
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.testSecurityContext;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -74,6 +77,13 @@ class SecurityRulesTest {
     @MockitoBean private LoginAttemptService loginAttemptService;
     @MockitoBean private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     @MockitoBean private JwtService jwtService;
+
+    @BeforeEach
+    void runLoginInsideTestLock() {
+        org.mockito.Mockito.when(loginAttemptService.withLoginLock(
+                anyString(), org.mockito.ArgumentMatchers.<Supplier<Object>>any()))
+                .thenAnswer(invocation -> ((Supplier<?>) invocation.getArgument(1)).get());
+    }
 
     // ── 인증되지 않은 요청 ────────────────────────────────────────────
 

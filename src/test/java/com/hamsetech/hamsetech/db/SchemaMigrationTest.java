@@ -59,7 +59,7 @@ class SchemaMigrationTest {
 				"SELECT version FROM flyway_schema_history WHERE success = true AND version IS NOT NULL "
 						+ "ORDER BY installed_rank", String.class);
 
-		assertThat(applied).containsExactly("1", "2", "3", "4", "5");
+        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6");
 	}
 
 	@Test
@@ -167,7 +167,7 @@ class SchemaMigrationTest {
 
 	@Test
 	@DisplayName("사용자 아바타 메타데이터와 난수 키 인덱스가 추가된다")
-	void userAvatarColumnsAndKeyIndexExist() {
+    void userAvatarColumnsAndKeyIndexExist() {
 		Integer columns = jdbc.queryForObject(
 				"SELECT count(*) FROM information_schema.columns WHERE table_name = 'users' "
 						+ "AND column_name IN ('avatar_path', 'avatar_content_type', 'avatar_key')", Integer.class);
@@ -175,6 +175,22 @@ class SchemaMigrationTest {
 				"SELECT indexname FROM pg_indexes WHERE schemaname = 'public'", String.class);
 
 		assertThat(columns).isEqualTo(3);
-		assertThat(indexes).contains("uk_users_avatar_key");
-	}
+        assertThat(indexes).contains("uk_users_avatar_key");
+    }
+
+    @Test
+    @DisplayName("잔업 동시성 버전과 기본 설정 행이 준비된다")
+    void overtimeConcurrencyAndDefaultsArePrepared() {
+        Integer versionColumn = jdbc.queryForObject(
+                "SELECT count(*) FROM information_schema.columns "
+                        + "WHERE table_name = 'overtime_records' AND column_name = 'version'", Integer.class);
+        List<String> defaultTypes = jdbc.queryForList(
+                "SELECT type FROM overtime_default_times ORDER BY type", String.class);
+        Integer payrollSettings = jdbc.queryForObject(
+                "SELECT count(*) FROM overtime_payroll_setting", Integer.class);
+
+        assertThat(versionColumn).isEqualTo(1);
+        assertThat(defaultTypes).containsExactly("OVERTIME", "SPECIAL");
+        assertThat(payrollSettings).isEqualTo(1);
+    }
 }

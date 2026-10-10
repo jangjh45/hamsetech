@@ -32,7 +32,7 @@ class OvertimeSummaryTest {
     @BeforeEach
     void setUp() {
         repository = mock(OvertimeRecordRepository.class);
-        service = new OvertimeRecordService(repository, null, null, null, null, null);
+        service = new OvertimeRecordService(repository, null, null, null, null, null, null);
     }
 
     private void givenTotals(OvertimeTypeTotal... totals) {

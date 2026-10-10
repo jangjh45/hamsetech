@@ -8,6 +8,7 @@ import com.hamsetech.hamsetech.user.UserAccount;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,25 +56,33 @@ public class OvertimeRecordService {
     /** 일괄 등록 1회 인원 상한. 잘못된 요청으로 대량 생성되는 것을 막는다. */
     private static final int MAX_BULK_USERS = 100;
 
+    /** PostgreSQL 트랜잭션 advisory lock 키. 일괄 등록 요청끼리만 짧게 직렬화한다. */
+    private static final long BULK_CREATE_LOCK = 0x48414D5345540001L;
+    /** 최초 기본 설정 생성 경합 방지용 PostgreSQL 트랜잭션 advisory lock 키. */
+    private static final long SETTINGS_INIT_LOCK = 0x48414D5345540002L;
+
     private final OvertimeRecordRepository repository;
     private final OvertimeDefaultTimeRepository defaultTimeRepository;
     private final OvertimePayrollSettingRepository payrollSettingRepository;
     private final UserAccountRepository userAccountRepository;
     private final SecurityUtils securityUtils;
     private final OvertimeExcelExporter excelExporter;
+    private final JdbcTemplate jdbcTemplate;
 
     public OvertimeRecordService(OvertimeRecordRepository repository,
                                   OvertimeDefaultTimeRepository defaultTimeRepository,
                                   OvertimePayrollSettingRepository payrollSettingRepository,
                                   UserAccountRepository userAccountRepository,
                                   SecurityUtils securityUtils,
-                                  OvertimeExcelExporter excelExporter) {
+                                  OvertimeExcelExporter excelExporter,
+                                  JdbcTemplate jdbcTemplate) {
         this.repository = repository;
         this.defaultTimeRepository = defaultTimeRepository;
         this.payrollSettingRepository = payrollSettingRepository;
         this.userAccountRepository = userAccountRepository;
         this.securityUtils = securityUtils;
         this.excelExporter = excelExporter;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     public OvertimeRecord create(LocalDate workDate, OvertimeType type, LocalTime startTime, LocalTime endTime,
@@ -124,6 +133,10 @@ public class OvertimeRecordService {
 
         // 모두 같은 근무 조건이라 시간 계산은 한 번만 한다. 입력이 잘못됐다면 아무것도 만들기 전에 걸린다.
         Integer minutes = resolveTotalMinutes(type, startTime, endTime, totalMinutes);
+
+        // 존재 확인과 저장 사이에 같은 일괄 요청이 끼어들지 않게 한다.
+        // 트랜잭션 advisory lock이라 여러 백엔드 프로세스에서도 같은 PostgreSQL을 쓰면 공유된다.
+        acquireTransactionLock(BULK_CREATE_LOCK);
 
         Set<Long> alreadyRegistered = repository.findByWorkDateAndTypeAndUserIdIn(workDate, type, ids).stream()
                 .map(OvertimeRecord::getUserId)
@@ -232,21 +245,26 @@ public class OvertimeRecordService {
     }
 
     public OvertimeRecord approve(@NonNull Long id) {
-        OvertimeRecord record = requirePending(id);
-        record.setStatus(OvertimeRecord.Status.APPROVED);
-        record.setApproverUsername(securityUtils.currentUsername());
-        record.setApprovedAt(Instant.now());
-        record.setRejectReason(null);
-        return repository.save(record);
+        int updated = repository.approveIfPending(id, securityUtils.currentUsername(), Instant.now(),
+                OvertimeRecord.Status.PENDING, OvertimeRecord.Status.APPROVED);
+        return resultOfPendingTransition(id, updated);
     }
 
     public OvertimeRecord reject(@NonNull Long id, String reason) {
-        OvertimeRecord record = requirePending(id);
-        record.setStatus(OvertimeRecord.Status.REJECTED);
-        record.setApproverUsername(securityUtils.currentUsername());
-        record.setApprovedAt(Instant.now());
-        record.setRejectReason(reason);
-        return repository.save(record);
+        int updated = repository.rejectIfPending(id, securityUtils.currentUsername(), Instant.now(), reason,
+                OvertimeRecord.Status.PENDING, OvertimeRecord.Status.REJECTED);
+        return resultOfPendingTransition(id, updated);
+    }
+
+    private OvertimeRecord resultOfPendingTransition(@NonNull Long id, int updated) {
+        if (updated == 0) {
+            if (!repository.existsById(id)) {
+                throw new NotFoundException("기록을 찾을 수 없습니다.");
+            }
+            throw new ConflictException("이미 처리된 기록입니다");
+        }
+        return repository.findById(id)
+                .orElseThrow(() -> new NotFoundException("기록을 찾을 수 없습니다."));
     }
 
     private OvertimeRecord requireRecord(@NonNull Long id) {
@@ -265,15 +283,6 @@ public class OvertimeRecordService {
         if (!securityUtils.isAdmin() && !record.getUsername().equals(securityUtils.currentUsername())) {
             throw new ForbiddenException("본인의 기록만 처리할 수 있습니다.");
         }
-    }
-
-    /** 승인·반려는 대기 상태에서만 할 수 있다. 두 번 눌러도 앞의 결정이 덮이지 않는다. */
-    private OvertimeRecord requirePending(@NonNull Long id) {
-        OvertimeRecord record = requireRecord(id);
-        if (record.getStatus() != OvertimeRecord.Status.PENDING) {
-            throw new ConflictException("이미 처리된 기록입니다");
-        }
-        return record;
     }
 
     /**
@@ -334,6 +343,7 @@ public class OvertimeRecordService {
     }
 
     private OvertimePayrollSetting ensurePayrollSetting() {
+        acquireTransactionLock(SETTINGS_INIT_LOCK);
         return payrollSettingRepository.findTopByOrderByIdAsc()
                 .orElseGet(() -> payrollSettingRepository.save(
                         new OvertimePayrollSetting(DEFAULT_PAYROLL_START_DAY)));
@@ -377,11 +387,17 @@ public class OvertimeRecordService {
     }
 
     private OvertimeDefaultTime ensureDefault(OvertimeType type) {
+        acquireTransactionLock(SETTINGS_INIT_LOCK);
         return defaultTimeRepository.findByType(type).orElseGet(() -> {
             LocalTime start = type == OvertimeType.SPECIAL ? DEFAULT_SPECIAL_START : DEFAULT_OVERTIME_START;
             LocalTime end = type == OvertimeType.SPECIAL ? DEFAULT_SPECIAL_END : DEFAULT_OVERTIME_END;
             return defaultTimeRepository.save(new OvertimeDefaultTime(type, start, end));
         });
+    }
+
+    /** 호출 메서드의 트랜잭션이 끝날 때 PostgreSQL이 자동으로 해제한다. */
+    private void acquireTransactionLock(long key) {
+        jdbcTemplate.execute("SELECT pg_advisory_xact_lock(" + key + ")");
     }
 
     private OvertimeDefaultTime applyDefault(OvertimeType type, String startStr, String endStr, String updatedBy) {

@@ -19,6 +19,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -218,12 +219,16 @@ class PackingScenarioServiceTest {
         mine.setIsFavorite(false);
         when(scenarioRepository.findById(1L)).thenReturn(Optional.of(mine));
         when(securityUtils.currentUser()).thenReturn(user(1, "kim"));
-        when(scenarioRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(scenarioRepository.toggleFavoriteAtomically(eq(1L), eq(1L), any())).thenAnswer(inv -> {
+            mine.setIsFavorite(!mine.getIsFavorite());
+            return 1;
+        });
+        when(scenarioRepository.findWithItemsById(1L)).thenReturn(Optional.of(mine));
 
-        service.toggleFavorite(1L);
+        assertThat(service.toggleFavorite(1L).getIsFavorite()).isTrue();
         assertThat(mine.getIsFavorite()).isTrue();
 
-        service.toggleFavorite(1L);
+        assertThat(service.toggleFavorite(1L).getIsFavorite()).isFalse();
         assertThat(mine.getIsFavorite()).isFalse();
     }
 
