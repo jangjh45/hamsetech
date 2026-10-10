@@ -295,6 +295,20 @@ body:has(.fl-page) {
   opacity: 0.88;
 }
 
+.fl-btn.fl-btn-warning {
+  border-color: transparent;
+  background: var(--fl-warn);
+  color: var(--fl-surface);
+  font-weight: 600;
+}
+
+.fl-btn.fl-btn-warning:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--fl-warn);
+  color: var(--fl-surface);
+  opacity: 0.88;
+}
+
 /* 정사각형 아이콘 버튼 (테마 토글, 캘린더 이전/다음) */
 .fl-btn-icon {
   width: 36px;
@@ -1005,6 +1019,26 @@ button.fl-link {
   font-size: 14px;
   line-height: 1.65;
   color: var(--fl-muted);
+  white-space: pre-line;
+}
+
+.fl-confirm-modal {
+  max-width: 460px;
+}
+
+.fl-confirm-prompt-label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fl-muted);
+}
+
+.fl-confirm-prompt-input {
+  width: 100%;
+  background: var(--fl-sunken);
+  font-weight: 400;
 }
 
 /* ── 리스트 행 / 타일 ────────────────────────────────────────── */

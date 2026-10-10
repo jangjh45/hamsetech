@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { apiFetch } from '../api/client'
 import { getToken, getUsername, getRoles, saveAuth } from '../auth/token'
+import { useConfirm } from '../components/ConfirmDialog'
 
 /**
  * 관리자 화면의 사용자 계열 세 탭(사용자 · 가입 승인 · 탈퇴 신청)이 들고 있는 것.
@@ -18,6 +19,7 @@ export function useUserTabs(opts: {
   /** 자기 ADMIN을 잃었을 때. 상위가 화면을 닫고 홈으로 보낸다. */
   onSelfRevoked: () => void
 }) {
+  const { confirm, prompt } = useConfirm()
   const [users, setUsers] = useState<any[]>([])
   const [query, setQuery] = useState('')
   const [pendingUsers, setPendingUsers] = useState<any[]>([])
@@ -77,12 +79,15 @@ export function useUserTabs(opts: {
    */
   async function withdrawUser(u: any) {
     const label = `${u.username}${u.displayName ? ` (${u.displayName})` : ''}`
-    const reason = window.prompt(
-      `${label} 계정을 탈퇴 처리합니다.\n` +
-        '이메일·표시 이름이 삭제되고 다시 로그인할 수 없게 됩니다. 잔업·특근 기록은 보존됩니다.\n\n' +
-        '처리 사유를 입력하세요.',
-      u.withdrawReason || '',
-    )
+    const reason = await prompt({
+      title: '사용자 탈퇴 처리',
+      message: `${label} 계정을 탈퇴 처리합니다.\n이메일·표시 이름이 삭제되고 다시 로그인할 수 없게 됩니다. 잔업·특근 기록은 보존됩니다.`,
+      inputLabel: '처리 사유',
+      inputPlaceholder: '탈퇴 처리 사유를 입력하세요.',
+      defaultValue: u.withdrawReason || '',
+      confirmText: '탈퇴 처리',
+      variant: 'danger',
+    })
     if (reason === null) return
     try {
       await apiFetch(`/api/admin/users/${u.id}/withdraw`, {
@@ -112,15 +117,13 @@ export function useUserTabs(opts: {
    */
   async function resetPassword(u: any) {
     const label = `${u.username}${u.displayName ? ` (${u.displayName})` : ''}`
-    if (
-      !window.confirm(
-        `${label} 계정의 비밀번호를 초기화합니다.\n\n` +
-          '임시 비밀번호가 발급되고 이 계정의 기존 로그인은 모두 해제됩니다.\n' +
-          '임시 비밀번호는 지금 한 번만 표시됩니다.',
-      )
-    ) {
-      return
-    }
+    const ok = await confirm({
+      title: '비밀번호 초기화',
+      message: `${label} 계정의 비밀번호를 초기화합니다.\n\n임시 비밀번호가 발급되고 이 계정의 기존 로그인은 모두 해제됩니다.\n임시 비밀번호는 지금 한 번만 표시됩니다.`,
+      confirmText: '초기화',
+      variant: 'warning',
+    })
+    if (!ok) return
     try {
       const res = await apiFetch(`/api/admin/users/${u.id}/reset-password`, { method: 'POST' })
       setTempPassword({ username: res.username, password: res.temporaryPassword })

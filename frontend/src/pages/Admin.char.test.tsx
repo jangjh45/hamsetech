@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { ConfirmProvider } from '../components/ConfirmDialog'
 import AdminPage from './Admin'
 
 /**
@@ -85,7 +86,9 @@ afterEach(cleanup)
 function renderAdmin() {
   return render(
     <MemoryRouter>
-      <AdminPage />
+      <ConfirmProvider>
+        <AdminPage />
+      </ConfirmProvider>
     </MemoryRouter>,
   )
 }

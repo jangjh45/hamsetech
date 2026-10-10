@@ -13,6 +13,7 @@ import {
   type OvertimeDefaults,
 } from '../api/overtimeRecords'
 import { payrollCycle } from '../utils/formatDate'
+import { useConfirm } from '../components/ConfirmDialog'
 
 /**
  * 관리자 화면의 '잔업특근' 탭.
@@ -32,6 +33,7 @@ import { payrollCycle } from '../utils/formatDate'
  * 어느 탭에서 났는지 알기 어렵다.
  */
 export function useOvertimeTab(active: boolean, opts: { onError: (m: string) => void }) {
+  const { confirm } = useConfirm()
   const [overtimeRecords, setOvertimeRecords] = useState<OvertimeRecord[]>([])
   const [overtimeLoading, setOvertimeLoading] = useState(false)
   const [overtimeSummary, setOvertimeSummary] = useState<OvertimeSummary[]>([])
@@ -188,7 +190,13 @@ export function useOvertimeTab(active: boolean, opts: { onError: (m: string) => 
   }
 
   async function deleteOvertime(id: number) {
-    if (!window.confirm('이 기록을 삭제할까요? 삭제하면 되돌릴 수 없습니다.')) return
+    const ok = await confirm({
+      title: '잔업·특근 기록 삭제',
+      message: '이 기록을 삭제할까요? 삭제하면 되돌릴 수 없습니다.',
+      confirmText: '삭제',
+      variant: 'danger',
+    })
+    if (!ok) return
     try {
       await deleteOvertimeRecord(id)
       // 마지막 페이지의 마지막 항목을 지우면 빈 페이지가 되므로, 필요 시 이전 페이지로 이동

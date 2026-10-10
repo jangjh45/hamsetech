@@ -13,6 +13,7 @@ import {
 import { formatMinutes, formatTime, toYmd } from '../utils/formatDate'
 import { defaultTimesFor, durationOf } from '../utils/overtime'
 import Pager from '../components/Pager'
+import { useConfirm } from '../components/ConfirmDialog'
 import '../styles/overtime.css'
 
 const PAGE_SIZE = 10
@@ -112,6 +113,7 @@ interface FormState {
 }
 
 export default function OvertimeRecordsPage() {
+  const { confirm } = useConfirm()
   const [records, setRecords] = useState<OvertimeRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -220,9 +222,14 @@ export default function OvertimeRecordsPage() {
     setModalOpen(true)
   }
 
-  function openEdit(r: OvertimeRecord) {
+  async function openEdit(r: OvertimeRecord) {
     if (r.status !== 'PENDING') {
-      const ok = window.confirm('수정하면 다시 "승인 대기" 상태가 되어 관리자 재승인이 필요합니다. 계속할까요?')
+      const ok = await confirm({
+        title: '승인된 기록 수정',
+        message: '수정하면 기록이 다시 "승인 대기" 상태가 되어 관리자의 재승인이 필요합니다. 계속할까요?',
+        confirmText: '수정 계속',
+        variant: 'warning',
+      })
       if (!ok) return
     }
     setEditing(r)
@@ -315,7 +322,13 @@ export default function OvertimeRecordsPage() {
   }
 
   async function onDelete(id: number) {
-    if (!window.confirm('이 기록을 삭제할까요?')) return
+    const ok = await confirm({
+      title: '잔업·특근 기록 삭제',
+      message: '이 기록을 삭제할까요? 삭제하면 되돌릴 수 없습니다.',
+      confirmText: '삭제',
+      variant: 'danger',
+    })
+    if (!ok) return
     setError('')
     try {
       await deleteOvertimeRecord(id)

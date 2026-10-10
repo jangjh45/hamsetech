@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { ConfirmProvider } from '../components/ConfirmDialog'
 import OvertimeRecordsPage from './OvertimeRecords'
 
 /**
@@ -85,7 +86,9 @@ afterEach(() => {
 function renderPage() {
   return render(
     <MemoryRouter>
-      <OvertimeRecordsPage />
+      <ConfirmProvider>
+        <OvertimeRecordsPage />
+      </ConfirmProvider>
     </MemoryRouter>,
   )
 }
@@ -342,26 +345,25 @@ describe('OvertimeRecordsPage — 기록 등록', () => {
 describe('OvertimeRecordsPage — 승인된 기록 수정', () => {
   it('수정하면 재승인이 필요하다고 먼저 묻는다', async () => {
     api.listMyOvertimeRecords.mockResolvedValue([rec({ id: 1, status: 'APPROVED' })])
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
     renderPage()
     await waitFor(() => expect(screen.getByText('마감')).toBeTruthy())
 
     fireEvent.click(screen.getByLabelText('수정'))
-    // "거절"하면 폼이 열리면 안 된다.
-    expect(confirmSpy).toHaveBeenCalled()
-    expect(confirmSpy.mock.calls[0][0]).toMatch(/재승인/)
+    // 경고를 확인하고 취소하면 폼이 열리면 안 된다.
+    const warning = await screen.findByRole('alertdialog')
+    expect(warning.textContent).toMatch(/재승인/)
+    fireEvent.click(within(warning).getByRole('button', { name: '취소' }))
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('대기 중인 기록은 묻지 않고 바로 연다', async () => {
     api.listMyOvertimeRecords.mockResolvedValue([rec({ id: 1, status: 'PENDING' })])
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
     renderPage()
     await waitFor(() => expect(screen.getByText('마감')).toBeTruthy())
 
     fireEvent.click(screen.getByLabelText('수정'))
     // 이미 대기 중이므로 묻지 않는다.
-    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(screen.queryByRole('alertdialog')).toBeNull()
     await waitFor(() => expect(workDateInput()).toBeTruthy())
   })
 })

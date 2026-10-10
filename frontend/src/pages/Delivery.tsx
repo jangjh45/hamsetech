@@ -16,9 +16,11 @@ import {
 import { useScenarios } from '../hooks/useScenarios'
 import { usePackingCalc, usePackingStats } from '../hooks/usePackingCalc'
 import { useItemRows } from '../hooks/useItemRows'
+import { useConfirm } from '../components/ConfirmDialog'
 import '../styles/delivery.css'
 
 export default function DeliveryPage() {
+  const { confirm } = useConfirm()
   const [initialDraft] = useState<Draft | null>(loadDraft)
 
   const [binWStr, setBinWStr] = useState<string>(initialDraft?.binW ?? '1200')
@@ -156,8 +158,14 @@ export default function DeliveryPage() {
 
   // ── 전체 초기화 ────────────────────────────────────────────
 
-  function resetInputs() {
-    if (!window.confirm('입력한 적재함 설정과 물품 목록을 모두 지울까요?')) return
+  async function resetInputs() {
+    const ok = await confirm({
+      title: '입력 내용 초기화',
+      message: '입력한 적재함 설정과 물품 목록을 모두 지울까요?',
+      confirmText: '초기화',
+      variant: 'danger',
+    })
+    if (!ok) return
     setBinWStr('1200')
     setBinHStr('800')
     setMarginStr('0')

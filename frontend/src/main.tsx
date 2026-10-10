@@ -5,11 +5,14 @@ import './styles/base.css'
 import './styles/dashboard.css'
 import App from './App.tsx'
 import { BrowserRouter } from 'react-router-dom'
+import { ConfirmProvider } from './components/ConfirmDialog'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      <ConfirmProvider>
+        <App />
+      </ConfirmProvider>
     </BrowserRouter>
   </StrictMode>,
 )

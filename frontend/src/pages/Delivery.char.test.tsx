@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { ConfirmProvider } from '../components/ConfirmDialog'
 import DeliveryPage from './Delivery'
 
 /**
@@ -42,7 +43,9 @@ function renderPage() {
   // 라우터 안에 있어야 한다 — 화면이 useNavigate 를 쓴다.
   return render(
     <MemoryRouter>
-      <DeliveryPage />
+      <ConfirmProvider>
+        <DeliveryPage />
+      </ConfirmProvider>
     </MemoryRouter>,
   )
 }

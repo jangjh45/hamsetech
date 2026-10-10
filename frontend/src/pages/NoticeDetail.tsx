@@ -72,7 +72,7 @@ export default function NoticeDetailPage() {
   const [text, setText] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const { confirm, dialog } = useConfirm()
+  const { confirm } = useConfirm()
 
   useEffect(() => {
     if (!noticeId) return
@@ -130,7 +130,7 @@ export default function NoticeDetailPage() {
       title: '댓글 삭제',
       message: '이 댓글을 삭제하시겠습니까? 삭제된 댓글은 되돌릴 수 없습니다.',
       confirmText: '삭제',
-      danger: true,
+      variant: 'danger',
     })
     if (!ok) return
     try {
@@ -148,7 +148,7 @@ export default function NoticeDetailPage() {
       title: '공지사항 삭제',
       message: '이 공지사항을 삭제하시겠습니까? 삭제된 공지사항은 되돌릴 수 없습니다.',
       confirmText: '삭제',
-      danger: true,
+      variant: 'danger',
     })
     if (!ok) return
     try {
@@ -299,7 +299,6 @@ export default function NoticeDetailPage() {
           </section>
         )}
       </div>
-      {dialog}
     </div>
   )
 }
