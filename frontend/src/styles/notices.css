@@ -564,6 +564,11 @@
   font-variant-numeric: tabular-nums;
 }
 
+.nt-comment-edited {
+  font-size: 11px;
+  color: var(--fl-muted-2);
+}
+
 .nt-comment-body {
   font-size: 14px;
   line-height: 1.6;
@@ -583,7 +588,9 @@
 }
 
 .nt-comment-node:hover > .nt-comment .nt-comment-foot,
-.nt-comment-node:hover .nt-comment .nt-comment-foot {
+.nt-comment-node:hover .nt-comment .nt-comment-foot,
+.nt-comment-node:focus-within > .nt-comment .nt-comment-foot,
+.nt-comment-node:focus-within .nt-comment .nt-comment-foot {
   opacity: 1;
 }
 
@@ -640,6 +647,10 @@
 /* 댓글 안의 답글 폼은 같은 sunken 배경이 겹치지 않게 surface로 */
 .nt-comment .nt-comment-form {
   background: var(--fl-surface);
+}
+
+.nt-comment-edit-form {
+  margin-top: 4px;
 }
 
 .nt-comment-form-foot {

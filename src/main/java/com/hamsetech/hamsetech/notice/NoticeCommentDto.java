@@ -9,4 +9,5 @@ public record NoticeCommentDto(
         String authorDisplayName,
         String authorAvatarUrl,
         Long parentId,
-        Instant createdAt) {}
+        Instant createdAt,
+        Instant updatedAt) {}

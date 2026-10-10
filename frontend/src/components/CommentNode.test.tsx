@@ -1,14 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import CommentNode, { type CommentNodeData } from './CommentNode'
 
 vi.mock('../auth/token', () => ({
-  isAuthenticated: () => false,
+  isAuthenticated: () => Boolean(localStorage.getItem('auth_token')),
   isAdmin: () => false,
-  getUsername: () => null,
+  getUsername: () => localStorage.getItem('auth_username'),
 }))
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  localStorage.clear()
+})
 
 const node: CommentNodeData = {
   id: 1,
@@ -26,7 +29,13 @@ describe('CommentNode 아바타', () => {
     const onReply = vi.fn(async () => {})
     const onDelete = vi.fn(async () => {})
     const { container } = render(
-      <CommentNode node={node} noticeId={1} onReply={onReply} onDelete={onDelete} />,
+      <CommentNode
+        node={node}
+        noticeId={1}
+        onReply={onReply}
+        onEdit={vi.fn(async () => {})}
+        onDelete={onDelete}
+      />,
     )
 
     expect(screen.getByRole('img', { name: '김철수 프로필 사진' })).toBeTruthy()
@@ -40,6 +49,7 @@ describe('CommentNode 아바타', () => {
         node={{ ...node, authorAvatarUrl: null }}
         noticeId={1}
         onReply={vi.fn(async () => {})}
+        onEdit={vi.fn(async () => {})}
         onDelete={vi.fn(async () => {})}
       />,
     )
@@ -47,5 +57,28 @@ describe('CommentNode 아바타', () => {
     expect(screen.getByRole('img', { name: '김철수 프로필 사진' })).toBeTruthy()
     expect(container.querySelector('.ua-avatar-icon')).toBeTruthy()
     expect(container.querySelector('.ua-avatar img')).toBeNull()
+  })
+
+  it('작성자 본인이 댓글을 수정하고 저장할 수 있다', async () => {
+    localStorage.setItem('auth_token', 'token')
+    localStorage.setItem('auth_username', 'kim')
+    const onEdit = vi.fn(async () => {})
+    render(
+      <CommentNode
+        node={node}
+        noticeId={1}
+        onReply={vi.fn(async () => {})}
+        onEdit={onEdit}
+        onDelete={vi.fn(async () => {})}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '수정' }))
+    fireEvent.change(screen.getByRole('textbox', { name: '댓글 수정' }), {
+      target: { value: '고친 댓글 내용' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '저장' }))
+
+    await waitFor(() => expect(onEdit).toHaveBeenCalledWith(1, '고친 댓글 내용'))
   })
 })

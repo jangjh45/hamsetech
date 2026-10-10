@@ -8,6 +8,7 @@ import com.hamsetech.hamsetech.admin.AdminController;
 import com.hamsetech.hamsetech.auth.AuthController;
 import com.hamsetech.hamsetech.config.SecurityConfig;
 import com.hamsetech.hamsetech.notice.NoticeController;
+import com.hamsetech.hamsetech.notice.NoticeCommentDto;
 import com.hamsetech.hamsetech.notice.NoticeService;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
 import com.hamsetech.hamsetech.user.UserAccount;
@@ -35,6 +36,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -209,6 +211,23 @@ class SecurityRulesTest {
         mvc.perform(delete("/api/notices/1/comments/2").with(testSecurityContext()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.deleted").value(true));
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    @DisplayName("일반 사용자는 인증된 댓글 수정 API까지 도달한다")
+    void userCanReachCommentUpdate() throws Exception {
+        org.mockito.Mockito.when(noticeService.updateComment(1L, 2L, "수정된 댓글"))
+                .thenReturn(new NoticeCommentDto(2L, "수정된 댓글", "kim", "김철수", null,
+                        null, java.time.Instant.parse("2026-10-10T10:00:00Z"),
+                        java.time.Instant.parse("2026-10-10T11:00:00Z")));
+
+        mvc.perform(put("/api/notices/1/comments/2")
+                        .with(testSecurityContext())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"수정된 댓글\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").value("수정된 댓글"));
     }
 
     // ── 인증 없이 열려 있어야 하는 곳 ─────────────────────────────────
