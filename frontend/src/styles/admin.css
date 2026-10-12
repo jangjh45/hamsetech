@@ -163,8 +163,8 @@
 
 @media (max-width: 768px) {
   /*
-   * 탭 여섯 개를 한 줄에 두면 화면 밖으로 밀려나 오른쪽 탭을 못 본다.
-   * 제목 아래 한 줄을 통째로 차지하는 3열 격자로 접어 두 줄에 다 보이게 한다.
+   * 관리자 탭을 한 줄에 두면 화면 밖으로 밀려나 오른쪽 탭을 못 본다.
+   * 제목 아래 한 줄을 통째로 차지하는 3열 격자로 접어 둔다.
    */
   .ad-tabs {
     width: 100%;
@@ -246,6 +246,172 @@
 
   .ad-withdraw-guide {
     padding: 12px 16px;
+  }
+}
+
+/* ── 성능 탭 ─────────────────────────────────────────────────── */
+
+.ad-perf-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ad-perf-overview .fl-card-head {
+  align-items: flex-start;
+}
+
+.ad-perf-subtitle,
+.ad-perf-note,
+.ad-perf-footnote {
+  color: var(--fl-muted-2);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.ad-perf-subtitle {
+  margin-top: 5px;
+}
+
+.ad-perf-error {
+  margin: 0 16px;
+}
+
+.ad-perf-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 16px 16px;
+}
+
+.ad-perf-grid-secondary {
+  padding: 0;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+}
+
+.ad-perf-card .fl-card-body {
+  padding: 16px;
+}
+
+.ad-perf-label {
+  color: var(--fl-muted-2);
+  font-size: 12.5px;
+}
+
+.ad-perf-value {
+  margin-top: 7px;
+  color: var(--fl-text);
+  font-size: clamp(21px, 2.4vw, 29px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.ad-perf-detail {
+  margin-top: 7px;
+  color: var(--fl-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ad-perf-chart-value {
+  color: var(--fl-text);
+  font-size: 20px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-perf-chart {
+  display: block;
+  width: 100%;
+  height: 150px;
+  margin: 14px 0 10px;
+  overflow: visible;
+}
+
+.ad-perf-chart-axis {
+  stroke: var(--fl-border);
+  stroke-width: 0.6;
+}
+
+.ad-perf-chart-line {
+  fill: none;
+  stroke: var(--fl-primary);
+  stroke-width: 1.7;
+  vector-effect: non-scaling-stroke;
+}
+
+.ad-perf-chart-dot {
+  fill: var(--fl-primary);
+}
+
+.ad-perf-resource-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ad-perf-resource > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  color: var(--fl-muted);
+  font-size: 13px;
+}
+
+.ad-perf-resource strong {
+  color: var(--fl-text);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.ad-perf-resource small {
+  display: block;
+  margin-top: 6px;
+  color: var(--fl-muted-2);
+  font-size: 11.5px;
+}
+
+.ad-perf-meter {
+  height: 7px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--fl-border);
+}
+
+.ad-perf-meter span {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  border-radius: inherit;
+  background: var(--fl-primary);
+  transition: width 250ms ease;
+}
+
+.ad-perf-footnote {
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .ad-perf-grid,
+  .ad-perf-grid-secondary {
+    grid-template-columns: 1fr;
+  }
+
+  .ad-perf-grid {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .ad-perf-overview .fl-card-head {
+    gap: 8px;
+  }
+
+  .ad-perf-resource > div:first-child {
+    align-items: flex-start;
   }
 }
 

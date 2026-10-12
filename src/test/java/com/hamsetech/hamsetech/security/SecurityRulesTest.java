@@ -5,6 +5,9 @@ import com.hamsetech.hamsetech.admin.AdminLogService;
 import com.hamsetech.hamsetech.admin.AdminPasswordResetService;
 import com.hamsetech.hamsetech.admin.AdminReadLogRepository;
 import com.hamsetech.hamsetech.admin.AdminController;
+import com.hamsetech.hamsetech.admin.performance.PerformanceMetricsController;
+import com.hamsetech.hamsetech.admin.performance.PerformanceMetricsService;
+import com.hamsetech.hamsetech.admin.performance.PerformanceSnapshot;
 import com.hamsetech.hamsetech.auth.AuthController;
 import com.hamsetech.hamsetech.config.SecurityConfig;
 import com.hamsetech.hamsetech.notice.NoticeController;
@@ -29,6 +32,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Optional;
+import java.time.Instant;
 import java.util.function.Supplier;
 
 import static org.mockito.ArgumentMatchers.anyString;
@@ -58,6 +62,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 익명 요청을 검증하는 테스트에는 붙이지 않는다.
  */
 @WebMvcTest(controllers = {NoticeController.class, AdminController.class, AuthController.class,
+        PerformanceMetricsController.class,
         OvertimeRecordController.class})
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class})
 @ActiveProfiles("test")
@@ -77,6 +82,7 @@ class SecurityRulesTest {
     @MockitoBean private AdminPasswordResetService adminPasswordResetService;
     @MockitoBean private AdminLogService adminLogService;
     @MockitoBean private LoginAttemptService loginAttemptService;
+    @MockitoBean private PerformanceMetricsService performanceMetricsService;
     @MockitoBean private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     @MockitoBean private JwtService jwtService;
 
@@ -105,6 +111,13 @@ class SecurityRulesTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    @DisplayName("익명 사용자는 성능 지표를 조회할 수 없다")
+    void anonymousUserCannotReadPerformanceMetrics() throws Exception {
+        mvc.perform(get("/api/admin/performance"))
+                .andExpect(status().isUnauthorized());
+    }
+
     // ── 로그인은 됐지만 권한이 없는 요청 ──────────────────────────────
 
     @Test
@@ -116,6 +129,30 @@ class SecurityRulesTest {
         mvc.perform(get("/api/admin/users").with(testSecurityContext()))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    @DisplayName("일반 사용자는 성능 지표를 조회할 수 없다")
+    void regularUserCannotReadPerformanceMetrics() throws Exception {
+        mvc.perform(get("/api/admin/performance").with(testSecurityContext()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("관리자는 성능 지표를 조회할 수 있다")
+    void adminCanReadPerformanceMetrics() throws Exception {
+        org.mockito.Mockito.when(performanceMetricsService.snapshot()).thenReturn(
+                new PerformanceSnapshot(Instant.parse("2026-10-12T00:00:00Z"),
+                        5, 20, 1, 1.0, 5.0, 12.0, 10.0, 20.0, 25.0,
+                        100.0, 200.0, 2.0, 5.0));
+
+        mvc.perform(get("/api/admin/performance").with(testSecurityContext()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requestsPerSecond").value(1.0))
+                .andExpect(jsonPath("$.p95LatencyMs").value(20.0));
     }
 
     @Test
