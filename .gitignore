@@ -50,3 +50,6 @@ uploads/
 # NAS 배포용 이미지 아카이브 (docker save 산출물, ~300MB)
 hamsetech-nas.tar
 *.tar
+
+# k6 측정 결과 (계정·운영 데이터가 포함되지 않도록 커밋하지 않음)
+/performance/k6/results/
