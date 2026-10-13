@@ -20,14 +20,20 @@ public class PerformanceHistoryService {
     private static final Logger logger = LoggerFactory.getLogger(PerformanceHistoryService.class);
     private final JdbcTemplate jdbcTemplate;
     private final PerformanceMetricsService metricsService;
+    private final PerformanceAlertService alertService;
+    private final PerformanceEndpointHistoryService endpointHistoryService;
     private final int retentionDays;
 
     public PerformanceHistoryService(
             JdbcTemplate jdbcTemplate,
             PerformanceMetricsService metricsService,
+            PerformanceAlertService alertService,
+            PerformanceEndpointHistoryService endpointHistoryService,
             @Value("${admin.performance.history-retention-days:30}") int retentionDays) {
         this.jdbcTemplate = jdbcTemplate;
         this.metricsService = metricsService;
+        this.alertService = alertService;
+        this.endpointHistoryService = endpointHistoryService;
         this.retentionDays = Math.max(1, retentionDays);
     }
 
@@ -96,6 +102,9 @@ public class PerformanceHistoryService {
             setNullableDouble(statement, index, snapshot.uploadStorageTotalBytes());
             return statement;
         });
+        endpointHistoryService.captureMinute(capturedAt,
+                metricsService.endpointMinuteSnapshotAt(snapshot.capturedAt().getEpochSecond()));
+        alertService.recordSnapshot(snapshot);
     }
 
     public PerformanceHistoryResponse history(PerformanceMetricsController.PerformanceRange range) {
@@ -133,7 +142,11 @@ public class PerformanceHistoryService {
     public void purgeExpired() {
         int deleted = jdbcTemplate.update("DELETE FROM performance_snapshots WHERE captured_at < ?",
                 Timestamp.from(Instant.now().minus(Duration.ofDays(retentionDays))));
-        if (deleted > 0) logger.info("Purged {} performance snapshots older than {} days", deleted, retentionDays);
+        int endpointRowsDeleted = endpointHistoryService.purgeExpired();
+        if (deleted > 0 || endpointRowsDeleted > 0) {
+            logger.info("Purged {} performance snapshots and {} endpoint snapshots older than {} days",
+                    deleted, endpointRowsDeleted, retentionDays);
+        }
     }
 
     private static void setNullableDouble(java.sql.PreparedStatement statement, int index, Double value)

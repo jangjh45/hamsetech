@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -176,6 +177,18 @@ public class PerformanceMetricsService {
     }
 
     List<ApiPerformanceMetric> endpointSnapshotAt(long nowEpochSecond) {
+        return endpointMinuteSnapshotAt(nowEpochSecond).stream()
+                .sorted(endpointP95Order())
+                .limit(MAX_ENDPOINTS_IN_RESPONSE)
+                .map(endpoint -> new ApiPerformanceMetric(
+                        endpoint.method(), endpoint.path(), endpoint.requests(), endpoint.serverErrors(),
+                        endpoint.serverErrors() * 100.0 / endpoint.requests(),
+                        endpoint.totalDurationNanos() / (double) endpoint.requests() / 1_000_000.0,
+                        endpoint.p95LatencyMs(), endpoint.p99LatencyMs()))
+                .toList();
+    }
+
+    List<PerformanceEndpointMinute> endpointMinuteSnapshotAt(long nowEpochSecond) {
         Map<RouteKey, RouteAccumulator> totals = new HashMap<>();
         for (Map.Entry<Long, SecondBucket> entry : buckets.entrySet()) {
             long second = entry.getKey();
@@ -186,22 +199,44 @@ public class PerformanceMetricsService {
                     totals.computeIfAbsent(key, ignored -> new RouteAccumulator()).add(value));
         }
 
-        List<ApiPerformanceMetric> result = new ArrayList<>();
+        List<PerformanceEndpointMinute> result = new ArrayList<>();
         totals.forEach((key, value) -> {
             if (value.requests == 0) return;
-            result.add(new ApiPerformanceMetric(
-                    key.method(), key.path(), value.requests, value.serverErrors,
-                    value.serverErrors * 100.0 / value.requests,
-                    value.totalDurationNanos / (double) value.requests / 1_000_000.0,
+            result.add(new PerformanceEndpointMinute(
+                    key.method(), key.path(), value.requests, value.serverErrors, value.totalDurationNanos,
                     percentileMs(value.histogram, value.requests, 0.95, ROUTE_SUB_BUCKETS_PER_DOUBLING),
                     percentileMs(value.histogram, value.requests, 0.99, ROUTE_SUB_BUCKETS_PER_DOUBLING)));
         });
-        return result.stream()
-                .sorted(Comparator.comparing(ApiPerformanceMetric::p95LatencyMs,
-                                Comparator.nullsLast(Comparator.reverseOrder()))
-                        .thenComparing(ApiPerformanceMetric::requests, Comparator.reverseOrder()))
-                .limit(MAX_ENDPOINTS_IN_RESPONSE)
-                .toList();
+        Map<EndpointIdentity, PerformanceEndpointMinute> selected = new LinkedHashMap<>();
+        addTopEndpoints(result, endpointP95Order(), selected);
+        addTopEndpoints(result, endpointErrorRateOrder(), selected);
+        addTopEndpoints(result, endpointRequestOrder(), selected);
+        return List.copyOf(selected.values());
+    }
+
+    private static void addTopEndpoints(List<PerformanceEndpointMinute> endpoints,
+                                        Comparator<PerformanceEndpointMinute> order,
+                                        Map<EndpointIdentity, PerformanceEndpointMinute> selected) {
+        endpoints.stream().sorted(order).limit(MAX_ENDPOINTS_IN_RESPONSE).forEach(endpoint ->
+                selected.putIfAbsent(new EndpointIdentity(endpoint.method(), endpoint.path()), endpoint));
+    }
+
+    private static Comparator<PerformanceEndpointMinute> endpointP95Order() {
+        return Comparator.comparing(PerformanceEndpointMinute::p95LatencyMs,
+                        Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(PerformanceEndpointMinute::requests, Comparator.reverseOrder());
+    }
+
+    private static Comparator<PerformanceEndpointMinute> endpointErrorRateOrder() {
+        return Comparator.comparingDouble((PerformanceEndpointMinute endpoint) ->
+                        endpoint.serverErrors() / (double) endpoint.requests())
+                .reversed().thenComparing(PerformanceEndpointMinute::requests, Comparator.reverseOrder());
+    }
+
+    private static Comparator<PerformanceEndpointMinute> endpointRequestOrder() {
+        return Comparator.comparing(PerformanceEndpointMinute::requests, Comparator.reverseOrder())
+                .thenComparing(PerformanceEndpointMinute::p95LatencyMs,
+                        Comparator.nullsLast(Comparator.reverseOrder()));
     }
 
     private Double sumGauge(String name, String tagKey, String tagValue) {
@@ -359,6 +394,8 @@ public class PerformanceMetricsService {
     }
 
     private record RouteKey(String method, String path) {}
+
+    private record EndpointIdentity(String method, String path) {}
 
     private static final class RouteBucket {
         private final AtomicLong requests = new AtomicLong();

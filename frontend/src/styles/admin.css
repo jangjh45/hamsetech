@@ -315,10 +315,23 @@
 }
 
 .ad-perf-chart-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 10px;
   color: var(--fl-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-perf-chart-value strong {
   font-size: 20px;
   font-weight: 650;
-  font-variant-numeric: tabular-nums;
+}
+
+.ad-perf-chart-value span {
+  color: var(--fl-muted-2);
+  font-size: 11px;
 }
 
 .ad-perf-chart {
@@ -326,23 +339,32 @@
   width: 100%;
   height: 150px;
   margin: 14px 0 10px;
-  overflow: visible;
+  overflow: hidden;
 }
 
-.ad-perf-chart-axis {
+.ad-perf-chart-gridline {
   stroke: var(--fl-border);
-  stroke-width: 0.6;
+  stroke-width: 0.45;
+  vector-effect: non-scaling-stroke;
+}
+
+.ad-perf-chart-tick {
+  fill: var(--fl-muted-2);
+  font-size: 2.5px;
+  text-anchor: end;
+  dominant-baseline: middle;
+}
+
+.ad-perf-chart-area {
+  fill: var(--fl-primary);
+  opacity: 0.1;
 }
 
 .ad-perf-chart-line {
   fill: none;
   stroke: var(--fl-primary);
-  stroke-width: 1.7;
+  stroke-width: 1.8;
   vector-effect: non-scaling-stroke;
-}
-
-.ad-perf-chart-dot {
-  fill: var(--fl-primary);
 }
 
 .ad-perf-resource-list {
@@ -388,7 +410,13 @@
   min-width: 0;
   border-radius: inherit;
   background: var(--fl-primary);
-  transition: width 250ms ease;
+  transition: width 900ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ad-perf-meter span {
+    transition-duration: 0.01ms;
+  }
 }
 
 .ad-perf-head-actions {
@@ -436,6 +464,118 @@
   color: var(--fl-muted);
 }
 
+.ad-perf-settings {
+  margin: 0 16px 16px;
+  border: 1px solid var(--fl-border);
+  border-radius: 10px;
+}
+
+.ad-perf-settings > summary {
+  padding: 11px 13px;
+  color: var(--fl-text);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.ad-perf-settings[open] > summary {
+  border-bottom: 1px solid var(--fl-border);
+}
+
+.ad-perf-settings-form {
+  padding: 13px;
+}
+
+.ad-perf-threshold-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.ad-perf-threshold-field {
+  display: grid;
+  gap: 6px;
+  color: var(--fl-muted);
+  font-size: 12px;
+}
+
+.ad-perf-threshold-input {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ad-perf-threshold-input .fl-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 7px 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-perf-threshold-input small {
+  color: var(--fl-muted-2);
+}
+
+.ad-perf-settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  color: var(--fl-muted-2);
+  font-size: 11.5px;
+}
+
+.ad-perf-alert-history-card > details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.ad-perf-alert-history-card > details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ad-perf-alert-history-wrap {
+  max-height: 280px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.ad-perf-alert-history-wrap .ad-perf-table td {
+  white-space: normal;
+}
+
+.ad-perf-alert-message {
+  min-width: 220px;
+  text-align: left !important;
+}
+
+.ad-perf-alert-state {
+  display: inline-block;
+  padding: 3px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.ad-perf-alert-state.is-triggered {
+  background: color-mix(in srgb, var(--fl-danger, #c2413b) 12%, transparent);
+  color: var(--fl-danger, #c2413b);
+}
+
+.ad-perf-alert-state.is-resolved {
+  background: var(--fl-surface-2, transparent);
+  color: var(--fl-muted);
+}
+
+.ad-perf-alert-history-card .ad-perf-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--fl-surface);
+}
+
 .ad-perf-history-card {
   overflow: hidden;
 }
@@ -474,13 +614,40 @@
 }
 
 .ad-perf-range button:focus-visible,
-.ad-perf-refresh:focus-visible {
+.ad-perf-refresh:focus-visible,
+.ad-perf-trend-options button:focus-visible {
   outline: 2px solid var(--fl-primary);
   outline-offset: 2px;
 }
 
+.ad-perf-trend-options {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 12px 16px 0;
+  color: var(--fl-muted-2);
+  font-size: 12px;
+}
+
+.ad-perf-trend-options button {
+  padding: 5px 9px;
+  border: 1px solid var(--fl-border);
+  border-radius: 999px;
+  background: var(--fl-surface);
+  color: var(--fl-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ad-perf-trend-options button.is-selected {
+  border-color: var(--fl-primary);
+  background: color-mix(in srgb, var(--fl-primary) 10%, var(--fl-surface));
+  color: var(--fl-primary);
+}
+
 .ad-perf-trends {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
   padding-top: 12px;
 }
 
@@ -497,6 +664,39 @@
 
 .ad-perf-trend .fl-card-body {
   padding: 12px 14px 14px;
+}
+
+.ad-perf-endpoints-head {
+  align-items: center;
+}
+
+.ad-perf-endpoints-head > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.ad-perf-endpoint-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ad-perf-endpoint-controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fl-muted-2);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.ad-perf-endpoint-controls .fl-input {
+  width: auto;
+  min-width: 100px;
+  min-height: 34px;
+  padding: 5px 8px;
+  color: var(--fl-text);
+  font-size: 12px;
 }
 
 .ad-perf-chart-empty {
@@ -522,12 +722,26 @@
 }
 
 .ad-perf-table-wrap {
-  overflow-x: auto;
+  max-height: 380px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.ad-perf-endpoints-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ad-perf-endpoints-card .ad-perf-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .ad-perf-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
@@ -541,6 +755,10 @@
 }
 
 .ad-perf-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--fl-surface);
   color: var(--fl-muted-2);
   font-size: 11px;
   font-weight: 600;
@@ -581,7 +799,9 @@
 }
 
 .ad-perf-endpoints-card .ad-perf-note {
+  margin-top: auto;
   padding: 10px 12px 13px;
+  border-top: 1px solid var(--fl-border);
 }
 
 .ad-perf-footnote {
@@ -616,6 +836,31 @@
 
   .ad-perf-resource > div:first-child {
     align-items: flex-start;
+  }
+
+  .ad-perf-endpoints-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ad-perf-endpoint-controls {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .ad-perf-threshold-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .ad-perf-threshold-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ad-perf-settings-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 
