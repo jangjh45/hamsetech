@@ -151,14 +151,15 @@ const TREND_METRICS = [
     format: (value: number) => `${number(value, 2)} RPS` },
   { key: 'p95', label: 'p95 응답시간', unit: 'ms', value: (point: PerformanceHistoryPoint) => point.p95LatencyMs,
     format: (value: number) => `${number(value)} ms` },
-  { key: 'systemMemory', label: 'NAS 메모리', unit: '%',
+  { key: 'systemMemory', label: '시스템 메모리', unit: '%',
     value: (point: PerformanceHistoryPoint) => ratioPercent(point.systemMemoryUsedBytes, point.systemMemoryTotalBytes),
     format: (value: number) => `${number(value)}%` },
   { key: 'systemCpu', label: '시스템 CPU', unit: '%', value: (point: PerformanceHistoryPoint) => point.systemCpuPercent,
     format: (value: number) => `${number(value)}%` },
-  { key: 'containerMemory', label: '컨테이너 메모리', unit: '%',
-    value: (point: PerformanceHistoryPoint) => ratioPercent(point.containerMemoryUsedBytes, point.containerMemoryMaxBytes),
-    format: (value: number) => `${number(value)}%` },
+  { key: 'containerMemory', label: '컨테이너 메모리 사용량', unit: 'GiB',
+    value: (point: PerformanceHistoryPoint) => point.containerMemoryUsedBytes == null
+      ? null : point.containerMemoryUsedBytes / (1024 ** 3),
+    format: (value: number) => `${number(value)} GiB` },
   { key: 'jvmHeap', label: 'JVM 힙', unit: '%',
     value: (point: PerformanceHistoryPoint) => ratioPercent(point.jvmHeapUsedBytes, point.jvmHeapMaxBytes),
     format: (value: number) => `${number(value)}%` },
@@ -223,7 +224,7 @@ const THRESHOLD_FIELDS: {
   { key: 'dbPoolUsedPercent', label: 'DB 연결 풀 사용률', unit: '%', min: 0, max: 100, step: 0.1 },
   { key: 'containerMemoryUsedPercent', label: '컨테이너 메모리 사용률', unit: '%', min: 0, max: 100, step: 0.1 },
   { key: 'systemCpuPercent', label: '시스템 CPU 사용률', unit: '%', min: 0, max: 100, step: 0.1 },
-  { key: 'systemMemoryUsedPercent', label: 'NAS 메모리 사용률', unit: '%', min: 0, max: 100, step: 0.1 },
+  { key: 'systemMemoryUsedPercent', label: '시스템 메모리 사용률', unit: '%', min: 0, max: 100, step: 0.1 },
   { key: 'uploadStorageFreePercent', label: '첨부 저장소 여유 공간 경고 (미만)', unit: '%', min: 0, max: 100, step: 0.1 },
 ]
 
@@ -531,6 +532,16 @@ export default function PerformancePanel() {
   const heapPercent = ratioPercent(snapshot?.jvmHeapUsedBytes, snapshot?.jvmHeapMaxBytes)
   const dbPercent = ratioPercent(snapshot?.dbConnectionsActive, snapshot?.dbConnectionsMax)
   const containerMemoryPercent = ratioPercent(snapshot?.containerMemoryUsedBytes, snapshot?.containerMemoryMaxBytes)
+  const containerMemoryValue = snapshot?.containerMemoryUsedBytes != null && snapshot.containerMemoryMaxBytes == null
+    ? `${bytes(snapshot.containerMemoryUsedBytes)} 사용 · 제한 없음`
+    : `${bytes(snapshot?.containerMemoryUsedBytes)} / ${bytes(snapshot?.containerMemoryMaxBytes)}`
+  const containerMemoryDetail = !snapshot
+    ? '성능 지표를 불러오는 중입니다.'
+    : snapshot.containerMemoryUsedBytes == null
+      ? 'cgroup 메모리 사용량을 읽을 수 없습니다.'
+      : snapshot.containerMemoryMaxBytes == null
+        ? '메모리 상한이 없어 사용률은 계산하지 않습니다.'
+        : `${number(containerMemoryPercent)}% 사용`
   const uploadFreePercent = snapshot?.uploadStorageUsableBytes != null && snapshot.uploadStorageTotalBytes != null && snapshot.uploadStorageTotalBytes > 0
     ? snapshot.uploadStorageUsableBytes / snapshot.uploadStorageTotalBytes * 100
     : null
@@ -553,7 +564,7 @@ export default function PerformancePanel() {
     if (snapshot.systemCpuPercent != null && snapshot.systemCpuPercent >= thresholds.systemCpuPercent) warnings.push(`시스템 CPU 사용률이 ${number(thresholds.systemCpuPercent)}% 기준을 넘었습니다.`)
     const systemMemory = ratioPercent(snapshot.systemMemoryUsedBytes, snapshot.systemMemoryTotalBytes)
     if (systemMemory != null && systemMemory >= thresholds.systemMemoryUsedPercent) {
-      warnings.push(`NAS 시스템 메모리 사용률이 ${number(thresholds.systemMemoryUsedPercent)}% 기준을 넘었습니다.`)
+      warnings.push(`시스템 메모리 사용률이 ${number(thresholds.systemMemoryUsedPercent)}% 기준을 넘었습니다.`)
     }
     if (uploadFreePercent != null && uploadFreePercent < thresholds.uploadStorageFreePercent) {
       warnings.push(`첨부 저장소 여유 공간이 ${number(thresholds.uploadStorageFreePercent)}% 미만입니다.`)
@@ -689,9 +700,9 @@ export default function PerformancePanel() {
             <ResourceItem label="JVM 논힙 메모리" value={`${bytes(snapshot?.jvmNonHeapUsedBytes)} / ${bytes(snapshot?.jvmNonHeapMaxBytes)}`} />
             <ResourceItem label="DB 연결 풀" value={`${number(snapshot?.dbConnectionsActive, 0)} 활성 / ${number(snapshot?.dbConnectionsIdle, 0)} 유휴 / ${number(snapshot?.dbConnectionsMax, 0)} 최대`}
               percent={dbPercent} detail={`대기 ${number(snapshot?.dbConnectionsPending, 0)}개${dbPercent == null ? ' · 풀 지표를 사용할 수 없습니다.' : ` · ${number(dbPercent)}% 사용`} `} />
-            <ResourceItem label="컨테이너 메모리" value={`${bytes(snapshot?.containerMemoryUsedBytes)} / ${bytes(snapshot?.containerMemoryMaxBytes)}`}
-              percent={containerMemoryPercent} detail={containerMemoryPercent == null ? 'cgroup 메모리 제한이 없거나 지표를 읽을 수 없습니다.' : `${number(containerMemoryPercent)}% 사용`} />
-            <ResourceItem label="NAS 시스템 메모리" value={`${bytes(snapshot?.systemMemoryUsedBytes)} / ${bytes(snapshot?.systemMemoryTotalBytes)}`}
+            <ResourceItem label="컨테이너 메모리" value={containerMemoryValue}
+              percent={containerMemoryPercent} detail={containerMemoryDetail} />
+            <ResourceItem label="시스템 메모리" value={`${bytes(snapshot?.systemMemoryUsedBytes)} / ${bytes(snapshot?.systemMemoryTotalBytes)}`}
               percent={ratioPercent(snapshot?.systemMemoryUsedBytes, snapshot?.systemMemoryTotalBytes)} />
             <ResourceItem label="CPU 사용률" value={`프로세스 ${number(snapshot?.processCpuPercent)}% · 시스템 ${number(snapshot?.systemCpuPercent)}%`}
               percent={snapshot?.systemCpuPercent} />
@@ -748,7 +759,7 @@ export default function PerformancePanel() {
       </div>
 
       <p className="ad-perf-footnote">
-        API 응답시간은 앱 서버 기준이며 Nginx·네트워크 시간은 포함하지 않습니다. 경고 기준은 서비스 SLO에 맞게 조정하세요. 부하 테스트는 별도 PC에서 실행하세요.
+        시스템 메모리는 백엔드 실행 환경 기준이며, Docker Desktop에서는 Linux VM 메모리를 표시합니다. API 응답시간은 앱 서버 기준이며 Nginx·네트워크 시간은 포함하지 않습니다. 경고 기준은 서비스 SLO에 맞게 조정하세요. 부하 테스트는 별도 PC에서 실행하세요.
       </p>
     </div>
   )
