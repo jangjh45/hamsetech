@@ -274,7 +274,7 @@
 }
 
 .ad-perf-error {
-  margin: 0 16px;
+  margin: 12px 16px 14px;
 }
 
 .ad-perf-grid {
@@ -391,13 +391,207 @@
   transition: width 250ms ease;
 }
 
+.ad-perf-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ad-perf-refresh {
+  min-height: 32px;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
+.ad-perf-card.is-warn .ad-perf-value,
+.ad-perf-table td.is-warn {
+  color: var(--fl-danger, #c2413b);
+}
+
+.ad-perf-alerts,
+.ad-perf-ok {
+  margin: 12px 16px 14px;
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, var(--fl-danger, #c2413b) 30%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--fl-danger, #c2413b) 8%, transparent);
+  color: var(--fl-text);
+  font-size: 13px;
+}
+
+.ad-perf-alerts strong {
+  color: var(--fl-danger, #c2413b);
+}
+
+.ad-perf-alerts ul {
+  display: grid;
+  gap: 3px;
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.ad-perf-ok {
+  border-color: var(--fl-border);
+  background: var(--fl-surface-2, transparent);
+  color: var(--fl-muted);
+}
+
+.ad-perf-history-card {
+  overflow: hidden;
+}
+
+.ad-perf-history-head {
+  gap: 12px;
+}
+
+.ad-perf-history-card > .ad-perf-error {
+  margin-bottom: 0;
+}
+
+.ad-perf-range {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--fl-border);
+  border-radius: 9px;
+  background: var(--fl-bg, transparent);
+}
+
+.ad-perf-range button {
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--fl-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ad-perf-range button.is-active {
+  background: var(--fl-primary);
+  color: #fff;
+}
+
+.ad-perf-range button:focus-visible,
+.ad-perf-refresh:focus-visible {
+  outline: 2px solid var(--fl-primary);
+  outline-offset: 2px;
+}
+
+.ad-perf-trends {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding-top: 12px;
+}
+
+.ad-perf-trend {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--fl-border);
+  border-radius: 12px;
+}
+
+.ad-perf-trend .fl-card-head {
+  padding: 12px 14px;
+}
+
+.ad-perf-trend .fl-card-body {
+  padding: 12px 14px 14px;
+}
+
+.ad-perf-chart-empty {
+  display: grid;
+  min-height: 190px;
+  place-items: center;
+  color: var(--fl-muted-2);
+  font-size: 13px;
+}
+
+.ad-perf-chart-labels {
+  display: flex;
+  justify-content: space-between;
+  color: var(--fl-muted-2);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-perf-history-note {
+  padding: 0 16px 14px;
+  color: var(--fl-muted-2);
+  font-size: 11.5px;
+}
+
+.ad-perf-table-wrap {
+  overflow-x: auto;
+}
+
+.ad-perf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-perf-table th,
+.ad-perf-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--fl-border);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ad-perf-table th {
+  color: var(--fl-muted-2);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ad-perf-table th:first-child,
+.ad-perf-table td:first-child {
+  text-align: left;
+}
+
+.ad-perf-table td:first-child {
+  min-width: 220px;
+}
+
+.ad-perf-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.ad-perf-table code {
+  color: var(--fl-text);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+}
+
+.ad-perf-method {
+  display: inline-block;
+  min-width: 40px;
+  margin-right: 7px;
+  color: var(--fl-primary);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.ad-perf-empty-row {
+  padding: 22px 12px !important;
+  color: var(--fl-muted-2);
+  text-align: center !important;
+}
+
+.ad-perf-endpoints-card .ad-perf-note {
+  padding: 10px 12px 13px;
+}
+
 .ad-perf-footnote {
   margin: 0;
 }
 
 @media (max-width: 768px) {
   .ad-perf-grid,
-  .ad-perf-grid-secondary {
+  .ad-perf-grid-secondary,
+  .ad-perf-trends {
     grid-template-columns: 1fr;
   }
 
@@ -408,6 +602,16 @@
 
   .ad-perf-overview .fl-card-head {
     gap: 8px;
+  }
+
+  .ad-perf-history-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .ad-perf-head-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .ad-perf-resource > div:first-child {

@@ -17,5 +17,17 @@ public record PerformanceSnapshot(
         Double jvmHeapUsedBytes,
         Double jvmHeapMaxBytes,
         Double dbConnectionsActive,
-        Double dbConnectionsMax) {
+        Double dbConnectionsIdle,
+        Double dbConnectionsPending,
+        Double dbConnectionsMax,
+        Double jvmNonHeapUsedBytes,
+        Double jvmNonHeapMaxBytes,
+        Double processCpuPercent,
+        Double systemCpuPercent,
+        Double containerMemoryUsedBytes,
+        Double containerMemoryMaxBytes,
+        Double systemMemoryUsedBytes,
+        Double systemMemoryTotalBytes,
+        Double uploadStorageUsableBytes,
+        Double uploadStorageTotalBytes) {
 }

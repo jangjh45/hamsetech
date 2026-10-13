@@ -7,6 +7,9 @@ import com.hamsetech.hamsetech.admin.AdminReadLogRepository;
 import com.hamsetech.hamsetech.admin.AdminController;
 import com.hamsetech.hamsetech.admin.performance.PerformanceMetricsController;
 import com.hamsetech.hamsetech.admin.performance.PerformanceMetricsService;
+import com.hamsetech.hamsetech.admin.performance.PerformanceHistoryService;
+import com.hamsetech.hamsetech.admin.performance.PerformanceHistoryResponse;
+import com.hamsetech.hamsetech.admin.performance.PerformanceAlertProperties;
 import com.hamsetech.hamsetech.admin.performance.PerformanceSnapshot;
 import com.hamsetech.hamsetech.auth.AuthController;
 import com.hamsetech.hamsetech.config.SecurityConfig;
@@ -83,6 +86,8 @@ class SecurityRulesTest {
     @MockitoBean private AdminLogService adminLogService;
     @MockitoBean private LoginAttemptService loginAttemptService;
     @MockitoBean private PerformanceMetricsService performanceMetricsService;
+    @MockitoBean private PerformanceHistoryService performanceHistoryService;
+    @MockitoBean private PerformanceAlertProperties performanceAlertProperties;
     @MockitoBean private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     @MockitoBean private JwtService jwtService;
 
@@ -118,6 +123,13 @@ class SecurityRulesTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    @DisplayName("익명 사용자는 성능 추이도 조회할 수 없다")
+    void anonymousUserCannotReadPerformanceHistory() throws Exception {
+        mvc.perform(get("/api/admin/performance/history").param("range", "1h"))
+                .andExpect(status().isUnauthorized());
+    }
+
     // ── 로그인은 됐지만 권한이 없는 요청 ──────────────────────────────
 
     @Test
@@ -141,18 +153,45 @@ class SecurityRulesTest {
     }
 
     @Test
+    @WithMockUser(roles = "USER")
+    @DisplayName("일반 사용자는 성능 추이를 조회할 수 없다")
+    void regularUserCannotReadPerformanceHistory() throws Exception {
+        mvc.perform(get("/api/admin/performance/history").param("range", "1h")
+                        .with(testSecurityContext()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @WithMockUser(roles = "ADMIN")
     @DisplayName("관리자는 성능 지표를 조회할 수 있다")
     void adminCanReadPerformanceMetrics() throws Exception {
         org.mockito.Mockito.when(performanceMetricsService.snapshot()).thenReturn(
                 new PerformanceSnapshot(Instant.parse("2026-10-12T00:00:00Z"),
                         5, 20, 1, 1.0, 5.0, 12.0, 10.0, 20.0, 25.0,
-                        100.0, 200.0, 2.0, 5.0));
+                        100.0, 200.0, 2.0, 1.0, 0.0, 5.0,
+                        20.0, 40.0, 1.0, 2.0, 128.0, 256.0, 512.0, 1024.0,
+                        1000.0, 2000.0));
 
         mvc.perform(get("/api/admin/performance").with(testSecurityContext()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.requestsPerSecond").value(1.0))
-                .andExpect(jsonPath("$.p95LatencyMs").value(20.0));
+                .andExpect(jsonPath("$.current.requestsPerSecond").value(1.0))
+                .andExpect(jsonPath("$.current.p95LatencyMs").value(20.0));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("관리자는 기간별 성능 추이를 조회할 수 있다")
+    void adminCanReadPerformanceHistory() throws Exception {
+        org.mockito.Mockito.when(performanceHistoryService.history(
+                PerformanceMetricsController.PerformanceRange.ONE_HOUR))
+                .thenReturn(new PerformanceHistoryResponse("1h", Instant.parse("2026-10-12T01:00:00Z"),
+                        Instant.parse("2026-10-12T00:00:00Z"), 30, java.util.List.of()));
+
+        mvc.perform(get("/api/admin/performance/history").param("range", "1h")
+                        .with(testSecurityContext()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.range").value("1h"))
+                .andExpect(jsonPath("$.retentionDays").value(30));
     }
 
     @Test
