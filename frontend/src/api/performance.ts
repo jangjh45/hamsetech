@@ -40,6 +40,8 @@ export type ApiPerformanceMetric = {
   p99LatencyMs: number | null
 }
 
+export type PerformanceEndpointSort = 'p95' | 'errors' | 'requests'
+
 export type PerformanceThresholds = {
   p95LatencyMs: number
   errorRatePercent: number
@@ -49,6 +51,17 @@ export type PerformanceThresholds = {
   systemCpuPercent: number
   systemMemoryUsedPercent: number
   uploadStorageFreePercent: number
+}
+
+export type PerformanceAlertEvent = {
+  id: number
+  alertKey: string
+  eventType: 'TRIGGERED' | 'RESOLVED'
+  message: string
+  observedValue: number
+  thresholdValue: number | null
+  unit: string
+  occurredAt: string
 }
 
 export type PerformanceDashboardSnapshot = {
@@ -87,4 +100,22 @@ export function getPerformanceSnapshot(): Promise<PerformanceDashboardSnapshot> 
 
 export function getPerformanceHistory(range: PerformanceHistory['range']): Promise<PerformanceHistory> {
   return apiFetch(`/api/admin/performance/history?range=${range}`)
+}
+
+export function getPerformanceEndpoints(
+  range: PerformanceHistory['range'],
+  sort: PerformanceEndpointSort,
+): Promise<ApiPerformanceMetric[]> {
+  return apiFetch(`/api/admin/performance/endpoints?range=${range}&sort=${sort}`)
+}
+
+export function updatePerformanceThresholds(thresholds: PerformanceThresholds): Promise<PerformanceThresholds> {
+  return apiFetch('/api/admin/performance/thresholds', {
+    method: 'PUT',
+    body: JSON.stringify(thresholds),
+  })
+}
+
+export function getPerformanceAlertEvents(limit = 50): Promise<PerformanceAlertEvent[]> {
+  return apiFetch(`/api/admin/performance/alerts?limit=${limit}`)
 }
