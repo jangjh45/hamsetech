@@ -1,5 +1,15 @@
 package com.hamsetech.hamsetech.db;
 
+import com.hamsetech.hamsetech.admin.performance.PerformanceHistoryService;
+import com.hamsetech.hamsetech.admin.performance.PerformanceEndpointHistoryService;
+import com.hamsetech.hamsetech.admin.performance.PerformanceEndpointMinute;
+import com.hamsetech.hamsetech.admin.performance.PerformanceEndpointSort;
+import com.hamsetech.hamsetech.admin.performance.ApiPerformanceMetric;
+import com.hamsetech.hamsetech.admin.performance.PerformanceMetricsController;
+import com.hamsetech.hamsetech.admin.performance.PerformanceAlertSettingsService;
+import com.hamsetech.hamsetech.admin.performance.PerformanceAlertService;
+import com.hamsetech.hamsetech.admin.performance.PerformanceSnapshot;
+import com.hamsetech.hamsetech.admin.performance.PerformanceThresholds;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +22,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.List;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -51,6 +62,18 @@ class SchemaMigrationTest {
 	@Autowired
 	private JdbcTemplate jdbc;
 
+	@Autowired
+	private PerformanceHistoryService performanceHistoryService;
+
+	@Autowired
+	private PerformanceAlertSettingsService performanceAlertSettingsService;
+
+	@Autowired
+	private PerformanceAlertService performanceAlertService;
+
+	@Autowired
+	private PerformanceEndpointHistoryService performanceEndpointHistoryService;
+
 	@Test
 	@DisplayName("빈 데이터베이스에 마이그레이션이 전부 적용된다")
 	void allMigrationsApply() {
@@ -59,7 +82,7 @@ class SchemaMigrationTest {
 				"SELECT version FROM flyway_schema_history WHERE success = true AND version IS NOT NULL "
 						+ "ORDER BY installed_rank", String.class);
 
-        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8");
+        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12");
 	}
 
 	@Test
@@ -70,12 +93,13 @@ class SchemaMigrationTest {
 
 		assertThat(tables).contains(
 				"users", "user_roles",
-				"notices", "notice_comments", "notice_attachments", "notice_views",
-				"calendar_events", "todos",
-				"packing_scenarios", "packing_items",
-				"overtime_records", "overtime_default_times", "overtime_payroll_setting",
-				"vendors", "vendor_contacts", "vendor_categories",
-				"admin_logs", "admin_read_logs");
+                "notices", "notice_comments", "notice_attachments", "notice_views",
+                "calendar_events", "todos",
+                "packing_scenarios", "packing_items",
+                "overtime_records", "overtime_default_times", "overtime_payroll_setting",
+                "vendors", "vendor_contacts", "vendor_categories",
+                "admin_logs", "admin_read_logs", "performance_snapshots", "performance_alert_settings",
+                "performance_alert_state", "performance_alert_events", "performance_endpoint_snapshots");
 	}
 
 	@Test
@@ -193,7 +217,7 @@ class SchemaMigrationTest {
 
     @Test
     @DisplayName("잔업 동시성 버전과 기본 설정 행이 준비된다")
-    void overtimeConcurrencyAndDefaultsArePrepared() {
+	void overtimeConcurrencyAndDefaultsArePrepared() {
         Integer versionColumn = jdbc.queryForObject(
                 "SELECT count(*) FROM information_schema.columns "
                         + "WHERE table_name = 'overtime_records' AND column_name = 'version'", Integer.class);
@@ -206,4 +230,92 @@ class SchemaMigrationTest {
         assertThat(defaultTypes).containsExactly("OVERTIME", "SPECIAL");
         assertThat(payrollSettings).isEqualTo(1);
     }
+
+    @Test
+    @DisplayName("성능 추이를 분 단위로 저장하고 조회한다")
+	void performanceSnapshotsCanBeStoredAndQueried() {
+        performanceHistoryService.captureMinute();
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM performance_snapshots", Integer.class))
+                .isGreaterThanOrEqualTo(1);
+        assertThat(performanceHistoryService.history(
+                PerformanceMetricsController.PerformanceRange.ONE_DAY).points())
+                .isNotEmpty();
+
+        Integer systemMemoryColumns = jdbc.queryForObject(
+                "SELECT count(*) FROM information_schema.columns WHERE table_name = 'performance_snapshots' "
+                        + "AND column_name IN ('system_memory_used_bytes', 'system_memory_total_bytes')",
+                Integer.class);
+		assertThat(systemMemoryColumns).isEqualTo(2);
+	}
+
+	@Test
+	@DisplayName("성능 경고 기준을 저장하고 경고 발생·해소 이력을 남긴다")
+	void performanceAlertSettingsAndEventsPersist() {
+		PerformanceThresholds original = performanceAlertSettingsService.snapshot();
+		PerformanceThresholds configured = new PerformanceThresholds(
+				1500, 100, 100, 100, 100, 100, 100, 0);
+		try {
+			performanceAlertSettingsService.update(configured, "schema-test-admin");
+			assertThat(performanceAlertSettingsService.snapshot()).isEqualTo(configured);
+
+			jdbc.update("DELETE FROM performance_alert_state WHERE alert_key = 'p95_latency'");
+			jdbc.update("DELETE FROM performance_alert_events WHERE alert_key = 'p95_latency'");
+			performanceAlertService.recordSnapshot(snapshot(1_800, 2_000));
+			performanceAlertService.recordSnapshot(snapshot(1_860, 100));
+
+			List<String> transitions = jdbc.queryForList(
+					"SELECT event_type FROM performance_alert_events WHERE alert_key = 'p95_latency' ORDER BY id",
+					String.class);
+			assertThat(transitions).containsExactly("TRIGGERED", "RESOLVED");
+			assertThat(jdbc.queryForObject(
+					"SELECT count(*) FROM performance_alert_state WHERE alert_key = 'p95_latency'", Integer.class))
+					.isZero();
+		} finally {
+			performanceAlertSettingsService.update(original, "schema-test-admin");
+			jdbc.update("DELETE FROM performance_alert_state WHERE alert_key = 'p95_latency'");
+			jdbc.update("DELETE FROM performance_alert_events WHERE alert_key = 'p95_latency'");
+		}
+	}
+
+	@Test
+	@DisplayName("느린 API 기간 집계는 p95·오류율·요청 수로 정렬된다")
+	void endpointHistoryAggregatesAndSortsBySelectedMetric() {
+		Instant firstMinute = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MINUTES).minusSeconds(120);
+		try {
+			performanceEndpointHistoryService.captureMinute(firstMinute, List.of(
+					new PerformanceEndpointMinute("GET", "/api/metrics/a", 4, 1,
+							400_000_000, 200.0, 250.0),
+					new PerformanceEndpointMinute("POST", "/api/metrics/b", 5, 2,
+							500_000_000, 100.0, 120.0)));
+			performanceEndpointHistoryService.captureMinute(firstMinute.plusSeconds(60), List.of(
+					new PerformanceEndpointMinute("GET", "/api/metrics/a", 6, 0,
+							300_000_000, 50.0, 60.0)));
+
+			List<ApiPerformanceMetric> p95 = performanceEndpointHistoryService.endpoints(
+					PerformanceMetricsController.PerformanceRange.ONE_HOUR, PerformanceEndpointSort.P95);
+			List<ApiPerformanceMetric> errors = performanceEndpointHistoryService.endpoints(
+					PerformanceMetricsController.PerformanceRange.ONE_HOUR, PerformanceEndpointSort.ERROR_RATE);
+			List<ApiPerformanceMetric> requests = performanceEndpointHistoryService.endpoints(
+					PerformanceMetricsController.PerformanceRange.ONE_HOUR, PerformanceEndpointSort.REQUESTS);
+
+			assertThat(p95.get(0).path()).isEqualTo("/api/metrics/a");
+			assertThat(p95.get(0).requests()).isEqualTo(10);
+			assertThat(p95.get(0).serverErrors()).isEqualTo(1);
+			assertThat(p95.get(0).errorRatePercent()).isEqualTo(10.0);
+			assertThat(p95.get(0).averageLatencyMs()).isEqualTo(70.0);
+			assertThat(p95.get(0).p95LatencyMs()).isEqualTo(200.0);
+			assertThat(errors.get(0).path()).isEqualTo("/api/metrics/b");
+			assertThat(requests.get(0).path()).isEqualTo("/api/metrics/a");
+		} finally {
+			jdbc.update("DELETE FROM performance_endpoint_snapshots WHERE path LIKE '/api/metrics/%'");
+		}
+	}
+
+	private static PerformanceSnapshot snapshot(long epochSecond, double p95LatencyMs) {
+		return new PerformanceSnapshot(Instant.ofEpochSecond(epochSecond), 0, 1, 0, 0, 0,
+				null, null, p95LatencyMs, null,
+				null, null, null, null, null, null, null, null,
+				null, null, null, null, null, null, null, null);
+	}
 }

@@ -13,6 +13,7 @@ import { useOvertimeTab } from '../hooks/useOvertimeTab'
 import { KeyIcon, UnlockIcon, UserMinusIcon } from '../components/AdminIcons'
 import DisplayNameEditor from '../components/admin/DisplayNameEditor'
 import LogRows from '../components/admin/LogRows'
+import PerformancePanel from '../components/admin/PerformancePanel'
 import OvertimeBulkModal from '../components/admin/OvertimeBulkModal'
 import TempPasswordModal from '../components/admin/TempPasswordModal'
 import {
@@ -41,7 +42,7 @@ export default function AdminPage() {
   const [msg, setMsg] = useState('loading...')
   const [error, setError] = useState('')
   const [tokenExpired, setTokenExpired] = useState(false)
-  const [activeTab, setActiveTab] = useState<'users' | 'pending' | 'withdraw' | 'logs' | 'readLogs' | 'overtime'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'pending' | 'withdraw' | 'logs' | 'readLogs' | 'overtime' | 'performance'>('users')
   const [logStats, setLogStats] = useState<any>(null)
   const navigate = useNavigate()
   const logsTab = useChangeLogsTab(activeTab === 'logs')
@@ -165,6 +166,12 @@ export default function AdminPage() {
             onClick={() => setActiveTab('overtime')}
           >
             잔업특근
+          </button>
+          <button
+            className={`fl-seg-btn${activeTab === 'performance' ? ' is-active' : ''}`}
+            onClick={() => setActiveTab('performance')}
+          >
+            성능
           </button>
         </div>
       </div>
@@ -1086,6 +1093,7 @@ export default function AdminPage() {
           )}
         </div>
       )}
+      {activeTab === 'performance' && <PerformancePanel />}
       {userTabs.tempPassword && (
         <TempPasswordModal
           username={userTabs.tempPassword.username}
