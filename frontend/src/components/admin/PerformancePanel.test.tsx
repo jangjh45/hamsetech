@@ -170,6 +170,22 @@ describe('PerformancePanel', () => {
     expect(screen.getByText('2,400 ms / 2,000 ms')).toBeTruthy()
   })
 
+  it('shows current container memory usage when Docker has no memory limit', async () => {
+    vi.mocked(getPerformanceSnapshot).mockResolvedValue({
+      ...dashboard,
+      current: { ...dashboard.current, containerMemoryMaxBytes: null },
+    })
+
+    render(<PerformancePanel />)
+
+    expect(await screen.findByText('1.8 KB 사용 · 제한 없음')).toBeTruthy()
+    expect(screen.getByText('메모리 상한이 없어 사용률은 계산하지 않습니다.')).toBeTruthy()
+    const resource = screen.getByText('컨테이너 메모리', {
+      selector: '.ad-perf-resource > div:first-child > span',
+    }).closest('.ad-perf-resource')
+    expect(resource?.querySelector('.ad-perf-meter')).toBeNull()
+  })
+
   it('requests slow API history using the selected period and sort order', async () => {
     render(<PerformancePanel />)
 
@@ -192,5 +208,22 @@ describe('PerformancePanel', () => {
     cleanup()
     render(<PerformancePanel />)
     expect((await screen.findByRole('button', { name: '시스템 CPU' })).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('draws container memory usage history even when cgroup has no memory limit', async () => {
+    const points = [1, 2, 3].map((usedGiB, index) => ({
+      ...history.points[0],
+      capturedAt: `2026-10-13T08:0${index}:00Z`,
+      containerMemoryUsedBytes: usedGiB * 1024 ** 3,
+      containerMemoryMaxBytes: null,
+    }))
+    vi.mocked(getPerformanceHistory).mockResolvedValue({ ...history, points })
+
+    render(<PerformancePanel />)
+    fireEvent.click(await screen.findByRole('button', { name: '컨테이너 메모리 사용량' }))
+
+    const chart = await screen.findByRole('img', { name: '선택한 기간의 컨테이너 메모리 사용량 추이' })
+    expect(chart.querySelectorAll('polyline')).toHaveLength(1)
+    expect(screen.getByText('3 GiB')).toBeTruthy()
   })
 })

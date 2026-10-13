@@ -38,7 +38,7 @@ public class PerformanceAlertEvaluator {
                 snapshot.containerMemoryMaxBytes(), thresholds.containerMemoryUsedPercent());
         addThresholdAlert(alerts, "system_cpu", "시스템 CPU 사용률", snapshot.systemCpuPercent(),
                 thresholds.systemCpuPercent(), "%");
-        addRatioAlert(alerts, "system_memory", "NAS 시스템 메모리 사용률", snapshot.systemMemoryUsedBytes(),
+        addRatioAlert(alerts, "system_memory", "시스템 메모리 사용률", snapshot.systemMemoryUsedBytes(),
                 snapshot.systemMemoryTotalBytes(), thresholds.systemMemoryUsedPercent());
 
         Double uploadFreePercent = ratioPercent(snapshot.uploadStorageUsableBytes(), snapshot.uploadStorageTotalBytes());
