@@ -64,6 +64,21 @@ security:
 
 # Default admin (dev only) - 운영 환경에서는 환경변수로 반드시 주입
 admin:
+  performance:
+    # 분당 한 건의 요약만 저장하며 오래된 추이는 매일 정리한다.
+    history-retention-days: ${PERFORMANCE_HISTORY_RETENTION_DAYS:30}
+    snapshot-cron: "0 * * * * *"
+    cleanup-cron: "0 45 4 * * *"
+    alerts:
+      # 초기 운영 기준값이며 서비스 SLO에 맞게 환경변수/설정으로 조정한다.
+      p95-latency-ms: ${PERFORMANCE_ALERT_P95_MS:2000}
+      error-rate-percent: ${PERFORMANCE_ALERT_ERROR_RATE_PERCENT:1}
+      heap-used-percent: ${PERFORMANCE_ALERT_HEAP_PERCENT:85}
+      db-pool-used-percent: ${PERFORMANCE_ALERT_DB_POOL_PERCENT:80}
+      container-memory-used-percent: ${PERFORMANCE_ALERT_CONTAINER_MEMORY_PERCENT:85}
+      system-cpu-percent: ${PERFORMANCE_ALERT_SYSTEM_CPU_PERCENT:90}
+      system-memory-used-percent: ${PERFORMANCE_ALERT_SYSTEM_MEMORY_PERCENT:90}
+      upload-storage-free-percent: ${PERFORMANCE_ALERT_STORAGE_FREE_PERCENT:10}
   # 초기 관리자 생성은 명시적으로 활성화한 경우에만 수행한다.
   # 기존 사용자의 역할·비밀번호·승인 상태는 절대 변경하지 않는다.
   bootstrap:

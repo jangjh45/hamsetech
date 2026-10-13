@@ -1,5 +1,7 @@
 package com.hamsetech.hamsetech.db;
 
+import com.hamsetech.hamsetech.admin.performance.PerformanceHistoryService;
+import com.hamsetech.hamsetech.admin.performance.PerformanceMetricsController;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +53,9 @@ class SchemaMigrationTest {
 	@Autowired
 	private JdbcTemplate jdbc;
 
+	@Autowired
+	private PerformanceHistoryService performanceHistoryService;
+
 	@Test
 	@DisplayName("빈 데이터베이스에 마이그레이션이 전부 적용된다")
 	void allMigrationsApply() {
@@ -59,7 +64,7 @@ class SchemaMigrationTest {
 				"SELECT version FROM flyway_schema_history WHERE success = true AND version IS NOT NULL "
 						+ "ORDER BY installed_rank", String.class);
 
-        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8");
+        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10");
 	}
 
 	@Test
@@ -75,7 +80,7 @@ class SchemaMigrationTest {
 				"packing_scenarios", "packing_items",
 				"overtime_records", "overtime_default_times", "overtime_payroll_setting",
 				"vendors", "vendor_contacts", "vendor_categories",
-				"admin_logs", "admin_read_logs");
+                "admin_logs", "admin_read_logs", "performance_snapshots");
 	}
 
 	@Test
@@ -193,7 +198,7 @@ class SchemaMigrationTest {
 
     @Test
     @DisplayName("잔업 동시성 버전과 기본 설정 행이 준비된다")
-    void overtimeConcurrencyAndDefaultsArePrepared() {
+	void overtimeConcurrencyAndDefaultsArePrepared() {
         Integer versionColumn = jdbc.queryForObject(
                 "SELECT count(*) FROM information_schema.columns "
                         + "WHERE table_name = 'overtime_records' AND column_name = 'version'", Integer.class);
@@ -205,5 +210,23 @@ class SchemaMigrationTest {
         assertThat(versionColumn).isEqualTo(1);
         assertThat(defaultTypes).containsExactly("OVERTIME", "SPECIAL");
         assertThat(payrollSettings).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("성능 추이를 분 단위로 저장하고 조회한다")
+    void performanceSnapshotsCanBeStoredAndQueried() {
+        performanceHistoryService.captureMinute();
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM performance_snapshots", Integer.class))
+                .isGreaterThanOrEqualTo(1);
+        assertThat(performanceHistoryService.history(
+                PerformanceMetricsController.PerformanceRange.ONE_DAY).points())
+                .isNotEmpty();
+
+        Integer systemMemoryColumns = jdbc.queryForObject(
+                "SELECT count(*) FROM information_schema.columns WHERE table_name = 'performance_snapshots' "
+                        + "AND column_name IN ('system_memory_used_bytes', 'system_memory_total_bytes')",
+                Integer.class);
+        assertThat(systemMemoryColumns).isEqualTo(2);
     }
 }

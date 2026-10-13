@@ -24,6 +24,7 @@ public class PerformanceMetricsFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         return !path.startsWith("/api/")
                 || path.equals(PERFORMANCE_ENDPOINT)
+                || path.startsWith(PERFORMANCE_ENDPOINT + "/")
                 || "OPTIONS".equalsIgnoreCase(request.getMethod());
     }
 
@@ -34,9 +35,11 @@ public class PerformanceMetricsFilter extends OncePerRequestFilter {
         try {
             chain.doFilter(request, response);
         } catch (ServletException | IOException | RuntimeException | Error exception) {
-            metricsService.recordRequest(System.nanoTime() - startedAt, 500);
+            metricsService.recordRequest(System.nanoTime() - startedAt, 500,
+                    request.getMethod(), request.getRequestURI());
             throw exception;
         }
-        metricsService.recordRequest(System.nanoTime() - startedAt, response.getStatus());
+        metricsService.recordRequest(System.nanoTime() - startedAt, response.getStatus(),
+                request.getMethod(), request.getRequestURI());
     }
 }
