@@ -5,6 +5,17 @@ import com.hamsetech.hamsetech.admin.AdminLogService;
 import com.hamsetech.hamsetech.admin.AdminPasswordResetService;
 import com.hamsetech.hamsetech.admin.AdminReadLogRepository;
 import com.hamsetech.hamsetech.admin.AdminController;
+import com.hamsetech.hamsetech.admin.performance.PerformanceMetricsController;
+import com.hamsetech.hamsetech.admin.performance.PerformanceMetricsService;
+import com.hamsetech.hamsetech.admin.performance.PerformanceHistoryService;
+import com.hamsetech.hamsetech.admin.performance.PerformanceHistoryResponse;
+import com.hamsetech.hamsetech.admin.performance.PerformanceAlertSettingsService;
+import com.hamsetech.hamsetech.admin.performance.PerformanceAlertService;
+import com.hamsetech.hamsetech.admin.performance.PerformanceEndpointHistoryService;
+import com.hamsetech.hamsetech.admin.performance.PerformanceEndpointSort;
+import com.hamsetech.hamsetech.admin.performance.ApiPerformanceMetric;
+import com.hamsetech.hamsetech.admin.performance.PerformanceSnapshot;
+import com.hamsetech.hamsetech.admin.performance.PerformanceThresholds;
 import com.hamsetech.hamsetech.auth.AuthController;
 import com.hamsetech.hamsetech.config.SecurityConfig;
 import com.hamsetech.hamsetech.notice.NoticeController;
@@ -29,6 +40,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Optional;
+import java.time.Instant;
 import java.util.function.Supplier;
 
 import static org.mockito.ArgumentMatchers.anyString;
@@ -58,6 +70,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 익명 요청을 검증하는 테스트에는 붙이지 않는다.
  */
 @WebMvcTest(controllers = {NoticeController.class, AdminController.class, AuthController.class,
+        PerformanceMetricsController.class,
         OvertimeRecordController.class})
 @Import({SecurityConfig.class, JwtAuthenticationFilter.class})
 @ActiveProfiles("test")
@@ -77,6 +90,11 @@ class SecurityRulesTest {
     @MockitoBean private AdminPasswordResetService adminPasswordResetService;
     @MockitoBean private AdminLogService adminLogService;
     @MockitoBean private LoginAttemptService loginAttemptService;
+    @MockitoBean private PerformanceMetricsService performanceMetricsService;
+    @MockitoBean private PerformanceHistoryService performanceHistoryService;
+    @MockitoBean private PerformanceEndpointHistoryService performanceEndpointHistoryService;
+    @MockitoBean private PerformanceAlertSettingsService performanceAlertSettingsService;
+    @MockitoBean private PerformanceAlertService performanceAlertService;
     @MockitoBean private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     @MockitoBean private JwtService jwtService;
 
@@ -105,6 +123,20 @@ class SecurityRulesTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    @DisplayName("익명 사용자는 성능 지표를 조회할 수 없다")
+    void anonymousUserCannotReadPerformanceMetrics() throws Exception {
+        mvc.perform(get("/api/admin/performance"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("익명 사용자는 성능 추이도 조회할 수 없다")
+    void anonymousUserCannotReadPerformanceHistory() throws Exception {
+        mvc.perform(get("/api/admin/performance/history").param("range", "1h"))
+                .andExpect(status().isUnauthorized());
+    }
+
     // ── 로그인은 됐지만 권한이 없는 요청 ──────────────────────────────
 
     @Test
@@ -116,6 +148,118 @@ class SecurityRulesTest {
         mvc.perform(get("/api/admin/users").with(testSecurityContext()))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    @DisplayName("일반 사용자는 성능 지표를 조회할 수 없다")
+    void regularUserCannotReadPerformanceMetrics() throws Exception {
+        mvc.perform(get("/api/admin/performance").with(testSecurityContext()))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"));
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    @DisplayName("일반 사용자는 성능 경고 기준을 수정할 수 없다")
+    void regularUserCannotUpdatePerformanceThresholds() throws Exception {
+        mvc.perform(put("/api/admin/performance/thresholds")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"p95LatencyMs":1500,"errorRatePercent":1,"heapUsedPercent":85,
+                                 "dbPoolUsedPercent":80,"containerMemoryUsedPercent":85,"systemCpuPercent":90,
+                                 "systemMemoryUsedPercent":90,"uploadStorageFreePercent":10}
+                                """)
+                        .with(testSecurityContext()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    @DisplayName("일반 사용자는 성능 추이를 조회할 수 없다")
+    void regularUserCannotReadPerformanceHistory() throws Exception {
+        mvc.perform(get("/api/admin/performance/history").param("range", "1h")
+                        .with(testSecurityContext()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    @DisplayName("일반 사용자는 느린 API 이력을 조회할 수 없다")
+    void regularUserCannotReadSlowEndpointHistory() throws Exception {
+        mvc.perform(get("/api/admin/performance/endpoints").param("range", "24h").param("sort", "errors")
+                        .with(testSecurityContext()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("관리자는 기간과 정렬 기준을 지정해 느린 API 이력을 조회할 수 있다")
+    void adminCanReadSlowEndpointHistory() throws Exception {
+        org.mockito.Mockito.when(performanceEndpointHistoryService.endpoints(
+                PerformanceMetricsController.PerformanceRange.ONE_DAY, PerformanceEndpointSort.ERROR_RATE))
+                .thenReturn(java.util.List.of(new ApiPerformanceMetric(
+                        "GET", "/api/notices/{id}", 12, 2, 16.7, 45.0, 120.0, 150.0)));
+
+        mvc.perform(get("/api/admin/performance/endpoints").param("range", "24h").param("sort", "errors")
+                        .with(testSecurityContext()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].path").value("/api/notices/{id}"))
+                .andExpect(jsonPath("$[0].errorRatePercent").value(16.7));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("관리자는 성능 지표를 조회할 수 있다")
+    void adminCanReadPerformanceMetrics() throws Exception {
+        org.mockito.Mockito.when(performanceMetricsService.snapshot()).thenReturn(
+                new PerformanceSnapshot(Instant.parse("2026-10-12T00:00:00Z"),
+                        5, 20, 1, 1.0, 5.0, 12.0, 10.0, 20.0, 25.0,
+                        100.0, 200.0, 2.0, 1.0, 0.0, 5.0,
+                        20.0, 40.0, 1.0, 2.0, 128.0, 256.0, 512.0, 1024.0,
+                        1000.0, 2000.0));
+
+        mvc.perform(get("/api/admin/performance").with(testSecurityContext()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.current.requestsPerSecond").value(1.0))
+                .andExpect(jsonPath("$.current.p95LatencyMs").value(20.0));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("관리자는 성능 경고 기준을 수정할 수 있다")
+    void adminCanUpdatePerformanceThresholds() throws Exception {
+        PerformanceThresholds expected = new PerformanceThresholds(1500, 1, 85, 80, 85, 90, 90, 10);
+        org.mockito.Mockito.when(performanceAlertSettingsService.update(
+                org.mockito.ArgumentMatchers.any(PerformanceThresholds.class), anyString()))
+                .thenReturn(expected);
+
+        mvc.perform(put("/api/admin/performance/thresholds")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"p95LatencyMs":1500,"errorRatePercent":1,"heapUsedPercent":85,
+                                 "dbPoolUsedPercent":80,"containerMemoryUsedPercent":85,"systemCpuPercent":90,
+                                 "systemMemoryUsedPercent":90,"uploadStorageFreePercent":10}
+                                """)
+                        .with(testSecurityContext()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.p95LatencyMs").value(1500));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    @DisplayName("관리자는 기간별 성능 추이를 조회할 수 있다")
+    void adminCanReadPerformanceHistory() throws Exception {
+        org.mockito.Mockito.when(performanceHistoryService.history(
+                PerformanceMetricsController.PerformanceRange.ONE_HOUR))
+                .thenReturn(new PerformanceHistoryResponse("1h", Instant.parse("2026-10-12T01:00:00Z"),
+                        Instant.parse("2026-10-12T00:00:00Z"), 30, java.util.List.of()));
+
+        mvc.perform(get("/api/admin/performance/history").param("range", "1h")
+                        .with(testSecurityContext()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.range").value("1h"))
+                .andExpect(jsonPath("$.retentionDays").value(30));
     }
 
     @Test
