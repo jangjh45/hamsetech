@@ -78,6 +78,34 @@
   border-bottom: 1px solid var(--fl-border);
 }
 
+.ad-transient-notice {
+  margin: 0 0 16px;
+  padding: 11px 14px;
+  border: 1px solid var(--fl-border);
+  border-radius: 10px;
+  background: var(--fl-warn-soft);
+  color: var(--fl-warn);
+  font-size: 13px;
+  animation: ad-notice-dismiss 3.7s ease forwards;
+}
+
+@keyframes ad-notice-dismiss {
+  0%, 85% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ad-transient-notice {
+    animation: none;
+  }
+}
+
 .ad-user-name {
   font-weight: 500;
   min-width: 0;

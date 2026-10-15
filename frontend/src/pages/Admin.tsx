@@ -41,6 +41,7 @@ function workTimeText(r: OvertimeRecord): string {
 export default function AdminPage() {
   const [msg, setMsg] = useState('loading...')
   const [error, setError] = useState('')
+  const [transientNotice, setTransientNotice] = useState('')
   const [tokenExpired, setTokenExpired] = useState(false)
   const [activeTab, setActiveTab] = useState<'users' | 'pending' | 'withdraw' | 'logs' | 'readLogs' | 'overtime' | 'performance'>('users')
   const [logStats, setLogStats] = useState<any>(null)
@@ -56,6 +57,7 @@ export default function AdminPage() {
   // 이름들을 참조하므로, 접두사를 붙이려면 렌더를 전부 손대야 한다.
   const {
     overtimeRecords,
+    approvingIds,
     overtimeLoading,
     overtimeSummary,
     overtimeFilters,
@@ -83,7 +85,21 @@ export default function AdminPage() {
     approveOvertime,
     rejectOvertime,
     deleteOvertime,
-  } = useOvertimeTab(activeTab === 'overtime', { onError: setError })
+  } = useOvertimeTab(activeTab === 'overtime', { onError: setError, onNotice: setTransientNotice })
+
+  useEffect(() => {
+    if (!transientNotice) return
+    const clearTimer = window.setTimeout(() => setTransientNotice(''), 3700)
+    return () => {
+      window.clearTimeout(clearTimer)
+    }
+  }, [transientNotice])
+
+  // 탭을 옮기면 이전 탭에서 난 알림은 남기지 않는다.
+  function changeTab(tab: typeof activeTab) {
+    setActiveTab(tab)
+    setTransientNotice('')
+  }
 
   useEffect(() => {
     const me = getMe()
@@ -133,43 +149,43 @@ export default function AdminPage() {
         <div className="fl-seg ad-tabs" role="tablist" aria-label="관리자 메뉴">
           <button
             className={`fl-seg-btn${activeTab === 'users' ? ' is-active' : ''}`}
-            onClick={() => setActiveTab('users')}
+            onClick={() => changeTab('users')}
           >
             사용자
           </button>
           <button
             className={`fl-seg-btn${activeTab === 'pending' ? ' is-active' : ''}${userTabs.pendingUsers.length > 0 ? ' fl-tone-warn' : ''}`}
-            onClick={() => setActiveTab('pending')}
+            onClick={() => changeTab('pending')}
           >
             가입 승인{userTabs.pendingUsers.length > 0 ? ` (${userTabs.pendingUsers.length})` : ''}
           </button>
           <button
             className={`fl-seg-btn${activeTab === 'withdraw' ? ' is-active' : ''}${userTabs.withdrawUsers.length > 0 ? ' fl-tone-warn' : ''}`}
-            onClick={() => setActiveTab('withdraw')}
+            onClick={() => changeTab('withdraw')}
           >
             탈퇴 신청{userTabs.withdrawUsers.length > 0 ? ` (${userTabs.withdrawUsers.length})` : ''}
           </button>
           <button
             className={`fl-seg-btn${activeTab === 'logs' ? ' is-active' : ''}`}
-            onClick={() => setActiveTab('logs')}
+            onClick={() => changeTab('logs')}
           >
             변경 이력
           </button>
           <button
             className={`fl-seg-btn${activeTab === 'readLogs' ? ' is-active' : ''}`}
-            onClick={() => setActiveTab('readLogs')}
+            onClick={() => changeTab('readLogs')}
           >
             조회 이력
           </button>
           <button
             className={`fl-seg-btn${activeTab === 'overtime' ? ' is-active' : ''}`}
-            onClick={() => setActiveTab('overtime')}
+            onClick={() => changeTab('overtime')}
           >
             잔업특근
           </button>
           <button
             className={`fl-seg-btn${activeTab === 'performance' ? ' is-active' : ''}`}
-            onClick={() => setActiveTab('performance')}
+            onClick={() => changeTab('performance')}
           >
             성능
           </button>
@@ -185,6 +201,12 @@ export default function AdminPage() {
       {error && (
         <div className="fl-error" style={{ marginBottom: 16 }}>
           {error}
+        </div>
+      )}
+
+      {transientNotice && (
+        <div key={transientNotice} className="ad-transient-notice" role="status" aria-live="polite">
+          {transientNotice}
         </div>
       )}
 
@@ -846,8 +868,9 @@ export default function AdminPage() {
                           <button
                             className="fl-btn fl-btn-sm fl-btn-primary"
                             onClick={() => approveOvertime(r.id)}
+                            disabled={approvingIds.has(r.id)}
                           >
-                            승인
+                            {approvingIds.has(r.id) ? '처리 중…' : '승인'}
                           </button>
                           <button className="fl-btn fl-btn-sm" onClick={() => setRejectingId(r.id)}>
                             반려

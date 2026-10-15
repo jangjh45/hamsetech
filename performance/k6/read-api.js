@@ -15,8 +15,9 @@ const writeWorkloads = new Set([
   'notice-crud',
   'crud-mix-user',
   'crud-mix',
+  'business-crud-mix',
 ])
-const adminWorkloads = new Set(['notice-crud', 'crud-mix'])
+const adminWorkloads = new Set(['notice-crud', 'crud-mix', 'business-crud-mix'])
 
 if (!Number.isInteger(maxVUs) || maxVUs < 1 || maxVUs > 20) {
   throw new Error('MAX_VUS는 1~20 사이의 정수여야 합니다.')
@@ -380,6 +381,23 @@ function runCrudMix(token, includeNotice) {
   selectedAction(token)
 }
 
+function runBusinessMix(token) {
+  // 비율: 공지 40%, 잔업 15%, 업체 15%, 시나리오 10%, 일정 10%, 할 일 10%.
+  const sample = Math.random()
+  const route = sample < 0.4
+    ? workloadRoutes.notices
+    : sample < 0.55
+      ? workloadRoutes.overtime
+      : sample < 0.7
+        ? workloadRoutes.vendors
+        : sample < 0.8
+          ? workloadRoutes.scenarios
+          : sample < 0.9
+            ? workloadRoutes.calendar
+            : workloadRoutes.todos
+  getApi(route.path, route.endpoint, token)
+}
+
 export default function ({ token }) {
   if (workloadName === 'notices') {
     getApi(workloadRoutes.notices.path, workloadRoutes.notices.endpoint, token)
@@ -389,20 +407,7 @@ export default function ({ token }) {
     const route = Math.random() < 0.7 ? workloadRoutes.notices : workloadRoutes.overtime
     getApi(route.path, route.endpoint, token)
   } else if (workloadName === 'business-mix') {
-    // 비율: 공지 40%, 잔업 15%, 업체 15%, 시나리오 10%, 일정 10%, 할 일 10%.
-    const sample = Math.random()
-    const route = sample < 0.4
-      ? workloadRoutes.notices
-      : sample < 0.55
-        ? workloadRoutes.overtime
-        : sample < 0.7
-          ? workloadRoutes.vendors
-          : sample < 0.8
-            ? workloadRoutes.scenarios
-            : sample < 0.9
-              ? workloadRoutes.calendar
-              : workloadRoutes.todos
-    getApi(route.path, route.endpoint, token)
+    runBusinessMix(token)
   } else if (workloadName === 'todo-crud') {
     runTodoCrud(token)
   } else if (workloadName === 'scenario-crud') {
@@ -417,6 +422,12 @@ export default function ({ token }) {
     runCrudMix(token, false)
   } else if (workloadName === 'crud-mix') {
     runCrudMix(token, true)
+  } else if (workloadName === 'business-crud-mix') {
+    if (Math.random() < 0.5) {
+      runBusinessMix(token)
+    } else {
+      runCrudMix(token, true)
+    }
   } else {
     const route = workloadRoutes[workloadName]
     getApi(route.path, route.endpoint, token)
