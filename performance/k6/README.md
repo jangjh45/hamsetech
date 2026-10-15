@@ -55,7 +55,7 @@ Remove-Item Env:PERF_PASSWORD, Env:PERF_USERNAME -ErrorAction SilentlyContinue
 
 ```powershell
 $env:PROFILE = 'smoke'
-$env:WORKLOAD = 'overtime-crud' # 또는 crud-mix-user, crud-mix
+$env:WORKLOAD = 'overtime-crud' # 또는 crud-mix-user, crud-mix, business-crud-mix
 $env:MAX_VUS = '1'
 $env:ALLOW_HIGH_LOAD = 'false'
 $env:ALLOW_WRITE_TESTS = 'true'
@@ -90,8 +90,9 @@ $env:ALLOW_WRITE_TESTS = 'true'
 | `WORKLOAD=notice-crud` | 공지 생성→수정, 댓글 생성→수정→삭제, 공지 삭제 | 관리자 계정과 `ALLOW_WRITE_TESTS=true` 필요 |
 | `WORKLOAD=crud-mix-user` | 할 일·시나리오·잔업·비공개 일정 CRUD 중 무작위 선택 | 일반 사용자 계정과 `ALLOW_WRITE_TESTS=true` 필요 |
 | `WORKLOAD=crud-mix` | 위 네 가지와 공지·댓글 CRUD 중 무작위 선택 | 관리자 계정과 `ALLOW_WRITE_TESTS=true` 필요 |
+| `WORKLOAD=business-crud-mix` | business-mix 조회와 crud-mix 쓰기 작업을 반복마다 50:50으로 선택 | 관리자 계정과 `ALLOW_WRITE_TESTS=true` 필요 |
 
-예를 들어 기준선은 `PROFILE=baseline`, 더 많은 조회 API를 섞으려면 `WORKLOAD=business-mix`로 실행합니다. `MAX_VUS`는 `ramp`와 `steady`에 적용되고 허용 범위는 1~20입니다. 5 VU 초과는 반드시 `ALLOW_HIGH_LOAD=true`를 전달해야 합니다. 고정 5 VU를 20분 유지하려면 `PROFILE=steady`, `MAX_VUS=5`, `STEADY_DURATION=20m`으로 설정합니다. 쓰기 workload는 별도로 `ALLOW_WRITE_TESTS=true`도 필요합니다. `notice-crud`와 전체 `crud-mix`에서는 관리자 테스트 계정을 사용합니다. `crud-mix-user`는 일반 사용자 계정으로 할 일·시나리오·잔업·비공개 일정 중 하나를 매 반복 무작위 선택합니다. 각 VU는 한 번의 작업 뒤 1~2초 쉬므로 실제 요청률은 VU 수와 서버 응답시간에 따라 달라집니다. 일반 CRUD workload는 반복당 HTTP 요청 세 개(POST·PUT·DELETE), 공지 workload는 공지와 댓글을 포함해 여섯 개 요청을 순서대로 보냅니다.
+예를 들어 기준선은 `PROFILE=baseline`, 더 많은 조회 API를 섞으려면 `WORKLOAD=business-mix`로 실행합니다. 조회와 쓰기를 함께 시험하려면 `WORKLOAD=business-crud-mix`를 선택합니다. 이 workload는 반복마다 business-mix 조회(공지 40%, 잔업 15%, 업체 15%, 시나리오 10%, 일정 10%, 할 일 10%) 또는 crud-mix 중 하나를 각각 50% 확률로 실행합니다. CRUD 쪽에는 공지·댓글 CRUD도 포함되므로 관리자 테스트 계정과 `ALLOW_WRITE_TESTS=true`가 필요합니다. `MAX_VUS`는 `ramp`와 `steady`에 적용되고 허용 범위는 1~20입니다. 5 VU 초과는 반드시 `ALLOW_HIGH_LOAD=true`를 전달해야 합니다. 고정 5 VU를 20분 유지하려면 `PROFILE=steady`, `MAX_VUS=5`, `STEADY_DURATION=20m`으로 설정합니다. 쓰기 workload는 별도로 `ALLOW_WRITE_TESTS=true`도 필요합니다. `notice-crud`와 전체 `crud-mix`에서는 관리자 테스트 계정을 사용합니다. `crud-mix-user`는 일반 사용자 계정으로 할 일·시나리오·잔업·비공개 일정 중 하나를 매 반복 무작위 선택합니다. 각 VU는 한 번의 작업 뒤 1~2초 쉬므로 실제 요청률은 VU 수와 서버 응답시간에 따라 달라집니다. 일반 CRUD workload는 반복당 HTTP 요청 세 개(POST·PUT·DELETE), 공지 workload는 공지와 댓글을 포함해 여섯 개 요청을 순서대로 보냅니다.
 
 고정 부하 프로필을 실행할 때는 같은 PowerShell 창에서 아래 값으로 설정한 뒤 기존 `k6 run` 명령을 실행합니다. `STEADY_DURATION`은 1분~60분만 허용됩니다.
 

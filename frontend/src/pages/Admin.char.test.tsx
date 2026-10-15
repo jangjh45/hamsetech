@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { ConfirmProvider } from '../components/ConfirmDialog'
 import AdminPage from './Admin'
@@ -61,6 +61,7 @@ function calls(): string[] {
 
 beforeEach(() => {
   fetchMock.mockReset()
+  overtimeApi.approveOvertimeRecord.mockReset()
   // 빈 사용자 목록을 기본으로 준다. 배지·빈 상태를 보기 위한 뼈대다.
   fetchMock.mockResolvedValue([])
 
@@ -216,6 +217,54 @@ describe('AdminPage — 탭 전환 시 로딩', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '변경 이력' }))
     await waitFor(() => expect(calls().some((u) => u.includes('page=0'))).toBe(true))
+  })
+
+  it('다른 관리자가 먼저 승인한 기록은 갱신하고, 알림은 탭 이동 시 닫는다', async () => {
+    let alreadyApproved = false
+    overtimeApi.listAllOvertimeRecords.mockImplementation(async () => ({
+      content: [{
+        id: 17,
+        userId: 2,
+        username: 'worker',
+        displayName: '테스트 직원',
+        workDate: '2026-10-14',
+        type: 'OVERTIME',
+        startTime: '17:00:00',
+        endTime: '18:00:00',
+        totalMinutes: 60,
+        reason: '테스트',
+        status: alreadyApproved ? 'APPROVED' : 'PENDING',
+        rejectReason: null,
+        approverUsername: alreadyApproved ? 'other-admin' : null,
+        approvedAt: alreadyApproved ? '2026-10-14T10:00:00Z' : null,
+        createdAt: '2026-10-14T09:00:00Z',
+        updatedAt: '2026-10-14T09:00:00Z',
+      }],
+      number: 0,
+      totalPages: 1,
+      totalElements: 1,
+      size: 20,
+    }))
+    overtimeApi.approveOvertimeRecord.mockImplementation(async () => {
+      alreadyApproved = true
+      throw new Error('이미 처리된 기록입니다')
+    })
+
+    renderAdmin()
+    fireEvent.click(screen.getByRole('button', { name: '잔업특근' }))
+    const recordRow = (await screen.findByText('테스트 직원')).closest('.ot-approve-row') as HTMLDivElement | null
+    if (!recordRow) throw new Error('승인 기록 행을 찾을 수 없습니다.')
+    fireEvent.click(within(recordRow).getByRole('button', { name: /^승인$/ }))
+
+    const notice = '이미 처리된 기록입니다. 목록을 최신 상태로 업데이트했습니다.'
+    await waitFor(() => expect(screen.getByText(notice)).toBeTruthy())
+    await waitFor(() => {
+      const updatedRow = screen.getByText('테스트 직원').closest('.ot-approve-row') as HTMLDivElement | null
+      expect(updatedRow && within(updatedRow).queryByRole('button', { name: /^승인$/ })).toBeNull()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^사용자$/ }))
+    await waitFor(() => expect(screen.queryByText(notice)).toBeNull())
   })
 })
 

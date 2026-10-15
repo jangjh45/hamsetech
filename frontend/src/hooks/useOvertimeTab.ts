@@ -32,9 +32,14 @@ import { useConfirm } from '../components/ConfirmDialog'
  * 오류는 상위 배너로 보낸다. 배너가 화면 전체 하나뿐이라, 여기서 따로 들고 있으면
  * 어느 탭에서 났는지 알기 어렵다.
  */
-export function useOvertimeTab(active: boolean, opts: { onError: (m: string) => void }) {
+export function useOvertimeTab(
+  active: boolean,
+  opts: { onError: (m: string) => void; onNotice?: (m: string) => void },
+) {
   const { confirm } = useConfirm()
   const [overtimeRecords, setOvertimeRecords] = useState<OvertimeRecord[]>([])
+  const [approvingIds, setApprovingIds] = useState<Set<number>>(() => new Set())
+  const approvingIdsRef = useRef(new Set<number>())
   const [overtimeLoading, setOvertimeLoading] = useState(false)
   const [overtimeSummary, setOvertimeSummary] = useState<OvertimeSummary[]>([])
   const [overtimeFilters, setOvertimeFilters] = useState({ username: '', type: '', status: '' })
@@ -170,11 +175,25 @@ export function useOvertimeTab(active: boolean, opts: { onError: (m: string) => 
 
   /** 승인·거절은 목록과 월별 집계를 동시에 바꾼다. */
   async function approveOvertime(id: number) {
+    // 응답이 오기 전에 연속 클릭해 중복 요청을 보내지 않도록 ref로 즉시 잠근다.
+    if (approvingIdsRef.current.has(id)) return
+    approvingIdsRef.current.add(id)
+    setApprovingIds(new Set(approvingIdsRef.current))
+
     try {
       await approveOvertimeRecord(id)
       await Promise.all([loadRecords(overtimePagination.currentPage), loadSummary()])
     } catch (e: any) {
-      opts.onError(e.message || '승인 실패')
+      if (e?.message === '이미 처리된 기록입니다') {
+        // 다른 관리자가 먼저 처리했거나 화면이 오래된 경우 최신 상태를 보여준다.
+        await Promise.all([loadRecords(overtimePagination.currentPage), loadSummary()])
+        opts.onNotice?.('이미 처리된 기록입니다. 목록을 최신 상태로 업데이트했습니다.')
+      } else {
+        opts.onError(e.message || '승인 실패')
+      }
+    } finally {
+      approvingIdsRef.current.delete(id)
+      setApprovingIds(new Set(approvingIdsRef.current))
     }
   }
 
@@ -210,6 +229,7 @@ export function useOvertimeTab(active: boolean, opts: { onError: (m: string) => 
 
   return {
     overtimeRecords,
+    approvingIds,
     setOvertimeRecords,
     overtimeLoading,
     setOvertimeLoading,
