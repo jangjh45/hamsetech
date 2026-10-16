@@ -208,6 +208,40 @@ class TodoServiceTest {
     }
 
     @Test
+    @DisplayName("지난 날짜의 미완료 건수와 가장 오래된 날짜만 요약한다")
+    void summarizesOverdueTodosForCurrentUser() {
+        UserAccount me = user(1, "kim");
+        LocalDate before = LocalDate.of(2026, 3, 11);
+        Todo oldest = todo(me);
+        when(securityUtils.currentUser()).thenReturn(me);
+        when(todoRepository.countByUserAndDateBeforeAndCompletedFalse(me, before)).thenReturn(3L);
+        when(todoRepository.findFirstByUserAndDateBeforeAndCompletedFalseOrderByDateAscPriorityDesc(me, before))
+                .thenReturn(Optional.of(oldest));
+
+        TodoOverdueSummary summary = service.overdueSummary(before);
+
+        assertThat(summary.count()).isEqualTo(3);
+        assertThat(summary.earliestDate()).isEqualTo(LocalDate.of(2026, 3, 10));
+        verify(todoRepository).countByUserAndDateBeforeAndCompletedFalse(me, before);
+    }
+
+    @Test
+    @DisplayName("지난 날짜 미완료 항목이 없으면 가장 오래된 날짜는 비어 있다")
+    void emptyOverdueSummaryHasNoDate() {
+        UserAccount me = user(1, "kim");
+        LocalDate before = LocalDate.of(2026, 3, 11);
+        when(securityUtils.currentUser()).thenReturn(me);
+        when(todoRepository.countByUserAndDateBeforeAndCompletedFalse(me, before)).thenReturn(0L);
+
+        TodoOverdueSummary summary = service.overdueSummary(before);
+
+        assertThat(summary.count()).isZero();
+        assertThat(summary.earliestDate()).isNull();
+        verify(todoRepository, never())
+                .findFirstByUserAndDateBeforeAndCompletedFalseOrderByDateAscPriorityDesc(any(), any());
+    }
+
+    @Test
     @DisplayName("본인의 것을 지우는 것은 문제가 없다")
     void allowsDeletingOwnTodo() {
         UserAccount me = user(1, "kim");

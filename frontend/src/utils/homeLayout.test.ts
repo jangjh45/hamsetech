@@ -4,6 +4,8 @@ import {
   DEFAULT_ORDER,
   WIDGET_LABELS,
   WIDGET_SIZES,
+  canImportLegacyLayout,
+  importLegacyLayout,
   isHidden,
   loadLayout,
   moveWidget,
@@ -15,7 +17,9 @@ import {
   type WidgetId,
 } from './homeLayout'
 
-const STORAGE_KEY = 'home_widget_layout'
+const USERNAME = 'kim'
+const STORAGE_KEY = `home_widget_layout:${USERNAME}`
+const LEGACY_STORAGE_KEY = 'home_widget_layout'
 
 function writeStorage(value: unknown): void {
   localStorage.setItem(STORAGE_KEY, typeof value === 'string' ? value : JSON.stringify(value))
@@ -27,13 +31,13 @@ beforeEach(() => {
 
 describe('loadLayout — 저장된 설정 복원', () => {
   it('아무것도 없으면 기본 배치를 준다', () => {
-    expect(loadLayout()).toEqual(DEFAULT_LAYOUT)
+    expect(loadLayout(USERNAME)).toEqual(DEFAULT_LAYOUT)
   })
 
   it('저장된 순서를 그대로 되살린다', () => {
     writeStorage({ order: ['notices', 'clock', 'today', 'calendar', 'todo', 'overtime', 'shortcuts'], hidden: ['clock'] })
 
-    const layout = loadLayout()
+    const layout = loadLayout(USERNAME)
     expect(layout.order[0]).toBe('notices')
     expect(layout.hidden).toEqual(['clock'])
   })
@@ -41,7 +45,7 @@ describe('loadLayout — 저장된 설정 복원', () => {
   it('알 수 없는 id는 버린다', () => {
     writeStorage({ order: ['clock', 'retired-widget', 'today'], hidden: ['gone-widget'] })
 
-    const layout = loadLayout()
+    const layout = loadLayout(USERNAME)
     expect(layout.order).not.toContain('retired-widget' as never)
     expect(layout.hidden).not.toContain('gone-widget' as never)
   })
@@ -51,7 +55,7 @@ describe('loadLayout — 저장된 설정 복원', () => {
     // 통째로 사라진 것처럼 보이므로 기본 순서에서 채워 넣는다.
     writeStorage({ order: ['notices'], hidden: [] })
 
-    const layout = loadLayout()
+    const layout = loadLayout(USERNAME)
     expect(layout.order).toHaveLength(DEFAULT_ORDER.length)
     expect(layout.order[0]).toBe('notices')
     for (const id of DEFAULT_ORDER) expect(layout.order).toContain(id)
@@ -59,29 +63,29 @@ describe('loadLayout — 저장된 설정 복원', () => {
 
   it('중복된 id는 한 번만 남긴다', () => {
     writeStorage({ order: ['clock', 'clock', 'today'], hidden: [] })
-    expect(loadLayout().order.filter((id) => id === 'clock')).toHaveLength(1)
+    expect(loadLayout(USERNAME).order.filter((id) => id === 'clock')).toHaveLength(1)
   })
 
   it('숨김 목록도 기본과 합쳐 살아 있는 위젯만 남긴다', () => {
     writeStorage({ order: ['clock'], hidden: ['unknown', 'todo'] })
 
-    const layout = loadLayout()
+    const layout = loadLayout(USERNAME)
     expect(layout.hidden).toEqual(['todo'])
   })
 
   it('깨진 JSON이어도 기본값으로 돌아간다', () => {
     writeStorage('{not json')
-    expect(loadLayout()).toEqual(DEFAULT_LAYOUT)
+    expect(loadLayout(USERNAME)).toEqual(DEFAULT_LAYOUT)
   })
 
   it('order가 배열이 아니어도 기본값으로 돌아간다', () => {
     writeStorage({ order: 'clock', hidden: 'todo' })
-    expect(loadLayout()).toEqual(DEFAULT_LAYOUT)
+    expect(loadLayout(USERNAME)).toEqual(DEFAULT_LAYOUT)
   })
 
   it('hidden이 배열이 아니면 숨김 없는 상태로 본다', () => {
     writeStorage({ order: ['clock'], hidden: 'todo' })
-    expect(loadLayout().hidden).toEqual([])
+    expect(loadLayout(USERNAME).hidden).toEqual([])
   })
 })
 
@@ -93,18 +97,52 @@ describe('saveLayout', () => {
       order: ['todo', 'clock', ...DEFAULT_ORDER.filter((id) => id !== 'todo' && id !== 'clock')],
       hidden: ['clock'],
     }
-    saveLayout(layout)
-    expect(loadLayout()).toEqual(layout)
+    saveLayout(layout, USERNAME)
+    expect(loadLayout(USERNAME)).toEqual(layout)
   })
 
   it('저장 실패(프라이빗 모드)는 예외를 던지지 않는다', () => {
     const original = Storage.prototype.setItem
     Storage.prototype.setItem = () => { throw new Error('QuotaExceeded') }
     try {
-      expect(() => saveLayout(DEFAULT_LAYOUT)).not.toThrow()
+      expect(() => saveLayout(DEFAULT_LAYOUT, USERNAME)).not.toThrow()
     } finally {
       Storage.prototype.setItem = original
     }
+  })
+
+  it('계정별로 레이아웃을 분리하고 공용 설정은 자동으로 읽지 않는다', () => {
+    localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify({ order: ['todo', 'clock'], hidden: ['notices'] }))
+    expect(loadLayout('lee')).toEqual(DEFAULT_LAYOUT)
+    saveLayout({ order: ['notices', ...DEFAULT_ORDER.filter((id) => id !== 'notices')], hidden: [] }, 'lee')
+
+    expect(loadLayout('lee').order[0]).toBe('notices')
+    expect(loadLayout(USERNAME)).toEqual(DEFAULT_LAYOUT)
+    expect(canImportLegacyLayout(USERNAME)).toBe(true)
+  })
+
+  it('공용 기기 설정은 계정에서 명시적으로 가져올 수 있다', () => {
+    localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify({ order: ['todo', 'clock'], hidden: ['notices'] }))
+    expect(canImportLegacyLayout(USERNAME)).toBe(true)
+
+    const imported = importLegacyLayout(USERNAME)
+    expect(imported?.order.slice(0, 2)).toEqual(['todo', 'clock'])
+    expect(imported?.hidden).toEqual(['notices'])
+    expect(loadLayout(USERNAME)).toEqual(imported)
+    expect(canImportLegacyLayout(USERNAME)).toBe(false)
+    expect(canImportLegacyLayout('lee')).toBe(true)
+  })
+
+  it('계정 정보가 없으면 레이아웃을 공유 저장하지 않는다', () => {
+    saveLayout({ order: ['todo', ...DEFAULT_ORDER.filter((id) => id !== 'todo')], hidden: [] }, null)
+    expect(localStorage.getItem(LEGACY_STORAGE_KEY)).toBeNull()
+    expect(loadLayout(null)).toEqual(DEFAULT_LAYOUT)
+  })
+
+  it('손상된 공용 설정은 가져오기 대상으로 제안하지 않는다', () => {
+    localStorage.setItem(LEGACY_STORAGE_KEY, '{invalid json')
+    expect(canImportLegacyLayout(USERNAME)).toBe(false)
+    expect(importLegacyLayout(USERNAME)).toBeNull()
   })
 })
 

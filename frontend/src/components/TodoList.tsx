@@ -1,10 +1,14 @@
-import { useState, useEffect } from 'react'
-import { listTodos, createTodo, updateTodo, deleteTodo, type Todo } from '../api/todos'
+import { useState } from 'react'
+import { createTodo, updateTodo, deleteTodo, type Todo } from '../api/todos'
 
 interface TodoListProps {
   selectedDate: string
-  monthStart: string
-  monthEnd: string
+  resetVersion: number
+  todos: Todo[] | null
+  todosLoading: boolean
+  todosError: string
+  onRetry: () => void
+  onTodosChange: (update: (previous: Todo[]) => Todo[]) => void
   /** 할 일 추가/토글/삭제 후 타이틀 밴드 갱신용 */
   onTodosChanged?: () => void
 }
@@ -17,31 +21,32 @@ type Filter = 'all' | 'remaining'
 
 export default function TodoList({
   selectedDate,
-  monthStart,
-  monthEnd,
+  resetVersion,
+  todos: monthTodos,
+  todosLoading,
+  todosError,
+  onRetry,
+  onTodosChange,
   onTodosChanged,
 }: TodoListProps) {
-  const [todos, setTodos] = useState<Todo[]>([])
+  const todos = monthTodos ?? []
   const [newTitle, setNewTitle] = useState('')
   const [newPriority, setNewPriority] = useState(1)
   const [filter, setFilter] = useState<Filter>('all')
-  const [editingId, setEditingId] = useState<number | string | null>(null)
+  const [editing, setEditing] = useState<{ id: number | string; resetVersion: number } | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editPriority, setEditPriority] = useState(1)
-  const [error, setError] = useState('')
+  const [actionError, setActionError] = useState<{ message: string; resetVersion: number } | null>(null)
+  const editingId = editing?.resetVersion === resetVersion ? editing.id : null
+  const error = actionError?.resetVersion === resetVersion ? actionError.message : ''
 
-  // 월별 todo 로드
-  useEffect(() => {
-    listTodos(monthStart, monthEnd)
-      .then((data) => setTodos(data))
-      .catch((e) => setError(e instanceof Error ? e.message : '할 일을 불러오지 못했습니다.'))
-  }, [monthStart, monthEnd])
-
-  // 다른 날짜를 고르면 편집 중이던 행이 화면에서 사라지므로 편집 상태를 정리한다
-  useEffect(() => {
-    setEditingId(null)
-    setError('')
-  }, [selectedDate])
+  function setError(message: string) {
+    if (!message) {
+      setActionError((current) => current?.resetVersion === resetVersion ? null : current)
+      return
+    }
+    setActionError({ message, resetVersion })
+  }
 
   // 선택된 날짜의 todos 필터링
   const selectedTodos = todos.filter((t) => t.date === selectedDate)
@@ -56,7 +61,7 @@ export default function TodoList({
         title: newTitle.trim(),
         priority: newPriority,
       })
-      setTodos((prev) => [...prev, created])
+      onTodosChange((previous) => [...previous, created])
       setNewTitle('')
       setNewPriority(1)
       setError('')
@@ -69,7 +74,7 @@ export default function TodoList({
   async function toggleTodo(todo: Todo) {
     try {
       const updated = await updateTodo(todo.id, { completed: !todo.completed })
-      setTodos((prev) => prev.map((t) => (t.id === todo.id ? updated : t)))
+      onTodosChange((previous) => previous.map((t) => (t.id === todo.id ? updated : t)))
       setError('')
       onTodosChanged?.()
     } catch (e) {
@@ -78,14 +83,14 @@ export default function TodoList({
   }
 
   function startEdit(todo: Todo) {
-    setEditingId(todo.id)
+    setEditing({ id: todo.id, resetVersion })
     setEditTitle(todo.title)
     setEditPriority(todo.priority)
     setError('')
   }
 
   function cancelEdit() {
-    setEditingId(null)
+    setEditing(null)
     setEditTitle('')
     setEditPriority(1)
   }
@@ -95,7 +100,7 @@ export default function TodoList({
     if (!title) return
     try {
       const updated = await updateTodo(todo.id, { title, priority: editPriority })
-      setTodos((prev) => prev.map((t) => (t.id === todo.id ? updated : t)))
+      onTodosChange((previous) => previous.map((t) => (t.id === todo.id ? updated : t)))
       cancelEdit()
       setError('')
       onTodosChanged?.()
@@ -107,7 +112,7 @@ export default function TodoList({
   async function removeTodo(id: number | string) {
     try {
       await deleteTodo(id)
-      setTodos((prev) => prev.filter((t) => t.id !== id))
+      onTodosChange((previous) => previous.filter((t) => t.id !== id))
       if (editingId === id) cancelEdit()
       setError('')
       onTodosChanged?.()
@@ -166,9 +171,19 @@ export default function TodoList({
           </button>
         </div>
 
-        {error && <div className="fl-error">{error}</div>}
+        {todosError && (
+          <div className="fl-error" role="alert">
+            <span>{todosError}</span>
+            <button className="fl-btn fl-btn-sm" onClick={onRetry} disabled={todosLoading}>
+              다시 시도
+            </button>
+          </div>
+        )}
+        {error && <div className="fl-error" role="alert">{error}</div>}
 
-        {visibleTodos.length === 0 ? (
+        {todosLoading ? (
+          <div className="fl-empty" role="status" aria-live="polite">할 일을 불러오는 중...</div>
+        ) : monthTodos === null ? null : visibleTodos.length === 0 ? (
           <div className="fl-empty">
             {filter === 'remaining' ? '남은 할 일이 없습니다.' : '할 일이 없습니다.'}
           </div>
