@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { isAdmin } from '../auth/token'
 import Pager from '../components/Pager'
 import {
@@ -55,6 +55,16 @@ function phoneHref(value: string): string {
   return `tel:${value.replace(/[^\d+]/g, '')}`
 }
 
+function websiteHref(value: string): string | null {
+  try {
+    const candidate = /^[a-z][a-z\d+.-]*:/i.test(value) ? value : `https://${value}`
+    const url = new URL(candidate)
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null
+  } catch {
+    return null
+  }
+}
+
 export default function VendorsPage() {
   const admin = isAdmin()
   const [pageData, setPageData] = useState<VendorPage | null>(null)
@@ -64,7 +74,10 @@ export default function VendorsPage() {
   const [categoryId, setCategoryId] = useState<number | ''>('')
   const [page, setPage] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [listError, setListError] = useState('')
   const [error, setError] = useState('')
+  const [categoriesLoading, setCategoriesLoading] = useState(true)
+  const [categoryError, setCategoryError] = useState('')
 
   const [details, setDetails] = useState<Vendor | null>(null)
   const [detailsLoading, setDetailsLoading] = useState(false)
@@ -79,28 +92,45 @@ export default function VendorsPage() {
   const [newCategoryName, setNewCategoryName] = useState('')
   const [categoryDrafts, setCategoryDrafts] = useState<Record<number, string>>({})
   const [savingCategoryId, setSavingCategoryId] = useState<number | null>(null)
+  const returnFocusRef = useRef<HTMLElement | null>(null)
+  const detailDialogRef = useRef<HTMLElement | null>(null)
+  const formDialogRef = useRef<HTMLFormElement | null>(null)
+  const modalWasOpen = useRef(false)
+  const detailRequestId = useRef(0)
+
+  function rememberFocus() {
+    returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+  }
 
   const load = useCallback(async (nextPage: number, q: string, selectedCategory: number | '') => {
     setLoading(true)
-    setError('')
+    setListError('')
     try {
       const result = await listVendors(nextPage, PAGE_SIZE, q, selectedCategory || undefined)
       setPageData(result)
       setPage(result.number)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '업체 목록을 불러오지 못했습니다.')
+      setListError(err instanceof Error ? err.message : '업체 목록을 불러오지 못했습니다.')
     } finally {
       setLoading(false)
     }
   }, [])
 
   const refreshCategories = useCallback(async () => {
-    const active = await listVendorCategories()
-    setCategories(active)
-    if (admin) {
-      const all = await listAllVendorCategories()
-      setManagedCategories(all)
-      setCategoryDrafts(Object.fromEntries(all.map((category) => [category.id, category.name])))
+    setCategoriesLoading(true)
+    setCategoryError('')
+    try {
+      const active = await listVendorCategories()
+      setCategories(active)
+      if (admin) {
+        const all = await listAllVendorCategories()
+        setManagedCategories(all)
+        setCategoryDrafts(Object.fromEntries(all.map((category) => [category.id, category.name])))
+      }
+    } catch (err) {
+      setCategoryError(err instanceof Error ? err.message : '분류 목록을 불러오지 못했습니다.')
+    } finally {
+      setCategoriesLoading(false)
     }
   }, [admin])
 
@@ -108,9 +138,7 @@ export default function VendorsPage() {
     // 초기 진입 시 서버 목록을 동기화한다.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load(0, '', '')
-    refreshCategories().catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : '분류 목록을 불러오지 못했습니다.')
-    })
+    void refreshCategories()
   }, [load, refreshCategories])
 
   const formCategories = useMemo(() => {
@@ -128,19 +156,25 @@ export default function VendorsPage() {
   }
 
   async function openDetails(item: VendorSummary) {
+    rememberFocus()
+    const requestId = ++detailRequestId.current
     setDetailsLoading(true)
     setDetails(null)
     setError('')
     try {
-      setDetails(await getVendor(item.id))
+      const result = await getVendor(item.id)
+      if (requestId === detailRequestId.current) setDetails(result)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '업체 정보를 불러오지 못했습니다.')
+      if (requestId === detailRequestId.current) {
+        setError(err instanceof Error ? err.message : '업체 정보를 불러오지 못했습니다.')
+      }
     } finally {
-      setDetailsLoading(false)
+      if (requestId === detailRequestId.current) setDetailsLoading(false)
     }
   }
 
   function openCreate() {
+    rememberFocus()
     setEditingId(null)
     setEditingCategory(null)
     setDraft(emptyDraft(categories[0]?.id ?? 0))
@@ -149,6 +183,7 @@ export default function VendorsPage() {
   }
 
   async function openEdit(vendorId: number) {
+    rememberFocus()
     setFormError('')
     try {
       const vendor = details?.id === vendorId ? details : await getVendor(vendorId)
@@ -169,6 +204,64 @@ export default function VendorsPage() {
     if (saving) return
     setFormOpen(false)
   }
+
+  function closeDetails() {
+    detailRequestId.current += 1
+    setDetailsLoading(false)
+    setDetails(null)
+  }
+
+  const detailModalOpen = !!details && !formOpen
+  const modalOpen = formOpen || detailModalOpen || detailsLoading
+
+  useEffect(() => {
+    if (!modalOpen) {
+      if (modalWasOpen.current) returnFocusRef.current?.focus()
+      modalWasOpen.current = false
+      return
+    }
+
+    modalWasOpen.current = true
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const dialog = formOpen ? formDialogRef.current : detailDialogRef.current
+    const focusableSelector = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+    const firstFocusable = dialog?.querySelector<HTMLElement>(focusableSelector)
+    firstFocusable?.focus()
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        if (formOpen) {
+          if (!saving) setFormOpen(false)
+        } else {
+          closeDetails()
+        }
+        return
+      }
+      if (event.key !== 'Tab' || !dialog) return
+      const focusable = [...dialog.querySelectorAll<HTMLElement>(focusableSelector)]
+      if (focusable.length === 0) {
+        event.preventDefault()
+        return
+      }
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [modalOpen, formOpen, detailModalOpen, saving])
 
   async function saveVendor(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -273,13 +366,29 @@ export default function VendorsPage() {
               {showCategoryManager ? '분류 관리 닫기' : '분류 관리'}
             </button>
           )}
-          <button className="fl-btn fl-btn-primary" onClick={openCreate} disabled={categories.length === 0}>
+          <button
+            className="fl-btn fl-btn-primary"
+            onClick={openCreate}
+            disabled={categoriesLoading || categories.length === 0}
+          >
             업체 등록
           </button>
         </div>
       </div>
 
       {error && <div className="fl-error" role="alert">{error}</div>}
+      {categoryError && (
+        <div className="fl-error vd-retry-error" role="alert">
+          <span>{categoryError}</span>
+          <button className="fl-btn fl-btn-sm" onClick={() => void refreshCategories()}>분류 다시 불러오기</button>
+        </div>
+      )}
+      {listError && (
+        <div className="fl-error vd-retry-error" role="alert">
+          <span>{listError}</span>
+          <button className="fl-btn fl-btn-sm" onClick={() => void load(page, query, categoryId)}>다시 시도</button>
+        </div>
+      )}
 
       {showCategoryManager && admin && (
         <section className="fl-card vd-category-card">
@@ -303,7 +412,9 @@ export default function VendorsPage() {
               <button className="fl-btn fl-btn-primary" type="submit">분류 추가</button>
             </form>
             <div className="vd-category-list">
-              {managedCategories.map((category) => (
+              {categoriesLoading ? (
+                <div className="fl-empty" role="status">분류를 불러오는 중...</div>
+              ) : managedCategories.map((category) => (
                 <div className={`vd-category-row${category.active ? '' : ' is-inactive'}`} key={category.id}>
                   <input
                     className="fl-input"
@@ -331,7 +442,9 @@ export default function VendorsPage() {
                   </button>
                 </div>
               ))}
-              {managedCategories.length === 0 && <div className="fl-empty">등록된 분류가 없습니다.</div>}
+              {!categoriesLoading && !categoryError && managedCategories.length === 0 && (
+                <div className="fl-empty">등록된 분류가 없습니다.</div>
+              )}
             </div>
           </div>
         </section>
@@ -340,7 +453,9 @@ export default function VendorsPage() {
       <section className="fl-card">
         <div className="fl-card-head vd-list-head">
           <span className="fl-card-title">업체 목록</span>
-          <span className="fl-card-count">전체 {pageData?.totalElements ?? 0}개</span>
+          <span className="fl-card-count">
+            {loading ? '불러오는 중...' : listError ? '조회 실패' : `전체 ${pageData?.totalElements ?? 0}개`}
+          </span>
           <form className="vd-search" onSubmit={search}>
             <select
               className="fl-input"
@@ -372,11 +487,12 @@ export default function VendorsPage() {
             <span>담당자</span>
             <span />
           </div>
-          {loading && <div className="fl-empty">업체 목록을 불러오는 중...</div>}
-          {!loading && items.length === 0 && (
+          {loading && <div className="fl-empty" role="status" aria-live="polite">업체 목록을 불러오는 중...</div>}
+          {!loading && listError && <div className="fl-empty">목록을 불러오지 못했습니다. 다시 시도해주세요.</div>}
+          {!loading && !listError && items.length === 0 && (
             <div className="fl-empty">{query || categoryId ? '검색 결과가 없습니다.' : '등록된 업체가 없습니다.'}</div>
           )}
-          {!loading && items.map((item) => <VendorRow key={item.id} item={item} onOpen={() => void openDetails(item)} onEdit={() => void openEdit(item.id)} />)}
+          {!loading && !listError && items.map((item) => <VendorRow key={item.id} item={item} onOpen={() => void openDetails(item)} onEdit={() => void openEdit(item.id)} />)}
         </div>
         <Pager page={page} totalPages={pageData?.totalPages ?? 0} onChange={goToPage} disabled={loading} />
       </section>
@@ -388,14 +504,14 @@ export default function VendorsPage() {
       )}
 
       {details && !formOpen && (
-        <div className="fl-modal-overlay" onMouseDown={(event) => event.target === event.currentTarget && setDetails(null)}>
-          <section className="fl-modal vd-detail-modal" role="dialog" aria-modal="true" aria-labelledby="vd-detail-title">
+        <div className="fl-modal-overlay" onMouseDown={(event) => event.target === event.currentTarget && closeDetails()}>
+          <section ref={detailDialogRef} className="fl-modal vd-detail-modal" role="dialog" aria-modal="true" aria-labelledby="vd-detail-title">
             <div className="fl-modal-head">
               <div className="fl-modal-heading">
                 <span className="fl-modal-title" id="vd-detail-title">{details.name}</span>
                 <span className="fl-modal-sub">{details.categoryName}</span>
               </div>
-              <button className="fl-modal-close" onClick={() => setDetails(null)} aria-label="닫기">✕</button>
+              <button className="fl-modal-close" onClick={closeDetails} aria-label="닫기">✕</button>
             </div>
             <div className="fl-modal-body">
               <div className="vd-detail-grid">
@@ -436,7 +552,7 @@ export default function VendorsPage() {
             </div>
             <div className="fl-modal-foot">
               <div className="fl-modal-foot-actions">
-                <button className="fl-btn" onClick={() => setDetails(null)}>닫기</button>
+                <button className="fl-btn" onClick={closeDetails}>닫기</button>
                 <button className="fl-btn fl-btn-primary" onClick={() => void openEdit(details.id)}>수정</button>
               </div>
             </div>
@@ -446,7 +562,7 @@ export default function VendorsPage() {
 
       {formOpen && (
         <div className="fl-modal-overlay" onMouseDown={(event) => event.target === event.currentTarget && closeForm()}>
-          <form className="fl-modal vd-form-modal" onSubmit={saveVendor} role="dialog" aria-modal="true" aria-labelledby="vd-form-title">
+          <form ref={formDialogRef} className="fl-modal vd-form-modal" onSubmit={saveVendor} role="dialog" aria-modal="true" aria-labelledby="vd-form-title">
             <div className="fl-modal-head">
               <div className="fl-modal-heading">
                 <span className="fl-modal-title" id="vd-form-title">{editingId === null ? '업체 등록' : '업체 정보 수정'}</span>
@@ -606,7 +722,7 @@ function DetailField({
   website?: boolean
 }) {
   if (!value) return null
-  const href = phone ? phoneHref(value) : email ? `mailto:${value}` : website ? (value.startsWith('http') ? value : `https://${value}`) : null
+  const href = phone ? phoneHref(value) : email ? `mailto:${value}` : website ? websiteHref(value) : null
   return (
     <div className="vd-detail-field">
       <dt>{label}</dt>
