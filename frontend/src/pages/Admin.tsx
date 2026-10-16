@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 import { getUsername as getMe, getRoles, onTokenExpired } from '../auth/token'
@@ -6,6 +6,7 @@ import type { OvertimeRecord } from '../api/overtimeRecords'
 import { formatTime } from '../utils/formatDate'
 
 import Pager from '../components/Pager'
+import { useNotify } from '../components/Toast'
 import { useChangeLogsTab } from '../hooks/useChangeLogsTab'
 import { useReadLogsTab } from '../hooks/useReadLogsTab'
 import { useUserTabs } from '../hooks/useUserTabs'
@@ -40,9 +41,11 @@ function workTimeText(r: OvertimeRecord): string {
 
 export default function AdminPage() {
   const [msg, setMsg] = useState('loading...')
-  const [error, setError] = useState('')
-  const [transientNotice, setTransientNotice] = useState('')
-  const [tokenExpired, setTokenExpired] = useState(false)
+  const { notify, clear: clearNotices } = useNotify()
+  const showError = useCallback((message: string) => {
+    if (message) notify({ message, tone: 'error' })
+  }, [notify])
+  const showNotice = useCallback((message: string) => notify({ message, tone: 'info' }), [notify])
   const [activeTab, setActiveTab] = useState<'users' | 'pending' | 'withdraw' | 'logs' | 'readLogs' | 'overtime' | 'performance'>('users')
   const [overtimeSummaryQuery, setOvertimeSummaryQuery] = useState('')
   const [overtimeSummarySort, setOvertimeSummarySort] = useState<'name' | 'overtime' | 'special' | 'total'>('name')
@@ -51,7 +54,7 @@ export default function AdminPage() {
   const logsTab = useChangeLogsTab(activeTab === 'logs')
   const readLogsTab = useReadLogsTab(activeTab === 'readLogs')
   const userTabs = useUserTabs({
-    onError: setError,
+    onError: showError,
     onSelfRevoked: () => navigate('/'),
   })
 
@@ -89,7 +92,7 @@ export default function AdminPage() {
     approveOvertime,
     rejectOvertime,
     deleteOvertime,
-  } = useOvertimeTab(activeTab === 'overtime', { onError: setError, onNotice: setTransientNotice })
+  } = useOvertimeTab(activeTab === 'overtime', { onError: showError, onNotice: showNotice })
 
   const visibleOvertimeSummary = useMemo(() => {
     const query = overtimeSummaryQuery.trim().toLocaleLowerCase()
@@ -107,18 +110,10 @@ export default function AdminPage() {
     })
   }, [overtimeSummary, overtimeSummaryQuery, overtimeSummarySort])
 
-  useEffect(() => {
-    if (!transientNotice) return
-    const clearTimer = window.setTimeout(() => setTransientNotice(''), 3700)
-    return () => {
-      window.clearTimeout(clearTimer)
-    }
-  }, [transientNotice])
-
   // 탭을 옮기면 이전 탭에서 난 알림은 남기지 않는다.
   function changeTab(tab: typeof activeTab) {
     setActiveTab(tab)
-    setTransientNotice('')
+    clearNotices()
   }
 
   useEffect(() => {
@@ -136,19 +131,18 @@ export default function AdminPage() {
   // 토큰 만료 이벤트 리스너 설정
   useEffect(() => {
     const unsubscribe = onTokenExpired(() => {
-      setTokenExpired(true)
-      setError('세션이 만료되었습니다. 다시 로그인해주세요.')
+      showError('세션이 만료되었습니다. 잠시 후 로그인 페이지로 이동됩니다.')
     })
     
     return unsubscribe
-  }, [])
+  }, [showError])
 
   async function loadLogStats() {
     try {
       const stats = await apiFetch('/api/admin/logs/stats')
       setLogStats(stats)
     } catch (e: any) {
-      setError(e.message || '통계 로드 실패')
+      showError(e.message || '통계 로드 실패')
     }
   }
 
@@ -211,24 +205,6 @@ export default function AdminPage() {
           </button>
         </div>
       </div>
-
-      {tokenExpired && (
-        <div className="fl-error" style={{ marginBottom: 16 }}>
-          세션이 만료되었습니다. 잠시 후 로그인 페이지로 이동됩니다.
-        </div>
-      )}
-
-      {error && (
-        <div className="fl-error" style={{ marginBottom: 16 }}>
-          {error}
-        </div>
-      )}
-
-      {transientNotice && (
-        <div key={transientNotice} className="ad-transient-notice" role="status" aria-live="polite">
-          {transientNotice}
-        </div>
-      )}
 
       {activeTab === 'users' && (
         <section className="fl-card">
@@ -322,7 +298,7 @@ export default function AdminPage() {
                             })
                             await userTabs.loadUsers()
                           } catch (e: any) {
-                            setError(e.message)
+                            showError(e.message)
                           }
                         }}
                       />
