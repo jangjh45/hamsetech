@@ -131,6 +131,10 @@ export default function OvertimeBulkModal({
       setError('시작–종료 시간을 입력해주세요')
       return
     }
+    if (duration === null || duration < 1) {
+      setError('휴게시간 차감 후 근무시간은 1분 이상이어야 합니다')
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -274,6 +278,7 @@ export default function OvertimeBulkModal({
                       type="time"
                       className="fl-input"
                       value={startTime}
+                      required
                       onChange={(e) => setStartTime(e.target.value)}
                       aria-label="시작 시간"
                     />
@@ -282,6 +287,7 @@ export default function OvertimeBulkModal({
                       type="time"
                       className="fl-input"
                       value={endTime}
+                      required
                       onChange={(e) => setEndTime(e.target.value)}
                       aria-label="종료 시간"
                     />
