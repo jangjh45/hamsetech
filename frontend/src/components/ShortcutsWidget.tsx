@@ -3,7 +3,7 @@ import { isAdmin, isAuthenticated } from '../auth/token'
 
 interface ShortcutsWidgetProps {
   /** 이번 달 승인 대기 건수 (잔업 등록 타일 부제) */
-  pendingCount: number
+  pendingCount: number | null
 }
 
 export default function ShortcutsWidget({ pendingCount }: ShortcutsWidgetProps) {
@@ -16,7 +16,9 @@ export default function ShortcutsWidget({ pendingCount }: ShortcutsWidgetProps) 
     {
       to: '/overtime',
       title: '잔업 등록',
-      sub: pendingCount > 0 ? `이번 달 ${pendingCount}건 대기` : '이번 달 대기 없음',
+      sub: pendingCount === null
+        ? '이번 달 대기 현황 확인 필요'
+        : pendingCount > 0 ? `이번 달 ${pendingCount}건 대기` : '이번 달 대기 없음',
       show: authed,
     },
     { to: '/notice/new', title: '공지 작성', sub: '부서 공지 등록', show: admin },
