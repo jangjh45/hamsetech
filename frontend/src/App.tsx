@@ -1,9 +1,8 @@
 import './App.css'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import RegisterPage from './pages/Register'
 import LoginPage from './pages/Login'
-import AdminPage from './pages/Admin'
 import HomePage from './pages/Home'
 import Header from './components/Header'
 import AdminRoute from './routes/AdminRoute'
@@ -17,6 +16,9 @@ import ProfilePage from './pages/Profile'
 import OvertimeRecordsPage from './pages/OvertimeRecords'
 import VendorsPage from './pages/Vendors'
 import { setupAutoLogout } from './auth/token'
+
+// 관리자 화면은 일반 사용자가 거의 열지 않으므로 초기 번들에서 분리한다.
+const AdminPage = lazy(() => import('./pages/Admin'))
 
 // 인증 화면은 AuthShell이 화면 전체를 좌우 2단으로 쓰고 왼쪽 브랜드 면에
 // 자체 로고와 테마 토글을 갖고 있어서 전역 Header를 렌더하지 않는다.
@@ -51,7 +53,24 @@ export default function App() {
           {/* 공지 작성·수정은 관리자만. 서버도 403으로 막지만 폼까지 갈 이유가 없다 */}
           <Route path="/notice/new" element={<AdminRoute><NoticeEditorPage /></AdminRoute>} />
           <Route path="/notice/:id/edit" element={<AdminRoute><NoticeEditorPage /></AdminRoute>} />
-          <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <Suspense
+                  fallback={(
+                    <div className="fl-page" role="status" aria-live="polite">
+                      <section className="fl-card">
+                        <div className="fl-empty">관리자 화면을 불러오는 중...</div>
+                      </section>
+                    </div>
+                  )}
+                >
+                  <AdminPage />
+                </Suspense>
+              </AdminRoute>
+            }
+          />
           <Route path="/delivery" element={<DeliveryPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/overtime" element={<OvertimeRecordsPage />} />
