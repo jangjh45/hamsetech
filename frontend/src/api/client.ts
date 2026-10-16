@@ -1,4 +1,5 @@
 import { getToken, clearToken } from '../auth/token'
+import { SERVER_ERROR_EVENT, type ServerErrorDetail } from './serverErrorEvent'
 
 export class ApiError extends Error {
   readonly status: number
@@ -13,6 +14,10 @@ export class ApiError extends Error {
 // 토큰 만료 이벤트 발생 함수
 function dispatchTokenExpired() {
   window.dispatchEvent(new CustomEvent('token-expired'))
+}
+
+function dispatchServerError(detail: ServerErrorDetail) {
+  window.dispatchEvent(new CustomEvent<ServerErrorDetail>(SERVER_ERROR_EVENT, { detail }))
 }
 
 /**
@@ -39,7 +44,14 @@ async function rawFetch(input: RequestInfo | URL, init: RequestInit = {}): Promi
     headers.set('Content-Type', 'application/json')
   }
   if (token) headers.set('Authorization', `Bearer ${token}`)
-  const res = await fetch(url, { ...init, headers, credentials: 'include', mode: 'cors' as RequestMode })
+  let res: Response
+  try {
+    res = await fetch(url, { ...init, headers, credentials: 'include', mode: 'cors' as RequestMode })
+  } catch (e) {
+    // 호출자가 직접 취소한 요청(AbortController)은 장애가 아니므로 알리지 않는다.
+    if (!init.signal?.aborted) dispatchServerError({ kind: 'network' })
+    throw e
+  }
 
   if (res.ok) return res
 
@@ -102,6 +114,7 @@ async function rawFetch(input: RequestInfo | URL, init: RequestInit = {}): Promi
     }
   }
 
+  if (res.status >= 500) dispatchServerError({ kind: 'server', status: res.status })
   const err = new ApiError(message || `HTTP ${res.status}`, res.status)
   try { console.error('apiFetch error', { url, status: res.status, message }) } catch {}
   throw err

@@ -6,12 +6,15 @@ import './styles/dashboard.css'
 import App from './App.tsx'
 import { BrowserRouter } from 'react-router-dom'
 import { ConfirmProvider } from './components/ConfirmDialog'
+import { NotifyProvider } from './components/Toast'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <ConfirmProvider>
-        <App />
+        <NotifyProvider>
+          <App />
+        </NotifyProvider>
       </ConfirmProvider>
     </BrowserRouter>
   </StrictMode>,
