@@ -72,4 +72,55 @@ describe('업체 주소록', () => {
     expect(await screen.findByRole('button', { name: '한빛 포장' })).toBeTruthy()
     expect(screen.getByText('포장재')).toBeTruthy()
   })
+
+  it('목록 조회 실패를 재시도할 수 있다', async () => {
+    api.listVendors.mockRejectedValueOnce(new Error('목록 서버 오류')).mockResolvedValue(emptyPage)
+    render(<VendorsPage />)
+
+    expect((await screen.findByRole('alert')).textContent).toContain('목록 서버 오류')
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }))
+    await waitFor(() => expect(api.listVendors).toHaveBeenCalledTimes(2))
+    expect(await screen.findByText('등록된 업체가 없습니다.')).toBeTruthy()
+  })
+
+  it('분류 목록 실패 후 다시 불러오면 업체 등록을 사용할 수 있다', async () => {
+    api.listVendorCategories
+      .mockRejectedValueOnce(new Error('분류 서버 오류'))
+      .mockResolvedValue([{ id: 1, name: '운송·택배', active: true }])
+    render(<VendorsPage />)
+
+    expect((await screen.findByRole('alert')).textContent).toContain('분류 서버 오류')
+    expect((screen.getByRole('button', { name: '업체 등록' }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: '분류 다시 불러오기' }))
+    await waitFor(() => expect((screen.getByRole('button', { name: '업체 등록' }) as HTMLButtonElement).disabled).toBe(false))
+  })
+
+  it('상세 모달은 Escape로 닫히고 호출 버튼에 포커스를 돌려준다', async () => {
+    api.listVendors.mockResolvedValue({
+      ...emptyPage,
+      content: [{
+        id: 2, name: '한빛 포장', categoryId: 1, categoryName: '포장재',
+        mainPhone: null, mainEmail: null, primaryContactName: null, primaryContactPhone: null,
+      }],
+      totalElements: 1,
+    })
+    api.getVendor.mockResolvedValue({
+      id: 2, name: '한빛 포장', categoryId: 1, categoryName: '포장재',
+      businessRegistrationNo: null, mainPhone: null, mainEmail: null, address: null,
+      website: 'HTTP://example.com', memo: null, createdBy: 'admin', updatedBy: 'admin',
+      createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', contacts: [],
+    })
+    render(<VendorsPage />)
+
+    const openButton = await screen.findByRole('button', { name: '상세' })
+    openButton.focus()
+    fireEvent.click(openButton)
+    await screen.findByRole('dialog')
+    const website = await screen.findByRole('link', { name: 'HTTP://example.com' })
+    expect(website.getAttribute('href')).toBe('http://example.com/')
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(document.activeElement).toBe(openButton)
+  })
 })

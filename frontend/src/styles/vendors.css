@@ -181,6 +181,14 @@
 .vd-inline-empty { padding: 12px 0; }
 .vd-audit-note { color: var(--fl-muted-2); font-size: 12px; }
 
+.vd-retry-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+}
+
 .vd-form-wide { grid-column: 1 / -1; }
 .vd-contact-form {
   position: relative;

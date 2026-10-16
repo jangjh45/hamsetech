@@ -160,6 +160,9 @@ public class VendorService {
     private void validatePrimaryContacts(List<ContactInput> contacts) {
         long count = contacts.stream().filter(contact -> Boolean.TRUE.equals(contact.primary())).count();
         if (count > 1) throw new IllegalArgumentException("대표 담당자는 한 명만 지정할 수 있습니다.");
+        if (!contacts.isEmpty() && count == 0) {
+            throw new IllegalArgumentException("담당자가 있으면 대표 담당자를 한 명 지정해주세요.");
+        }
     }
 
     private VendorDetail getSavedDetails(VendorCompany vendor) {
@@ -169,7 +172,7 @@ public class VendorService {
     }
 
     private VendorSummary toSummary(VendorCompany vendor, List<VendorContact> contacts) {
-        VendorContact primary = contacts.stream().min(CONTACT_ORDER).orElse(null);
+        VendorContact primary = contacts.stream().filter(VendorContact::isPrimary).findFirst().orElse(null);
         return new VendorSummary(
                 vendor.getId(), vendor.getName(), vendor.getCategory().getId(), vendor.getCategory().getName(),
                 vendor.getMainPhone(), vendor.getMainEmail(),

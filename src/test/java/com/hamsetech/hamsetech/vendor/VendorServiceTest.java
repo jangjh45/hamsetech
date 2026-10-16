@@ -95,6 +95,18 @@ class VendorServiceTest {
     }
 
     @Test
+    @DisplayName("담당자가 있으면 대표 담당자를 정확히 한 명 지정해야 한다")
+    void requiresPrimaryContactWhenContactsExist() {
+        ContactInput contact = new ContactInput(null, "담당자1", null, null, null, null, null, null, false);
+
+        assertThatThrownBy(() -> service.create(input(4L, List.of(contact))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("대표 담당자를 한 명 지정");
+        verify(categoryRepository, never()).findById(any());
+        verify(vendorRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("업체를 만든 사람이 아니어도 로그인한 사용자는 수정할 수 있고 수정자를 갱신한다")
     void anyAuthenticatedUserCanUpdateAndAttributionChanges() {
         VendorCategory category = category(true);
