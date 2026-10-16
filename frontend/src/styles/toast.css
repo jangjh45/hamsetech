@@ -1,0 +1,211 @@
+/*
+ * 알림 토스트.
+ *
+ * 등장은 오른쪽에서 미끄러져 들어오고, 퇴장은 카드가 먼저 사라진 뒤 자리가 접히면서
+ * 뒤의 알림이 자연스럽게 올라온다. 접힘은 grid-template-rows 전환으로 만든다 —
+ * 높이를 픽셀로 재지 않아도 내용 높이에 맞춰 0까지 부드럽게 줄어든다.
+ *
+ * 퇴장 중인 카드가 아래 알림과 잠시 겹치는 것은 의도다. 카드가 투명해지는 동안
+ * 자리만 먼저 줄어들면 옆 알림이 튀어 보이기 때문이다.
+ */
+
+.fl-toast-stack {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 110;
+  width: min(372px, calc(100vw - 24px));
+  pointer-events: none;
+}
+
+.fl-toast-slot {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 280ms cubic-bezier(0.4, 0, 0.2, 1) 60ms;
+}
+
+.fl-toast-slot.is-leaving {
+  grid-template-rows: 0fr;
+}
+
+.fl-toast-clip {
+  min-height: 0;
+}
+
+.fl-toast {
+  --toast-color: var(--fl-primary);
+  --toast-soft: var(--fl-primary-soft);
+
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 10px;
+  padding: 14px 12px 16px 14px;
+  overflow: hidden;
+  border: 1px solid var(--fl-border);
+  border-radius: 14px;
+  background: var(--fl-surface);
+  color: var(--fl-text);
+  box-shadow:
+    0 12px 28px -14px rgba(16, 21, 40, 0.32),
+    var(--fl-shadow-raised);
+  pointer-events: auto;
+  transition:
+    opacity 220ms ease,
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  animation: fl-toast-in 480ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.fl-toast.is-success { --toast-color: var(--fl-success); --toast-soft: var(--fl-success-soft); }
+.fl-toast.is-warning { --toast-color: var(--fl-warn); --toast-soft: var(--fl-warn-soft); }
+.fl-toast.is-error { --toast-color: var(--fl-danger); --toast-soft: var(--fl-danger-soft); }
+
+.fl-toast.is-leaving {
+  opacity: 0;
+  transform: translate3d(24px, 0, 0) scale(0.98);
+}
+
+.fl-toast-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--toast-soft);
+  color: var(--toast-color);
+  animation: fl-toast-icon-in 520ms cubic-bezier(0.34, 1.56, 0.64, 1) 120ms backwards;
+}
+
+.fl-toast-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.fl-toast-body {
+  flex: 1;
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.fl-toast-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--fl-text);
+}
+
+.fl-toast-message {
+  margin-top: 3px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fl-muted);
+  overflow-wrap: anywhere;
+}
+
+.fl-toast-close {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: -2px -4px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--fl-muted-2);
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.fl-toast-close svg {
+  width: 14px;
+  height: 14px;
+}
+
+.fl-toast-close:hover {
+  background: var(--fl-hover);
+  color: var(--fl-text);
+}
+
+.fl-toast-close:focus-visible {
+  outline: 2px solid var(--fl-primary);
+  outline-offset: 1px;
+}
+
+/* 남은 시간. 시작과 정지는 ToastItem이 타이머와 함께 맞춘다. */
+.fl-toast-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--toast-color);
+  opacity: 0.7;
+  transform-origin: left center;
+  animation-name: fl-toast-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes fl-toast-in {
+  from {
+    opacity: 0;
+    transform: translate3d(32px, 0, 0) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fl-toast-icon-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fl-toast-progress {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fl-toast-slot {
+    transition: none;
+  }
+
+  .fl-toast {
+    animation: fl-toast-fade 200ms linear backwards;
+    transition: opacity 160ms linear;
+  }
+
+  .fl-toast.is-leaving {
+    transform: none;
+  }
+
+  .fl-toast-icon {
+    animation: none;
+  }
+}
+
+@keyframes fl-toast-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 640px) {
+  .fl-toast-stack {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    width: auto;
+  }
+}

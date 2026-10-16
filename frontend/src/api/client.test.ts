@@ -1,6 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { getToken, saveToken } from '../auth/token'
 import { apiFetch, apiFetchBlob, apiUpload } from './client'
+import { SERVER_ERROR_EVENT } from './serverErrorEvent'
 
 // 실제 fetch를 대체한다. 호출 내용(URL·헤더·본문)만 확인한다.
 let fetchMock: ReturnType<typeof vi.fn>
@@ -255,5 +256,57 @@ describe('apiFetchBlob / apiUpload', () => {
     const form = new FormData()
     await expect(apiUpload('/api/notices/attachments', form)).rejects.toThrow('관리자만 올릴 수 있습니다.')
     expect(getToken()).toBe('valid')
+  })
+})
+
+describe('apiFetch — 전역 서버 오류 알림', () => {
+  let listener: Mock<(event: Event) => void>
+
+  beforeEach(() => {
+    listener = vi.fn<(event: Event) => void>()
+    window.addEventListener(SERVER_ERROR_EVENT, listener)
+  })
+
+  afterEach(() => {
+    window.removeEventListener(SERVER_ERROR_EVENT, listener)
+  })
+
+  function detailOf(call: number): unknown {
+    return (listener.mock.calls[call][0] as CustomEvent).detail
+  }
+
+  it('5xx 응답이면 서버 오류 이벤트를 발생시킨다', async () => {
+    fetchMock.mockResolvedValue(textResponse('boom', 503))
+
+    await expect(apiFetch('/api/x')).rejects.toThrow('boom')
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(detailOf(0)).toEqual({ kind: 'server', status: 503 })
+  })
+
+  it('4xx 응답은 전역 알림을 띄우지 않는다', async () => {
+    // 입력 오류는 해당 화면이 문맥을 보고 직접 보여 준다.
+    fetchMock.mockResolvedValue(jsonResponse({ error: '잘못된 입력' }, 400))
+
+    await expect(apiFetch('/api/x')).rejects.toThrow('잘못된 입력')
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  it('네트워크 실패면 network 이벤트를 발생시키고 원래 예외를 그대로 던진다', async () => {
+    const cause = new TypeError('Failed to fetch')
+    fetchMock.mockRejectedValue(cause)
+
+    await expect(apiFetch('/api/x')).rejects.toBe(cause)
+    expect(detailOf(0)).toEqual({ kind: 'network' })
+  })
+
+  it('호출자가 취소한 요청은 장애로 치지 않는다', async () => {
+    const controller = new AbortController()
+    fetchMock.mockImplementation(async () => {
+      controller.abort()
+      throw new DOMException('aborted', 'AbortError')
+    })
+
+    await expect(apiFetch('/api/x', { signal: controller.signal })).rejects.toThrow()
+    expect(listener).not.toHaveBeenCalled()
   })
 })
