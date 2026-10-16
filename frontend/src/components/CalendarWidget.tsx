@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
-  listEvents,
   createEvent,
   updateEvent,
   deleteEvent,
@@ -15,6 +14,12 @@ interface CalendarWidgetProps {
   setViewDate: (date: Date) => void
   selected: string
   setSelected: (date: string) => void
+  resetVersion: number
+  events: CalendarEvent[] | null
+  eventsLoading: boolean
+  eventsError: string
+  onRetry: () => void
+  onEventsChange: (update: (previous: CalendarEvent[]) => CalendarEvent[]) => void
   /** 일정 추가/삭제 후 상위(타이틀 밴드, 오늘 일정 위젯) 갱신용 */
   onEventsChanged?: () => void
 }
@@ -27,11 +32,10 @@ interface DayCell {
   weekday: number
 }
 
-function getMonthMatrix(year: number, month: number): DayCell[] {
+function getMonthMatrix(year: number, month: number, todayYmd: string): DayCell[] {
   const startDay = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const prevMonthDays = new Date(year, month, 0).getDate()
-  const todayYmd = toYmd(new Date())
 
   const cells: DayCell[] = []
   const push = (dt: Date, isOutside: boolean) => {
@@ -75,36 +79,39 @@ export default function CalendarWidget({
   setViewDate,
   selected,
   setSelected,
+  resetVersion,
+  events: monthEvents,
+  eventsLoading,
+  eventsError,
+  onRetry,
+  onEventsChange,
   onEventsChanged,
 }: CalendarWidgetProps) {
-  const [events, setEvents] = useState<CalendarEvent[]>([])
+  const events = useMemo(() => monthEvents ?? [], [monthEvents])
   const [newTitle, setNewTitle] = useState('')
   const [newTime, setNewTime] = useState('')
   const [newScope, setNewScope] = useState<CalendarScope>('PRIVATE')
-  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editing, setEditing] = useState<{ id: number; resetVersion: number } | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editTime, setEditTime] = useState('')
   const [editScope, setEditScope] = useState<CalendarScope>('PRIVATE')
-  const [error, setError] = useState('')
+  const [actionError, setActionError] = useState<{ message: string; resetVersion: number } | null>(null)
+  const editingId = editing?.resetVersion === resetVersion ? editing.id : null
+  const error = actionError?.resetVersion === resetVersion ? actionError.message : ''
+
+  function setError(message: string) {
+    if (!message) {
+      setActionError((current) => current?.resetVersion === resetVersion ? null : current)
+      return
+    }
+    setActionError({ message, resetVersion })
+  }
 
   const year = viewDate.getFullYear()
   const month = viewDate.getMonth()
 
-  useEffect(() => {
-    const start = toYmd(new Date(year, month, 1))
-    const end = toYmd(new Date(year, month + 1, 0))
-    listEvents(start, end)
-      .then(setEvents)
-      .catch((e) => setError(e instanceof Error ? e.message : '일정을 불러오지 못했습니다.'))
-  }, [year, month])
-
-  // 다른 날짜/달로 이동하면 편집 중이던 행은 화면에서 사라지므로 편집 상태를 정리한다
-  useEffect(() => {
-    setEditingId(null)
-    setError('')
-  }, [selected, year, month])
-
-  const matrix = useMemo(() => getMonthMatrix(year, month), [year, month])
+  const todayYmd = toYmd(new Date())
+  const matrix = useMemo(() => getMonthMatrix(year, month, todayYmd), [year, month, todayYmd])
   const monthLabel = viewDate.toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
 
   const eventsByDate = useMemo(() => {
@@ -146,7 +153,7 @@ export default function CalendarWidget({
         time: newTime || undefined,
         scope: newScope,
       })
-      setEvents((prev) => [...prev, created])
+      onEventsChange((previous) => [...previous, created])
       setNewTitle('')
       setNewTime('')
       setError('')
@@ -157,7 +164,7 @@ export default function CalendarWidget({
   }
 
   function startEdit(ev: CalendarEvent) {
-    setEditingId(ev.id)
+    setEditing({ id: ev.id, resetVersion })
     setEditTitle(ev.title)
     setEditTime(formatTime(ev.time))
     setEditScope(ev.scope)
@@ -165,7 +172,7 @@ export default function CalendarWidget({
   }
 
   function cancelEdit() {
-    setEditingId(null)
+    setEditing(null)
     setEditTitle('')
     setEditTime('')
     setEditScope('PRIVATE')
@@ -182,7 +189,7 @@ export default function CalendarWidget({
         time: editTime || undefined,
         scope: editScope,
       })
-      setEvents((prev) => prev.map((e) => (e.id === ev.id ? updated : e)))
+      onEventsChange((previous) => previous.map((e) => (e.id === ev.id ? updated : e)))
       cancelEdit()
       setError('')
       onEventsChanged?.()
@@ -194,7 +201,7 @@ export default function CalendarWidget({
   async function removeEvent(id: number) {
     try {
       await deleteEvent(id)
-      setEvents((prev) => prev.filter((e) => e.id !== id))
+      onEventsChange((previous) => previous.filter((e) => e.id !== id))
       if (editingId === id) cancelEdit()
       setError('')
       onEventsChanged?.()
@@ -267,7 +274,7 @@ export default function CalendarWidget({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <span style={{ fontSize: 14, fontWeight: 600 }}>{selectedLabel} 일정</span>
-            <span className="fl-card-count">{selectedEvents.length}건</span>
+            <span className="fl-card-count">{monthEvents === null ? '—' : selectedEvents.length}건</span>
           </div>
 
           <div className="fl-form-row">
@@ -302,9 +309,23 @@ export default function CalendarWidget({
             </button>
           </div>
 
-          {error && <div className="fl-error">{error}</div>}
+          {eventsError && (
+            <div className="fl-error" role="alert">
+              <span>{eventsError}</span>
+              <button
+                className="fl-btn fl-btn-sm"
+                onClick={onRetry}
+                disabled={eventsLoading}
+              >
+                다시 시도
+              </button>
+            </div>
+          )}
+          {error && <div className="fl-error" role="alert">{error}</div>}
 
-          {selectedEvents.length === 0 ? (
+          {eventsLoading ? (
+            <div className="fl-empty" role="status" aria-live="polite">일정을 불러오는 중...</div>
+          ) : monthEvents === null ? null : selectedEvents.length === 0 ? (
             <div className="fl-empty">등록된 일정이 없습니다.</div>
           ) : (
             <div className="fl-list">

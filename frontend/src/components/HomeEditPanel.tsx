@@ -14,9 +14,17 @@ interface HomeEditPanelProps {
   layout: HomeLayout
   onChange: (next: HomeLayout) => void
   onClose: () => void
+  canImportLegacy?: boolean
+  onImportLegacy?: () => void
 }
 
-export default function HomeEditPanel({ layout, onChange, onClose }: HomeEditPanelProps) {
+export default function HomeEditPanel({
+  layout,
+  onChange,
+  onClose,
+  canImportLegacy = false,
+  onImportLegacy,
+}: HomeEditPanelProps) {
   const [dragId, setDragId] = useState<WidgetId | null>(null)
   const [overId, setOverId] = useState<WidgetId | null>(null)
 
@@ -132,7 +140,12 @@ export default function HomeEditPanel({ layout, onChange, onClose }: HomeEditPan
         })}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+        {canImportLegacy && onImportLegacy && (
+          <button className="fl-btn" onClick={onImportLegacy}>
+            기존 기기 배치 가져오기
+          </button>
+        )}
         <button className="fl-btn" onClick={() => onChange({ ...DEFAULT_LAYOUT })}>
           기본값으로 초기화
         </button>

@@ -8,6 +8,7 @@ import com.hamsetech.hamsetech.user.UserAccount;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface TodoRepository extends JpaRepository<Todo, Long> {
@@ -17,10 +18,15 @@ public interface TodoRepository extends JpaRepository<Todo, Long> {
     
     @Query("SELECT t FROM Todo t WHERE t.user = :user AND t.date = :date ORDER BY t.priority DESC, t.completed ASC")
     List<Todo> findByUserAndDate(@Param("user") UserAccount user, @Param("date") LocalDate date);
+
+    long countByUserAndDateBeforeAndCompletedFalse(UserAccount user, LocalDate date);
+
+    Optional<Todo> findFirstByUserAndDateBeforeAndCompletedFalseOrderByDateAscPriorityDesc(
+            UserAccount user, LocalDate date);
     
     @Query("SELECT COUNT(t) FROM Todo t WHERE t.user = :user AND t.id = :id")
     int countByUserAndId(@Param("user") UserAccount user, @Param("id") Long id);
 
     /** 회원 탈퇴 시 개인 데이터를 정리한다. todos.user_id는 NOT NULL이라 남겨 둘 수 없다. */
     void deleteByUser(UserAccount user);
-} 
+}

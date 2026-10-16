@@ -39,6 +39,18 @@ public class TodoService {
         return todoRepository.findByUserAndDate(securityUtils.currentUser(), date);
     }
 
+    @Transactional(readOnly = true)
+    public TodoOverdueSummary overdueSummary(LocalDate before) {
+        UserAccount user = securityUtils.currentUser();
+        long count = todoRepository.countByUserAndDateBeforeAndCompletedFalse(user, before);
+        LocalDate earliestDate = count == 0
+                ? null
+                : todoRepository.findFirstByUserAndDateBeforeAndCompletedFalseOrderByDateAscPriorityDesc(user, before)
+                        .map(Todo::getDate)
+                        .orElse(null);
+        return new TodoOverdueSummary(count, earliestDate);
+    }
+
     public Todo create(LocalDate date, String title, String description, Integer priority) {
         UserAccount user = securityUtils.currentUser();
 

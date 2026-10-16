@@ -3,7 +3,9 @@ import type { CalendarEvent } from '../api/calendar'
 import { formatTime } from '../utils/formatDate'
 
 interface TodayScheduleWidgetProps {
-  events: CalendarEvent[]
+  events: CalendarEvent[] | null
+  loading: boolean
+  error: string
   /**
    * 캘린더 위젯에서 오늘 날짜를 선택하고 그쪽으로 스크롤한다.
    * 캘린더가 숨겨져 있으면 넘기지 않으며, 그 경우 하단 링크도 렌더링하지 않는다.
@@ -13,21 +15,26 @@ interface TodayScheduleWidgetProps {
 
 const MAX_VISIBLE = 3
 
-export default function TodayScheduleWidget({ events, onShowAll }: TodayScheduleWidgetProps) {
-  const sorted = [...events].sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+export default function TodayScheduleWidget({ events, loading, error, onShowAll }: TodayScheduleWidgetProps) {
+  const sorted = [...(events ?? [])].sort((a, b) => (a.time || '').localeCompare(b.time || ''))
   const visible = sorted.slice(0, MAX_VISIBLE)
 
   return (
     <>
       <div className="fl-card-head fl-plain">
         <span className="fl-card-title">오늘 일정</span>
-        <span className="fl-card-count">{sorted.length}건</span>
+        <span className="fl-card-count">{events === null ? '—' : sorted.length}건</span>
       </div>
 
       <div className="fl-card-body">
-        {visible.length === 0 ? (
+        {loading && <div className="fl-empty" role="status" aria-live="polite">오늘 일정을 불러오는 중...</div>}
+        {!loading && error && events === null && (
+          <div className="fl-empty" role="alert">일정을 불러오지 못했습니다. 위에서 다시 시도해주세요.</div>
+        )}
+        {!loading && !error && visible.length === 0 && (
           <div className="fl-empty">오늘 등록된 일정이 없습니다.</div>
-        ) : (
+        )}
+        {!loading && visible.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
             {visible.map((event, index) => (
               <Fragment key={event.id}>

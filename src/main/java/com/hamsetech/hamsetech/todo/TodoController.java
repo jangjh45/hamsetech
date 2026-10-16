@@ -60,6 +60,12 @@ public class TodoController {
         return service.listByDate(date);
     }
 
+    @AdminLoggable(action = AdminLog.Action.READ, entityType = AdminLog.EntityType.TODO, details = "미완료 지난 할 일 요약 조회")
+    @GetMapping("/overdue-summary")
+    public TodoOverdueSummary overdueSummary(@RequestParam("before") LocalDate before) {
+        return service.overdueSummary(before);
+    }
+
     @AdminLoggable(action = AdminLog.Action.CREATE, entityType = AdminLog.EntityType.TODO, details = "할일 생성")
     @PostMapping
     public Todo create(@Valid @RequestBody CreateTodoRequest req) {

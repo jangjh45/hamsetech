@@ -51,7 +51,8 @@ export interface HomeLayout {
 
 export const DEFAULT_LAYOUT: HomeLayout = { order: DEFAULT_ORDER, hidden: [] }
 
-const STORAGE_KEY = 'home_widget_layout'
+const LEGACY_STORAGE_KEY = 'home_widget_layout'
+const STORAGE_KEY_PREFIX = 'home_widget_layout:'
 
 const KNOWN_IDS = new Set<WidgetId>(DEFAULT_ORDER)
 
@@ -59,36 +60,73 @@ function isWidgetId(value: unknown): value is WidgetId {
   return typeof value === 'string' && KNOWN_IDS.has(value as WidgetId)
 }
 
+function storageKey(username: string | null): string | null {
+  return username ? `${STORAGE_KEY_PREFIX}${encodeURIComponent(username)}` : null
+}
+
+function defaultLayout(): HomeLayout {
+  return { order: [...DEFAULT_ORDER], hidden: [] }
+}
+
+function parseLayout(raw: string): HomeLayout {
+  const parsed = JSON.parse(raw) as Partial<HomeLayout>
+
+  const storedOrder = Array.isArray(parsed.order) ? parsed.order.filter(isWidgetId) : []
+  // 저장된 순서 + 기본 순서에만 있는(신규) 위젯을 뒤에 이어붙인다.
+  const order: WidgetId[] = [...new Set(storedOrder)]
+  for (const id of DEFAULT_ORDER) {
+    if (!order.includes(id)) order.push(id)
+  }
+
+  const hidden = Array.isArray(parsed.hidden) ? parsed.hidden.filter(isWidgetId) : []
+  return { order, hidden }
+}
+
 // 저장된 설정을 불러오되, 알 수 없는 id는 버리고 누락된 id는 뒤에 추가해
 // 위젯이 추가/삭제되어도 안전하게 동작하도록 기본값과 병합한다.
-export function loadLayout(): HomeLayout {
+export function loadLayout(username: string | null): HomeLayout {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { ...DEFAULT_LAYOUT }
-    const parsed = JSON.parse(raw) as Partial<HomeLayout>
-
-    const storedOrder = Array.isArray(parsed.order) ? parsed.order.filter(isWidgetId) : []
-    // 저장된 순서 + 기본 순서에만 있는(신규) 위젯을 뒤에 이어붙임.
-    // Set으로 중복을 지운다 — 같은 id가 두 번 남아 있으면 그 위젯이 화면에
-    // 두 번 렌더된다. 손으로 localStorage를 편집하면 원래 생기는 상황이다.
-    const order: WidgetId[] = [...new Set(storedOrder)]
-    for (const id of DEFAULT_ORDER) {
-      if (!order.includes(id)) order.push(id)
-    }
-
-    const hidden = Array.isArray(parsed.hidden) ? parsed.hidden.filter(isWidgetId) : []
-
-    return { order, hidden }
+    const key = storageKey(username)
+    if (!key) return defaultLayout()
+    const raw = localStorage.getItem(key)
+    return raw ? parseLayout(raw) : defaultLayout()
   } catch {
-    return { ...DEFAULT_LAYOUT }
+    return defaultLayout()
   }
 }
 
-export function saveLayout(layout: HomeLayout): void {
+export function saveLayout(layout: HomeLayout, username: string | null): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(layout))
+    const key = storageKey(username)
+    if (key) localStorage.setItem(key, JSON.stringify(layout))
   } catch {
     // 저장 실패는 무시 (프라이빗 모드 등)
+  }
+}
+
+/** 공용 기기 설정을 자동으로 물려받지 않도록, 계정별 저장 공간이 없을 때만 수동 가져오기를 허용한다. */
+export function canImportLegacyLayout(username: string | null): boolean {
+  try {
+    const key = storageKey(username)
+    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY)
+    if (!key || localStorage.getItem(key) || !legacy) return false
+    parseLayout(legacy)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function importLegacyLayout(username: string | null): HomeLayout | null {
+  if (!canImportLegacyLayout(username)) return null
+  try {
+    const raw = localStorage.getItem(LEGACY_STORAGE_KEY)
+    const layout = raw ? parseLayout(raw) : null
+    if (!layout) return null
+    saveLayout(layout, username)
+    return layout
+  } catch {
+    return null
   }
 }
 
