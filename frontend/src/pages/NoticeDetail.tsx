@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   addComment,
   getNotice,
@@ -8,11 +8,14 @@ import {
   deleteNotice,
   deleteComment,
   updateComment,
+  NOTICE_CATEGORIES,
   NOTICE_CATEGORY_LABELS,
+  type NoticeCategory,
   type NoticeDetail,
   type NoticeNeighbors,
   type NoticeComment,
 } from '../api/notices'
+import { ApiError } from '../api/client'
 import { isAuthenticated, isAdmin, getUsername } from '../auth/token'
 import { formatDateTime } from '../utils/formatDate'
 import CommentNode, { type CommentNodeData } from '../components/CommentNode'
@@ -20,6 +23,7 @@ import { useConfirm } from '../components/ConfirmDialog'
 import UserAvatar from '../components/UserAvatar'
 import NoticeHtmlView from '../components/NoticeHtmlView'
 import NoticeAttachmentList from '../components/NoticeAttachmentList'
+import Pager from '../components/Pager'
 import '../styles/notices.css'
 
 function buildCommentTree(flatComments: NoticeComment[]): CommentNodeData[] {
@@ -37,58 +41,101 @@ function buildCommentTree(flatComments: NoticeComment[]): CommentNodeData[] {
     }
   })
 
-  const sortByTime = (nodes: CommentNodeData[]) => {
+  const sortRepliesByTime = (nodes: CommentNodeData[]) => {
     nodes.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-    nodes.forEach((n) => sortByTime(n.replies))
+    nodes.forEach((n) => sortRepliesByTime(n.replies))
   }
-  sortByTime(roots)
+  sortRepliesByTime(roots)
+  roots.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
   return roots
-}
-
-/** 삭제 시 대댓글 자손까지 포함한 낙관적 업데이트용 */
-function removeWithDescendants(flat: NoticeComment[], rootId: number): NoticeComment[] {
-  const removed = new Set<number>([rootId])
-  let changed = true
-  while (changed) {
-    changed = false
-    for (const c of flat) {
-      if (c.parentId != null && removed.has(c.parentId) && !removed.has(c.id)) {
-        removed.add(c.id)
-        changed = true
-      }
-    }
-  }
-  return flat.filter((c) => !removed.has(c.id))
 }
 
 export default function NoticeDetailPage() {
   const { id } = useParams()
   const noticeId = Number(id)
+  const location = useLocation()
+  const listParams = new URLSearchParams(location.search)
+  const neighborQuery = listParams.get('q') ?? ''
+  const categoryParam = listParams.get('category') ?? ''
+  const neighborCategory = NOTICE_CATEGORIES.includes(categoryParam as NoticeCategory)
+    ? categoryParam as NoticeCategory
+    : undefined
   const navigate = useNavigate()
 
   const [notice, setNotice] = useState<NoticeDetail | null>(null)
   const [notFound, setNotFound] = useState(false)
+  const [noticeLoading, setNoticeLoading] = useState(true)
+  const [noticeError, setNoticeError] = useState('')
+  const [noticeRetry, setNoticeRetry] = useState(0)
   const [comments, setComments] = useState<NoticeComment[]>([])
   const [neighbors, setNeighbors] = useState<NoticeNeighbors>({ prev: null, next: null })
+  const [commentsPage, setCommentsPage] = useState(0)
+  const [commentsTotalPages, setCommentsTotalPages] = useState(0)
+  const [commentsTotalCount, setCommentsTotalCount] = useState(0)
+  const [commentsLoading, setCommentsLoading] = useState(true)
+  const [commentsError, setCommentsError] = useState('')
+  const commentsRequestId = useRef(0)
   const [text, setText] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const { confirm } = useConfirm()
 
   useEffect(() => {
-    if (!noticeId) return
+    if (!Number.isSafeInteger(noticeId) || noticeId <= 0) return
+    let cancelled = false
+    // Loading state is synchronized with the route-driven request.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNoticeLoading(true)
+    setNoticeError('')
+    setNotFound(false)
     getNotice(noticeId)
-      .then(setNotice)
-      .catch(() => setNotFound(true))
-    listComments(noticeId).then(setComments)
+      .then((result) => {
+        if (!cancelled) setNotice(result)
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        if (err instanceof ApiError && err.status === 404) setNotFound(true)
+        else setNoticeError(err instanceof Error ? err.message : '공지사항을 불러오지 못했습니다.')
+      })
+      .finally(() => {
+        if (!cancelled) setNoticeLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [noticeId, noticeRetry])
+
+  const loadComments = useCallback(async (page: number) => {
+    const requestId = ++commentsRequestId.current
+    setCommentsLoading(true)
+    setCommentsError('')
+    try {
+      const result = await listComments(noticeId, page)
+      if (requestId !== commentsRequestId.current) return
+      setComments(result.content)
+      setCommentsPage(result.number)
+      setCommentsTotalPages(result.totalPages)
+      setCommentsTotalCount(result.totalComments)
+    } catch (err: unknown) {
+      if (requestId === commentsRequestId.current) {
+        setCommentsError(err instanceof Error ? err.message : '댓글을 불러오지 못했습니다.')
+      }
+    } finally {
+      if (requestId === commentsRequestId.current) setCommentsLoading(false)
+    }
   }, [noticeId])
+
+  useEffect(() => {
+    if (!Number.isSafeInteger(noticeId) || noticeId <= 0) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadComments(0)
+    return () => { commentsRequestId.current += 1 }
+  }, [noticeId, loadComments])
 
   // 이전·다음 글은 부가 정보라 실패해도 조용히 넘긴다.
   useEffect(() => {
     if (!noticeId) return
     let cancelled = false
-    getNoticeNeighbors(noticeId)
+    getNoticeNeighbors(noticeId, neighborQuery, neighborCategory)
       .then((n) => {
         if (!cancelled) setNeighbors(n)
       })
@@ -96,12 +143,7 @@ export default function NoticeDetailPage() {
     return () => {
       cancelled = true
     }
-  }, [noticeId])
-
-  async function refreshComments() {
-    const cs = await listComments(noticeId)
-    setComments(cs)
-  }
+  }, [noticeId, neighborQuery, neighborCategory])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -114,7 +156,7 @@ export default function NoticeDetailPage() {
       setSubmitting(true)
       await addComment(noticeId, { content: text })
       setText('')
-      await refreshComments()
+      await loadComments(0)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '등록 실패')
     } finally {
@@ -124,7 +166,7 @@ export default function NoticeDetailPage() {
 
   async function onReply(nid: number, parentId: number, content: string) {
     await addComment(nid, { content, parentId })
-    await refreshComments()
+    await loadComments(commentsPage)
   }
 
   async function onCommentEdit(commentId: number, content: string) {
@@ -142,8 +184,7 @@ export default function NoticeDetailPage() {
     if (!ok) return
     try {
       await deleteComment(noticeId, commentId)
-      // 낙관적 업데이트: 삭제된 댓글과 그 자손들을 트리에서 즉시 제거
-      setComments((prev) => removeWithDescendants(prev, commentId))
+      await loadComments(commentsPage)
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : '삭제 실패')
     }
@@ -160,22 +201,50 @@ export default function NoticeDetailPage() {
     if (!ok) return
     try {
       await deleteNotice(noticeId)
-      navigate('/notices')
+      navigate(`/notices${location.search}`)
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : '삭제 실패')
     }
   }
 
-  if (notFound) {
+  if (!Number.isSafeInteger(noticeId) || noticeId <= 0 || notFound) {
     return (
       <div className="fl-page">
         <section className="fl-card">
           <div className="fl-card-body">
             <div className="fl-empty">존재하지 않는 게시글입니다.</div>
             <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <Link className="fl-btn" to="/notices">
+              <Link className="fl-btn" to={`/notices${location.search}`}>
                 목록으로
               </Link>
+            </div>
+          </div>
+        </section>
+      </div>
+    )
+  }
+
+  if (noticeLoading) {
+    return (
+      <div className="fl-page">
+        <section className="fl-card">
+          <div className="fl-empty" role="status" aria-live="polite">공지사항을 불러오는 중...</div>
+        </section>
+      </div>
+    )
+  }
+
+  if (noticeError) {
+    return (
+      <div className="fl-page">
+        <section className="fl-card">
+          <div className="fl-card-body">
+            <div className="fl-empty" role="alert">{noticeError}</div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
+              <button className="fl-btn fl-btn-primary" onClick={() => setNoticeRetry((retry) => retry + 1)}>
+                다시 시도
+              </button>
+              <Link className="fl-btn" to={`/notices${location.search}`}>목록으로</Link>
             </div>
           </div>
         </section>
@@ -194,7 +263,7 @@ export default function NoticeDetailPage() {
   return (
     <div className="fl-page">
       <div className="nt-crumb">
-        <Link to="/notices">공지사항</Link>
+        <Link to={`/notices${location.search}`}>공지사항</Link>
         <span className="nt-crumb-sep">/</span>
         <span>상세</span>
       </div>
@@ -202,7 +271,7 @@ export default function NoticeDetailPage() {
       <div className="nt-detail-grid">
         <section className="fl-card">
           <div className="nt-article-head">
-            <h1 className="nt-article-title">{notice ? notice.title : '불러오는 중...'}</h1>
+            <h1 className="nt-article-title">{notice?.title}</h1>
             {notice && (
               <div className="nt-article-meta">
                 <span className="nt-badge-cat">{NOTICE_CATEGORY_LABELS[notice.category]}</span>
@@ -238,7 +307,7 @@ export default function NoticeDetailPage() {
           {notice && <NoticeAttachmentList attachments={notice.attachments} />}
 
           <div className="nt-actions nt-actions-article">
-            <Link className="fl-btn" to="/notices">
+            <Link className="fl-btn" to={`/notices${location.search}`}>
               목록
             </Link>
             {canEdit && (
@@ -246,7 +315,7 @@ export default function NoticeDetailPage() {
                 <button className="fl-btn fl-btn-danger" onClick={onDelete}>
                   삭제
                 </button>
-                <Link className="fl-btn fl-btn-primary" to={`/notice/${noticeId}/edit`}>
+                <Link className="fl-btn fl-btn-primary" to={`/notice/${noticeId}/edit${location.search}`}>
                   수정
                 </Link>
               </div>
@@ -255,15 +324,17 @@ export default function NoticeDetailPage() {
 
           <div className="nt-comments">
             <div className="nt-comments-title">
-              댓글 <span className="nt-comments-count">{comments.length}</span>
+              댓글 <span className="nt-comments-count">{commentsTotalCount}</span>
             </div>
 
             {isAuthenticated() && (
               <form className="nt-comment-form" onSubmit={onSubmit}>
                 <textarea
                   className="fl-input nt-textarea"
+                  aria-label="댓글 입력"
                   placeholder="댓글을 남겨보세요..."
                   value={text}
+                  maxLength={500}
                   onChange={(e) => setText(e.target.value.slice(0, 500))}
                   rows={3}
                 />
@@ -281,9 +352,26 @@ export default function NoticeDetailPage() {
               </form>
             )}
 
-            {comments.length === 0 ? (
+            {!isAuthenticated() && (
+              <div className="fl-empty">
+                댓글을 작성하려면 <Link to="/login" state={{ from: location }}>로그인</Link>해주세요.
+              </div>
+            )}
+
+            {commentsLoading && <div className="fl-empty" role="status" aria-live="polite">댓글을 불러오는 중...</div>}
+
+            {!commentsLoading && commentsError && (
+              <div className="fl-empty" role="alert">
+                <p>{commentsError}</p>
+                <button className="fl-btn fl-btn-sm" onClick={() => void loadComments(commentsPage)}>
+                  다시 시도
+                </button>
+              </div>
+            )}
+
+            {!commentsLoading && !commentsError && commentsTotalCount === 0 ? (
               <div className="fl-empty">첫 번째 댓글을 남겨보세요!</div>
-            ) : (
+            ) : !commentsLoading && !commentsError && (
               <div className="nt-comment-tree">
                 {commentTree.map((root) => (
                   <CommentNode
@@ -297,6 +385,13 @@ export default function NoticeDetailPage() {
                 ))}
               </div>
             )}
+            {!commentsLoading && !commentsError && (
+              <Pager
+                page={commentsPage}
+                totalPages={commentsTotalPages}
+                onChange={(page) => void loadComments(page)}
+              />
+            )}
           </div>
         </section>
 
@@ -306,8 +401,8 @@ export default function NoticeDetailPage() {
               <span className="fl-card-title">이전 · 다음 글</span>
             </div>
             <div className="fl-card-body fl-flush">
-              <NeighborRow label="이전" notice={neighbors.prev} />
-              <NeighborRow label="다음" notice={neighbors.next} />
+              <NeighborRow label="이전" notice={neighbors.prev} search={location.search} />
+              <NeighborRow label="다음" notice={neighbors.next} search={location.search} />
             </div>
           </section>
         )}
@@ -319,14 +414,16 @@ export default function NoticeDetailPage() {
 function NeighborRow({
   label,
   notice,
+  search,
 }: {
   label: string
   notice: { id: number; title: string } | null
+  search: string
 }) {
   const body = (
     <>
       <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--fl-muted-2)' }}>{label}</span>
-      <span className="fl-linkrow-title">
+      <span className="fl-linkrow-title nt-neighbor-title" title={notice?.title}>
         {notice ? notice.title : label === '이전' ? '첫 글입니다' : '최신 글입니다'}
       </span>
     </>
@@ -343,7 +440,7 @@ function NeighborRow({
   }
 
   return (
-    <Link className="fl-linkrow" to={`/notice/${notice.id}`} style={style}>
+    <Link className="fl-linkrow" to={`/notice/${notice.id}${search}`} style={style}>
       {body}
     </Link>
   )

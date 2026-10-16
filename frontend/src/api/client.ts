@@ -1,5 +1,15 @@
 import { getToken, clearToken } from '../auth/token'
 
+export class ApiError extends Error {
+  readonly status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
 // 토큰 만료 이벤트 발생 함수
 function dispatchTokenExpired() {
   window.dispatchEvent(new CustomEvent('token-expired'))
@@ -92,7 +102,7 @@ async function rawFetch(input: RequestInfo | URL, init: RequestInit = {}): Promi
     }
   }
 
-  const err = new Error(message || `HTTP ${res.status}`)
+  const err = new ApiError(message || `HTTP ${res.status}`, res.status)
   try { console.error('apiFetch error', { url, status: res.status, message }) } catch {}
   throw err
 }

@@ -83,7 +83,17 @@ export interface Page<T> {
  */
 export interface NoticeListResponse {
   pinned: NoticeSummary[]
+  pinnedTotal: number
   page: Page<NoticeSummary>
+}
+
+export interface NoticeCommentPage {
+  content: NoticeComment[]
+  totalComments: number
+  totalThreads: number
+  totalPages: number
+  number: number
+  size: number
 }
 
 export interface NoticeNeighbors {
@@ -115,8 +125,17 @@ export async function getNotice(id: number): Promise<NoticeDetail> {
   return apiFetch(`/api/notices/${id}`)
 }
 
-export async function getNoticeNeighbors(id: number): Promise<NoticeNeighbors> {
-  return apiFetch(`/api/notices/${id}/neighbors`)
+export async function getNoticeNeighbors(
+  id: number,
+  q = '',
+  category?: NoticeCategory,
+): Promise<NoticeNeighbors> {
+  const params = new URLSearchParams()
+  if (q) params.set('q', q)
+  if (category) params.set('category', category)
+  const serialized = params.toString()
+  const query = serialized ? `?${serialized}` : ''
+  return apiFetch(`/api/notices/${id}/neighbors${query}`)
 }
 
 export async function createNotice(data: NoticeInput): Promise<NoticeDetail> {
@@ -135,8 +154,9 @@ export async function deleteNotice(id: number): Promise<void> {
   return apiFetch(`/api/notices/${id}`, { method: 'DELETE' })
 }
 
-export async function listComments(id: number): Promise<NoticeComment[]> {
-  return apiFetch(`/api/notices/${id}/comments`)
+export async function listComments(id: number, page = 0, size = 10): Promise<NoticeCommentPage> {
+  const params = new URLSearchParams({ page: String(page), size: String(size) })
+  return apiFetch(`/api/notices/${id}/comments?${params.toString()}`)
 }
 
 export async function addComment(id: number, data: { content: string; parentId?: number }): Promise<NoticeComment> {

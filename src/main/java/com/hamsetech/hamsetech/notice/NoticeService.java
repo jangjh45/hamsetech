@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 @Transactional
 public class NoticeService {
 
-    /** 상단에 고정할 수 있는 공지 수. 이 이상은 고정해도 목록이 고정글로만 채워진다. */
+    /** 상단에 고정할 수 있는 공지 수. 목록에서 누락되지 않도록 쓰기 시점에 제한한다. */
     private static final int MAX_PINNED = 20;
 
     /** 새니타이징을 마친 본문 길이 상한. 이미지는 첨부로 빠지므로 이 정도면 넉넉하다. */
@@ -73,10 +73,10 @@ public class NoticeService {
         Specification<Notice> normalSpec = NoticeSpecification.withFilters(q, category, false);
         Page<Notice> page = noticeRepository.findAll(normalSpec, pageable);
 
+        Specification<Notice> pinnedSpec = NoticeSpecification.withFilters(q, category, true);
+        long pinnedTotal = noticeRepository.count(pinnedSpec);
         List<Notice> pinned = pageable.getPageNumber() == 0
-                ? noticeRepository.findAll(
-                        NoticeSpecification.withFilters(q, category, true),
-                        PageRequest.of(0, MAX_PINNED, Sort.by(Sort.Direction.DESC, "id"))).getContent()
+                ? noticeRepository.findAll(pinnedSpec, Sort.by(Sort.Direction.DESC, "id"))
                 : List.of();
 
         // 댓글·첨부 수는 두 묶음을 합쳐 한 번씩만 센다
@@ -90,6 +90,7 @@ public class NoticeService {
 
         return new NoticeListResponse(
                 toSummaries(pinned, commentCounts, attachmentCounts),
+                pinnedTotal,
                 NoticeListResponse.PageDto.of(page,
                         toSummaries(page.getContent(), commentCounts, attachmentCounts)));
     }
@@ -135,17 +136,29 @@ public class NoticeService {
     }
 
     @Transactional(readOnly = true)
-    public NoticeNeighborsDto getNeighbors(@NonNull Long id) {
+    public NoticeNeighborsDto getNeighbors(@NonNull Long id, String q, NoticeCategory category) {
         return new NoticeNeighborsDto(
-                NoticeNeighborsDto.Neighbor.of(
-                        noticeRepository.findFirstByIdLessThanOrderByIdDesc(id).orElse(null)),
-                NoticeNeighborsDto.Neighbor.of(
-                        noticeRepository.findFirstByIdGreaterThanOrderByIdAsc(id).orElse(null)));
+                NoticeNeighborsDto.Neighbor.of(findNeighbor(id, q, category, false)),
+                NoticeNeighborsDto.Neighbor.of(findNeighbor(id, q, category, true)));
+    }
+
+    private Notice findNeighbor(Long id, String q, NoticeCategory category, boolean newer) {
+        Specification<Notice> direction = (root, query, cb) -> newer
+                ? cb.greaterThan(root.get("id").as(Long.class), id)
+                : cb.lessThan(root.get("id").as(Long.class), id);
+        Sort sort = Sort.by(newer ? Sort.Direction.ASC : Sort.Direction.DESC, "id");
+        return noticeRepository.findAll(
+                        NoticeSpecification.withFilters(q, category, null).and(direction),
+                        PageRequest.of(0, 1, sort))
+                .stream()
+                .findFirst()
+                .orElse(null);
     }
 
     /** 상단 고정 토글. 컨트롤러에서 관리자만 들어온다. */
     public boolean setPinned(@NonNull Long id, boolean pinned) {
         Notice n = requireNotice(id);
+        if (pinned && !n.isPinned()) ensurePinnedCapacity();
         n.setPinned(pinned);
         return noticeRepository.save(n).isPinned();
     }
@@ -157,6 +170,7 @@ public class NoticeService {
         if (!securityUtils.isAdmin()) {
             throw new AccessDeniedException("공지 작성 권한이 없습니다.");
         }
+        if (pinned) ensurePinnedCapacity();
         Notice n = new Notice();
         n.setTitle(title);
         n.setCategory(category == null ? NoticeCategory.GENERAL : category);
@@ -176,6 +190,7 @@ public class NoticeService {
                                         List<Long> attachmentIds) {
         Notice n = requireNotice(id);
         requireCanEdit(n.getAuthorUsername());
+        if (pinned && !n.isPinned()) ensurePinnedCapacity();
 
         n.setTitle(title);
         n.setCategory(category == null ? NoticeCategory.GENERAL : category);
@@ -229,8 +244,26 @@ public class NoticeService {
     }
 
     @Transactional(readOnly = true)
-    public List<NoticeCommentDto> listComments(@NonNull Long noticeId) {
-        List<NoticeComment> comments = commentRepository.findByNoticeIdOrderByCreatedAtAsc(noticeId);
+    public NoticeCommentPageDto listComments(@NonNull Long noticeId, @NonNull Pageable pageable) {
+        if (!noticeRepository.existsById(noticeId)) {
+            throw new NotFoundException("공지를 찾을 수 없습니다.");
+        }
+
+        var rootPage = commentRepository.findByNoticeIdAndParentIsNullOrderByCreatedAtDescIdDesc(noticeId, pageable);
+        int lastPage = Math.max(rootPage.getTotalPages() - 1, 0);
+        int normalizedPage = Math.min(pageable.getPageNumber(), lastPage);
+        if (normalizedPage != pageable.getPageNumber()) {
+            rootPage = commentRepository.findByNoticeIdAndParentIsNullOrderByCreatedAtDescIdDesc(
+                    noticeId, PageRequest.of(normalizedPage, pageable.getPageSize()));
+        }
+        List<NoticeComment> comments = new ArrayList<>(rootPage.getContent());
+        List<Long> parentIds = rootPage.getContent().stream().map(NoticeComment::getId).toList();
+        while (!parentIds.isEmpty()) {
+            List<NoticeComment> replies = commentRepository.findRepliesByParentIds(parentIds);
+            comments.addAll(replies);
+            parentIds = replies.stream().map(NoticeComment::getId).toList();
+        }
+
         Set<String> usernames = comments.stream()
                 .map(NoticeComment::getAuthorUsername)
                 .collect(Collectors.toSet());
@@ -239,9 +272,16 @@ public class NoticeService {
                 : userRepository.findByUsernameIn(usernames).stream()
                         .collect(Collectors.toMap(UserAccount::getUsername, user -> user));
 
-        return comments.stream()
+        List<NoticeCommentDto> content = comments.stream()
                 .map(comment -> toCommentDto(comment, authors.get(comment.getAuthorUsername())))
                 .toList();
+        return new NoticeCommentPageDto(
+                content,
+                commentRepository.countByNoticeId(noticeId),
+                rootPage.getTotalElements(),
+                rootPage.getTotalPages(),
+                rootPage.getNumber(),
+                rootPage.getSize());
     }
 
     public NoticeCommentDto addComment(@NonNull Long noticeId, String content, Long parentId) {
@@ -310,6 +350,12 @@ public class NoticeService {
     private Notice requireNotice(@NonNull Long id) {
         return noticeRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("공지를 찾을 수 없습니다."));
+    }
+
+    private void ensurePinnedCapacity() {
+        if (noticeRepository.countByPinnedTrue() >= MAX_PINNED) {
+            throw new IllegalArgumentException("상단 고정 공지는 최대 20개까지 등록할 수 있습니다.");
+        }
     }
 
     /** 관리자이거나 작성자 본인이어야 한다. */

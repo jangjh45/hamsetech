@@ -178,6 +178,20 @@
 
 /* ── 상세 ────────────────────────────────────────────────────── */
 
+/* 이전·다음 글 제목은 공통 링크 제목과 달리 두 줄까지 보여준다 */
+.nt-neighbor-title {
+  display: -webkit-box;
+  flex: none;
+  width: 100%;
+  line-height: 1.5;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
 .nt-detail-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
