@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   createOvertimeRecord,
   deleteOvertimeRecord,
@@ -29,6 +30,11 @@ const STATUS_TONE: Record<OvertimeStatus, string> = {
 
 type StatusFilter = 'ALL' | OvertimeStatus
 type TypeFilter = 'ALL' | OvertimeType
+const STATUS_FILTERS: StatusFilter[] = ['ALL', 'PENDING', 'APPROVED', 'REJECTED']
+
+function isStatusFilter(value: string | null): value is StatusFilter {
+  return value !== null && STATUS_FILTERS.includes(value as StatusFilter)
+}
 
 function monthKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -114,6 +120,7 @@ interface FormState {
 
 export default function OvertimeRecordsPage() {
   const { confirm } = useConfirm()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [records, setRecords] = useState<OvertimeRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState('')
@@ -121,7 +128,8 @@ export default function OvertimeRecordsPage() {
   const [defaults, setDefaults] = useState<OvertimeDefaults | null>(null)
 
   const [month, setMonth] = useState<string>(() => monthKey(new Date()))
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
+  const statusParam = searchParams.get('status')
+  const statusFilter: StatusFilter = isStatusFilter(statusParam) ? statusParam : 'ALL'
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('ALL')
   const [view, setView] = useState<'list' | 'calendar'>('list')
   const [page, setPage] = useState(0)
@@ -134,6 +142,13 @@ export default function OvertimeRecordsPage() {
   const [formError, setFormError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
   const loadRequestId = useRef(0)
+
+  function setStatusFilter(next: StatusFilter) {
+    const params = new URLSearchParams(searchParams)
+    if (next === 'ALL') params.delete('status')
+    else params.set('status', next)
+    setSearchParams(params)
+  }
 
   const calendarCells = useMemo(() => monthMatrix(monthStart(month)), [month])
   const recordRange = {
@@ -166,6 +181,13 @@ export default function OvertimeRecordsPage() {
   useEffect(() => {
     getOvertimeDefaults().then(setDefaults).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!statusParam || isStatusFilter(statusParam)) return
+    const params = new URLSearchParams(searchParams)
+    params.delete('status')
+    setSearchParams(params, { replace: true })
+  }, [searchParams, setSearchParams, statusParam])
 
   // 현재 달력의 42칸 범위만 불러와 날짜별로 묶는다 (앞뒤 달의 날짜 칸 포함).
   const calendarRecords = useMemo(
