@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { ConfirmProvider } from '../components/ConfirmDialog'
 import OvertimeRecordsPage from './OvertimeRecords'
 
@@ -83,12 +83,18 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function renderPage() {
+function LocationProbe() {
+  const location = useLocation()
+  return <output data-testid="location-search">{location.search}</output>
+}
+
+function renderPage(initialEntry = '/') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <ConfirmProvider>
         <OvertimeRecordsPage />
       </ConfirmProvider>
+      <LocationProbe />
     </MemoryRouter>,
   )
 }
@@ -230,6 +236,23 @@ describe('OvertimeRecordsPage — 이번 달 통계', () => {
 })
 
 describe('OvertimeRecordsPage — 필터', () => {
+  it('승인 대기 바로가기 쿼리로 대기 기록만 열고 필터 변경을 URL에 반영한다', async () => {
+    api.listMyOvertimeRecords.mockResolvedValue([
+      rec({ id: 1, status: 'PENDING', reason: '대기 기록' }),
+      rec({ id: 2, status: 'REJECTED', reason: '반려 기록' }),
+    ])
+    renderPage('/overtime?status=PENDING')
+
+    await waitFor(() => expect(screen.getByText('대기 기록')).toBeTruthy())
+    expect(screen.queryByText('반려 기록')).toBeNull()
+    expect(screen.getByTestId('location-search').textContent).toBe('?status=PENDING')
+    expect(screen.getByRole('button', { name: '대기' }).getAttribute('aria-pressed')).toBe('true')
+
+    fireEvent.click(screen.getByRole('button', { name: '전체' }))
+    await waitFor(() => expect(screen.getByTestId('location-search').textContent).toBe(''))
+    expect(screen.getByText('반려 기록')).toBeTruthy()
+  })
+
   it('상태로 거른다', async () => {
     api.listMyOvertimeRecords.mockResolvedValue([
       rec({ id: 1, status: 'PENDING', reason: '발주 마감' }),
