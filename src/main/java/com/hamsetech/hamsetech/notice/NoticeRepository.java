@@ -10,15 +10,7 @@ import java.util.Optional;
 
 public interface NoticeRepository extends JpaRepository<Notice, Long>, JpaSpecificationExecutor<Notice> {
 
-    /**
-     * 이전·다음 글.
-     *
-     * 예전에는 목록 API를 size=50으로 다시 불러 인덱스로 찾았는데, 51번째부터는
-     * 스캔 범위 밖이라 이웃을 못 찾았다. 고정글 정렬과도 엮이지 않도록
-     * 순수 작성 순서(id)만 본다.
-     */
-    Optional<Notice> findFirstByIdLessThanOrderByIdDesc(Long id);
-    Optional<Notice> findFirstByIdGreaterThanOrderByIdAsc(Long id);
+    long countByPinnedTrue();
 
     /**
      * 조회수 증가. 엔티티를 읽어 setter로 올리면 동시 조회 시 서로 덮어쓴다.

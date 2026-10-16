@@ -62,10 +62,12 @@ public class NoticeController {
         return notice != null ? ResponseEntity.ok(notice) : ResponseEntity.notFound().build();
     }
 
-    /** 이전·다음 글. 목록 API를 다시 훑던 방식은 스캔 범위 밖의 글을 못 찾았다. */
+    /** 이전·다음 글. 현재 목록의 검색어·분류가 있으면 같은 조건 안에서 찾는다. */
     @GetMapping("/{id}/neighbors")
-    public NoticeNeighborsDto neighbors(@PathVariable @NonNull Long id) {
-        return noticeService.getNeighbors(id);
+    public NoticeNeighborsDto neighbors(@PathVariable @NonNull Long id,
+                                        @RequestParam(name = "q", defaultValue = "") String q,
+                                        @RequestParam(name = "category", required = false) NoticeCategory category) {
+        return noticeService.getNeighbors(id, q, category);
     }
 
     @AdminLoggable(action = AdminLog.Action.UPDATE, entityType = AdminLog.EntityType.NOTICE, details = "공지사항 상단 고정 변경")
@@ -101,8 +103,11 @@ public class NoticeController {
     }
 
     @GetMapping("/{id}/comments")
-    public List<NoticeCommentDto> listComments(@PathVariable @NonNull Long id) {
-        return noticeService.listComments(id);
+    public NoticeCommentPageDto listComments(@PathVariable @NonNull Long id,
+                                             @RequestParam(name = "page", defaultValue = "0") int page,
+                                             @RequestParam(name = "size", defaultValue = "10") int size) {
+        var pageable = PageRequest.of(Math.max(0, page), Math.min(Math.max(size, 1), 50));
+        return noticeService.listComments(id, pageable);
     }
 
     @AdminLoggable(action = AdminLog.Action.CREATE, entityType = AdminLog.EntityType.NOTICE_COMMENT, details = "공지사항 댓글 생성")

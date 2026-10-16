@@ -11,7 +11,7 @@ import java.util.List;
  * (전체 건수에서 역순으로 세는 방식)가 어긋나고, 이전·다음 글도 "다음 글이 3년 전 공지"
  * 같은 결과가 된다. pinned는 첫 페이지에서만 채우고 2페이지부터는 빈 배열이다.
  */
-public record NoticeListResponse(List<NoticeSummaryDto> pinned, PageDto page) {
+public record NoticeListResponse(List<NoticeSummaryDto> pinned, long pinnedTotal, PageDto page) {
 
     /**
      * Spring의 Page를 그대로 직렬화하면 구조가 버전에 따라 흔들린다는 경고가 붙는다.

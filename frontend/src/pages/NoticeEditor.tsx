@@ -7,7 +7,7 @@ import {
   NOTICE_CATEGORY_LABELS,
   type NoticeCategory,
 } from '../api/notices'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, Link } from 'react-router-dom'
 import { isAdmin, getDisplayName } from '../auth/token'
 import { uploadAttachment, type NoticeAttachment } from '../api/noticeAttachments'
 import { isEmptyHtml, plainTextToHtml } from '../utils/noticeHtml'
@@ -21,6 +21,7 @@ const RichTextEditor = lazy(() => import('../components/RichTextEditor'))
 export default function NoticeEditorPage() {
   const { id } = useParams()
   const editId = id ? Number(id) : undefined
+  const location = useLocation()
   const navigate = useNavigate()
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -33,7 +34,7 @@ export default function NoticeEditorPage() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   // 편집기는 초기값을 한 번만 받으므로, 불러오기 전에는 띄우지 않는다
-  const [ready, setReady] = useState(false)
+  const [ready, setReady] = useState(!editId)
 
   useEffect(() => {
     // 서버도 관리자만 받지만, 권한 없는 사람에게 빈 폼을 보여줄 이유가 없다
@@ -42,7 +43,6 @@ export default function NoticeEditorPage() {
       return
     }
     if (!editId) {
-      setReady(true)
       return
     }
     getNotice(editId).then((n) => {
@@ -101,10 +101,10 @@ export default function NoticeEditorPage() {
       setSubmitting(true)
       if (editId) {
         await updateNotice(editId, { title, content, category, pinned, attachmentIds })
-        navigate(`/notice/${editId}`)
+        navigate(`/notice/${editId}${location.search}`)
       } else {
         const res = await createNotice({ title, content, category, pinned, attachmentIds })
-        navigate(`/notice/${res.id}`)
+        navigate(`/notice/${res.id}${location.search}`)
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '저장 실패')
@@ -194,7 +194,7 @@ export default function NoticeEditorPage() {
         </div>
 
         <div className="nt-actions">
-          <Link className="fl-btn" to={editId ? `/notice/${editId}` : '/notices'}>
+          <Link className="fl-btn" to={editId ? `/notice/${editId}${location.search}` : `/notices${location.search}`}>
             취소
           </Link>
           <div className="nt-actions-right">

@@ -1,6 +1,8 @@
 package com.hamsetech.hamsetech.notice;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -9,7 +11,12 @@ import java.util.List;
 
 public interface NoticeCommentRepository extends JpaRepository<NoticeComment, Long> {
 
-    List<NoticeComment> findByNoticeIdOrderByCreatedAtAsc(Long noticeId);
+    Page<NoticeComment> findByNoticeIdAndParentIsNullOrderByCreatedAtDescIdDesc(Long noticeId, Pageable pageable);
+
+    @Query("select c from NoticeComment c where c.parent.id in :parentIds order by c.createdAt asc, c.id asc")
+    List<NoticeComment> findRepliesByParentIds(@Param("parentIds") Collection<Long> parentIds);
+
+    long countByNoticeId(Long noticeId);
 
     /**
      * 목록 화면의 댓글 수 배지용. 글마다 count를 날리면 페이지당 10번이 되므로
