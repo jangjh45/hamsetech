@@ -134,7 +134,11 @@ function submitButton(): HTMLElement {
 describe('OvertimeRecordsPage — 불러오기', () => {
   it('내 기록과 기본 근무시간을 함께 읽는다', async () => {
     renderPage()
-    await waitFor(() => expect(api.listMyOvertimeRecords).toHaveBeenCalled())
+    await waitFor(() => expect(api.listMyOvertimeRecords).toHaveBeenCalledWith(expect.any(String), expect.any(String)))
+    const [from, to] = api.listMyOvertimeRecords.mock.calls[0] as [string, string]
+    expect(from).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(to).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(from < to).toBe(true)
     // 기본 근무시간이 없으면 등록 폼의 시간이 비어 있다. 조용히 실패해도
     // 화면은 떠야 한다 — 편의 기능이기 때문이다.
     await waitFor(() => expect(api.getOvertimeDefaults).toHaveBeenCalled())
@@ -150,6 +154,16 @@ describe('OvertimeRecordsPage — 불러오기', () => {
     api.listMyOvertimeRecords.mockRejectedValue(new Error('권한이 없습니다'))
     renderPage()
     await waitFor(() => expect(screen.getByText('권한이 없습니다')).toBeTruthy())
+  })
+
+  it('목록 요청 실패를 재시도할 수 있다', async () => {
+    api.listMyOvertimeRecords.mockRejectedValueOnce(new Error('일시 오류')).mockResolvedValue([])
+    renderPage()
+
+    await screen.findByText('일시 오류')
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }))
+    await waitFor(() => expect(api.listMyOvertimeRecords).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.queryByText('일시 오류')).toBeNull())
   })
 
   it('기록이 없으면 빈 상태를 보인다', async () => {
@@ -253,6 +267,34 @@ describe('OvertimeRecordsPage — 필터', () => {
     fireEvent.change(screen.getByLabelText('조회 월'), { target: { value: '2020-01' } })
     await waitFor(() => expect(screen.getByText('조건에 맞는 기록이 없습니다.')).toBeTruthy())
   })
+
+  it('달력으로 이동하면 선택 날짜가 새 조회 월 안으로 맞춰진다', async () => {
+    renderPage()
+
+    fireEvent.change(screen.getByLabelText('조회 월'), { target: { value: '2020-01' } })
+    fireEvent.click(screen.getByRole('button', { name: '달력' }))
+    expect(screen.getByText('2020년 1월 1일 (수)')).toBeTruthy()
+  })
+
+  it('달력 보기에서도 상태 필터가 기록에 적용된다', async () => {
+    const month = thisMonth()
+    api.listMyOvertimeRecords.mockResolvedValue([
+      rec({ id: 1, workDate: ymd(month, 10), status: 'PENDING', reason: '대기 기록' }),
+      rec({ id: 2, workDate: ymd(month, 10), status: 'REJECTED', reason: '반려 기록' }),
+    ])
+    renderPage()
+    await waitFor(() => expect(screen.getByText('대기 기록')).toBeTruthy())
+
+    fireEvent.click(screen.getByRole('button', { name: '반려' }))
+    fireEvent.click(screen.getByRole('button', { name: '달력' }))
+
+    const currentMonth = thisMonth()
+    const [year, monthNumber] = currentMonth.split('-').map(Number)
+    const weekday = ['일', '월', '화', '수', '목', '금', '토'][new Date(year, monthNumber - 1, 10).getDay()]
+    fireEvent.click(screen.getByRole('button', { name: `${year}년 ${monthNumber}월 10일 (${weekday})` }))
+    expect(screen.getByText('반려 기록')).toBeTruthy()
+    expect(screen.queryByText('대기 기록')).toBeNull()
+  })
 })
 
 describe('OvertimeRecordsPage — 기록 등록', () => {
@@ -288,6 +330,38 @@ describe('OvertimeRecordsPage — 기록 등록', () => {
     await waitFor(() =>
       expect(screen.getByText('시작–종료 시간 또는 총 시간을 입력해주세요')).toBeTruthy(),
     )
+    expect(api.createOvertimeRecord).not.toHaveBeenCalled()
+  })
+
+  it('시작·종료 중 한쪽만 입력하면 서버로 보내지 않는다', async () => {
+    renderPage()
+    await openCreateModal()
+    fireEvent.change(timeInputs()[1], { target: { value: '' } })
+    fireEvent.submit(dialog())
+
+    await screen.findByText('시작 시간과 종료 시간을 모두 입력해주세요')
+    expect(api.createOvertimeRecord).not.toHaveBeenCalled()
+  })
+
+  it('0분 총 시간은 서버로 보내지 않는다', async () => {
+    renderPage()
+    await openCreateModal()
+    for (const input of timeInputs()) fireEvent.change(input, { target: { value: '' } })
+    fireEvent.change(screen.getByPlaceholderText('예: 120분'), { target: { value: '0' } })
+    fireEvent.submit(dialog())
+
+    await screen.findByText('총 시간은 1분 이상 24시간 이하로 입력해주세요')
+    expect(api.createOvertimeRecord).not.toHaveBeenCalled()
+  })
+
+  it('휴게 차감 후 실근무가 0분이면 등록하지 않는다', async () => {
+    renderPage()
+    await openCreateModal()
+    fireEvent.change(timeInputs()[0], { target: { value: '17:00' } })
+    fireEvent.change(timeInputs()[1], { target: { value: '17:30' } })
+    fireEvent.submit(dialog())
+
+    await screen.findByText('근무 시간은 1분 이상 입력해주세요')
     expect(api.createOvertimeRecord).not.toHaveBeenCalled()
   })
 

@@ -15,6 +15,10 @@ import {
 import { payrollCycle } from '../utils/formatDate'
 import { useConfirm } from '../components/ConfirmDialog'
 
+function localMonthKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
 /**
  * 관리자 화면의 '잔업특근' 탭.
  *
@@ -42,6 +46,9 @@ export function useOvertimeTab(
   const approvingIdsRef = useRef(new Set<number>())
   const [overtimeLoading, setOvertimeLoading] = useState(false)
   const [overtimeSummary, setOvertimeSummary] = useState<OvertimeSummary[]>([])
+  const [overtimeSummaryLoading, setOvertimeSummaryLoading] = useState(false)
+  const [overtimeSummaryError, setOvertimeSummaryError] = useState('')
+  const summaryRequestId = useRef(0)
   const [overtimeFilters, setOvertimeFilters] = useState({ username: '', type: '', status: '' })
   const [overtimePagination, setOvertimePagination] = useState({
     currentPage: 0,
@@ -50,7 +57,7 @@ export function useOvertimeTab(
     size: 20,
   })
   const [overtimeMonth, setOvertimeMonth] = useState<string>(() =>
-    new Date().toISOString().slice(0, 7),
+    localMonthKey(new Date()),
   )
   // 반려 사유를 받는 행. 한 행만 펼쳐 두고 나머지는 접는다.
   const [rejectingId, setRejectingId] = useState<number | null>(null)
@@ -98,10 +105,20 @@ export function useOvertimeTab(
   )
 
   const loadSummary = useCallback(async () => {
+    const requestId = ++summaryRequestId.current
+    setOvertimeSummaryLoading(true)
+    setOvertimeSummaryError('')
     try {
-      setOvertimeSummary(await getOvertimeSummary(overtimeMonth))
+      const result = await getOvertimeSummary(overtimeMonth)
+      if (requestId === summaryRequestId.current) setOvertimeSummary(result)
     } catch (e: any) {
-      opts.onError(e.message || '월별 집계 로드 실패')
+      const message = e.message || '월별 집계 로드 실패'
+      if (requestId === summaryRequestId.current) {
+        setOvertimeSummaryError(message)
+        opts.onError(message)
+      }
+    } finally {
+      if (requestId === summaryRequestId.current) setOvertimeSummaryLoading(false)
     }
   }, [overtimeMonth])
 
@@ -116,17 +133,15 @@ export function useOvertimeTab(
   }, [])
 
   // 탭을 열면 세 가지를 함께 읽는다. 하나라도 빠지면 탭이 반쯤 열린 상태가 된다.
-  const wasActive = useRef(active)
+  const wasActive = useRef(false)
   useEffect(() => {
     if (active && !wasActive.current) {
-      void loadRecords(0)
-      void loadSummary()
       void loadDefaults()
     }
     wasActive.current = active
     // 탭을 떠나면 모달을 닫는다. 남겨두면 다시 들어올 때 폼이 열린 채로 뜬다.
     if (!active) setBulkOpen(false)
-  }, [active, loadRecords, loadSummary, loadDefaults])
+  }, [active, loadDefaults])
 
   useEffect(() => {
     if (active) void loadRecords(0) // 필터 변경 시 첫 페이지로
@@ -234,6 +249,8 @@ export function useOvertimeTab(
     overtimeLoading,
     setOvertimeLoading,
     overtimeSummary,
+    overtimeSummaryLoading,
+    overtimeSummaryError,
     setOvertimeSummary,
     overtimeFilters,
     setOvertimeFilters,

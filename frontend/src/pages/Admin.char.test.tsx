@@ -209,6 +209,40 @@ describe('AdminPage — 탭 전환 시 로딩', () => {
       expect(overtimeApi.getOvertimeSummary).toHaveBeenCalled()
       expect(overtimeApi.listAllOvertimeRecords).toHaveBeenCalled()
     })
+    expect(screen.getByRole('region', { name: '승인 요청 목록' })).toBeTruthy()
+  })
+
+  it('월별 집계를 직원명으로 찾고 근무 시간순으로 정렬한다', async () => {
+    overtimeApi.getOvertimeSummary.mockResolvedValue([
+      { username: 'worker-a', displayName: '김하나', overtimeMinutes: 120, specialMinutes: 0, overtimeDays: 1, specialDays: 0 },
+      { username: 'worker-b', displayName: '이둘', overtimeMinutes: 60, specialMinutes: 360, overtimeDays: 1, specialDays: 2 },
+    ])
+    renderAdmin()
+    fireEvent.click(screen.getByRole('button', { name: '잔업특근' }))
+
+    const search = await screen.findByRole('textbox', { name: '월별 집계 직원 검색' })
+    fireEvent.change(search, { target: { value: 'worker-b' } })
+    expect(screen.getByText('이둘')).toBeTruthy()
+    expect(screen.queryByText('김하나')).toBeNull()
+
+    fireEvent.change(search, { target: { value: '' } })
+    fireEvent.change(screen.getByRole('combobox', { name: '월별 집계 정렬' }), { target: { value: 'total' } })
+    const sortedNames = [...document.querySelectorAll('.ot-summary-scroll .ot-sum-name')]
+      .map((element) => element.textContent)
+    expect(sortedNames).toEqual(['이둘', '김하나'])
+  })
+
+  it('월별 집계 실패 후 재시도할 수 있다', async () => {
+    overtimeApi.getOvertimeSummary
+      .mockRejectedValueOnce(new Error('집계 서버 오류'))
+      .mockResolvedValue([])
+    renderAdmin()
+    fireEvent.click(screen.getByRole('button', { name: '잔업특근' }))
+
+    expect((await screen.findByRole('alert')).textContent).toContain('집계 서버 오류')
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }))
+    await waitFor(() => expect(overtimeApi.getOvertimeSummary).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.getByText('승인된 기록이 없습니다.')).toBeTruthy())
   })
 
   it('로그 탭을 다시 누르면 첫 페이지로 돌아간다', async () => {

@@ -77,6 +77,42 @@ class OvertimeRecordServiceTest {
     }
 
     @Test
+    @DisplayName("0분·음수·24시간 초과 총 시간은 거부한다")
+    void rejectsInvalidManualMinutes() {
+        for (int invalid : new int[] {0, -1, 1441}) {
+            assertThatThrownBy(() -> service.resolveTotalMinutes(OvertimeType.OVERTIME, null, null, invalid))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("1분 이상 24시간 이하");
+        }
+    }
+
+    @Test
+    @DisplayName("시작과 종료가 같거나 한쪽만 입력된 근무 시간은 거부한다")
+    void rejectsIncompleteOrZeroLengthTimes() {
+        assertThatThrownBy(() -> service.resolveTotalMinutes(
+                OvertimeType.OVERTIME, LocalTime.of(18, 0), null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("모두 입력");
+        assertThatThrownBy(() -> service.resolveTotalMinutes(
+                OvertimeType.OVERTIME, LocalTime.of(18, 0), LocalTime.of(18, 0), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("1분 이상 24시간 이하");
+        assertThatThrownBy(() -> service.resolveTotalMinutes(
+                OvertimeType.OVERTIME, LocalTime.of(17, 0), LocalTime.of(17, 30), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("1분 이상 24시간 이하");
+    }
+
+    @Test
+    @DisplayName("시간 범위와 총 시간은 동시에 입력할 수 없다")
+    void rejectsConflictingTimeInputs() {
+        assertThatThrownBy(() -> service.resolveTotalMinutes(
+                OvertimeType.OVERTIME, LocalTime.of(18, 0), LocalTime.of(19, 0), 60))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("하나만");
+    }
+
+    @Test
     @DisplayName("시작/종료 시간도 총 시간도 없으면 예외")
     void missingBothInputsThrows() {
         assertThatThrownBy(() -> service.resolveTotalMinutes(OvertimeType.OVERTIME, null, null, null))

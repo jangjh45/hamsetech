@@ -55,6 +55,8 @@ public class OvertimeRecordService {
 
     /** 일괄 등록 1회 인원 상한. 잘못된 요청으로 대량 생성되는 것을 막는다. */
     private static final int MAX_BULK_USERS = 100;
+    /** 단일 근무일 기록으로 허용하는 최대 시간. */
+    private static final int MAX_WORK_MINUTES = 24 * 60;
 
     /** PostgreSQL 트랜잭션 advisory lock 키. 일괄 등록 요청끼리만 짧게 직렬화한다. */
     private static final long BULK_CREATE_LOCK = 0x48414D5345540001L;
@@ -428,22 +430,39 @@ public class OvertimeRecordService {
     }
 
     Integer resolveTotalMinutes(OvertimeType type, LocalTime startTime, LocalTime endTime, Integer totalMinutes) {
-        if (startTime != null && endTime != null) {
+        boolean hasStart = startTime != null;
+        boolean hasEnd = endTime != null;
+        if (hasStart != hasEnd) {
+            throw new IllegalArgumentException("시작 시간과 종료 시간을 모두 입력해주세요");
+        }
+        if (hasStart) {
+            if (totalMinutes != null) {
+                throw new IllegalArgumentException("근무 시간 또는 총 시간 중 하나만 입력해주세요");
+            }
             // 휴게 차감은 실제 근무한 시간대를 봐야 하므로 차감 전 경과 시간(gross)을 기준으로 계산한다.
             long gross = Duration.between(startTime, endTime).toMinutes();
             if (gross < 0) gross += 24 * 60;
+            validateWorkMinutes(gross);
 
             long net = gross;
             if (type == OvertimeType.SPECIAL && gross >= LUNCH_DEDUCTION_THRESHOLD_MINUTES) {
                 net -= LUNCH_BREAK_MINUTES;
             }
             net -= dinnerOverlapMinutes(startTime, gross);
-            return (int) Math.max(0, net);
+            validateWorkMinutes(net);
+            return (int) net;
         }
         if (totalMinutes == null) {
             throw new IllegalArgumentException("시작/종료 시간 또는 총 시간을 입력해주세요");
         }
+        validateWorkMinutes(totalMinutes);
         return totalMinutes;
+    }
+
+    private void validateWorkMinutes(long minutes) {
+        if (minutes < 1 || minutes > MAX_WORK_MINUTES) {
+            throw new IllegalArgumentException("근무 시간은 1분 이상 24시간 이하로 입력해주세요");
+        }
     }
 
     /** 근무 구간과 저녁 휴게 구간이 겹치는 분 */

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   createOvertimeRecord,
   deleteOvertimeRecord,
@@ -116,6 +116,7 @@ export default function OvertimeRecordsPage() {
   const { confirm } = useConfirm()
   const [records, setRecords] = useState<OvertimeRecord[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const [error, setError] = useState('')
   const [defaults, setDefaults] = useState<OvertimeDefaults | null>(null)
 
@@ -131,33 +132,55 @@ export default function OvertimeRecordsPage() {
   const [form, setForm] = useState<FormState | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const loadRequestId = useRef(0)
 
-  const load = useCallback(async () => {
+  const calendarCells = useMemo(() => monthMatrix(monthStart(month)), [month])
+  const recordRange = {
+    from: calendarCells[0].date,
+    to: calendarCells[calendarCells.length - 1].date,
+  }
+
+  const load = useCallback(async (from: string, to: string) => {
+    const requestId = ++loadRequestId.current
     setLoading(true)
+    setLoadError('')
     try {
-      setRecords(await listMyOvertimeRecords())
-    } catch (e: any) {
-      setError(e.message || '목록을 불러오지 못했습니다')
+      const result = await listMyOvertimeRecords(from, to)
+      if (requestId === loadRequestId.current) setRecords(result)
+    } catch (e: unknown) {
+      if (requestId === loadRequestId.current) {
+        setLoadError(e instanceof Error ? e.message : '목록을 불러오지 못했습니다')
+      }
     } finally {
-      setLoading(false)
+      if (requestId === loadRequestId.current) setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    load()
-  }, [load])
+    void load(recordRange.from, recordRange.to)
+    return () => { loadRequestId.current += 1 }
+  }, [load, recordRange.from, recordRange.to, reloadKey])
 
   // 기본 근무시간은 등록 폼의 편의 기능이라 실패해도 화면은 정상 동작한다.
   useEffect(() => {
     getOvertimeDefaults().then(setDefaults).catch(() => {})
   }, [])
 
-  // 달력은 한 달치만 보여주므로 날짜별 묶음은 전체 기록으로 만든다 (앞뒤 달 칸도 점이 찍히도록)
+  // 현재 달력의 42칸 범위만 불러와 날짜별로 묶는다 (앞뒤 달의 날짜 칸 포함).
+  const calendarRecords = useMemo(
+    () => records.filter((r) =>
+      (statusFilter === 'ALL' || r.status === statusFilter) &&
+      (typeFilter === 'ALL' || r.type === typeFilter),
+    ),
+    [records, statusFilter, typeFilter],
+  )
+
   const recordsByDate = useMemo(() => {
     const map: Record<string, OvertimeRecord[]> = {}
-    for (const r of records) (map[r.workDate] ||= []).push(r)
+    for (const r of calendarRecords) (map[r.workDate] ||= []).push(r)
     return map
-  }, [records])
+  }, [calendarRecords])
 
   const monthRecords = useMemo(
     () => records.filter((r) => r.workDate.startsWith(month)),
@@ -205,10 +228,17 @@ export default function OvertimeRecordsPage() {
     setPage(0)
   }, [month, statusFilter, typeFilter])
 
-  const calCells = monthMatrix(monthStart(month))
   const todayYmd = toYmd(new Date())
   const selectedRecords = recordsByDate[selectedDate] || []
   const selectedMinutes = selectedRecords.reduce((sum, r) => sum + r.totalMinutes, 0)
+
+  function changeMonth(nextMonth: string) {
+    setMonth(nextMonth)
+    if (!selectedDate.startsWith(nextMonth)) {
+      const today = toYmd(new Date())
+      setSelectedDate(today.startsWith(nextMonth) ? today : `${nextMonth}-01`)
+    }
+  }
 
   // ── 모달 ───────────────────────────────────────────────────
 
@@ -287,9 +317,34 @@ export default function OvertimeRecordsPage() {
       setFormError('근무일을 입력해주세요')
       return
     }
-    if (!form.startTime && !form.endTime && !form.totalMinutes) {
+    const hasStart = !!form.startTime
+    const hasEnd = !!form.endTime
+    const hasTotal = !!form.totalMinutes.trim()
+    if (hasStart !== hasEnd) {
+      setFormError('시작 시간과 종료 시간을 모두 입력해주세요')
+      return
+    }
+    if (hasStart && hasTotal) {
+      setFormError('근무 시간 또는 총 시간 중 하나만 입력해주세요')
+      return
+    }
+    if (!hasStart && !hasEnd && !hasTotal) {
       setFormError('시작–종료 시간 또는 총 시간을 입력해주세요')
       return
+    }
+    if (hasStart) {
+      const calculated = durationOf(form.type, form.startTime, form.endTime)
+      if (calculated === null || calculated <= 0) {
+        setFormError('근무 시간은 1분 이상 입력해주세요')
+        return
+      }
+    }
+    if (hasTotal) {
+      const minutes = Number(form.totalMinutes)
+      if (!Number.isInteger(minutes) || minutes < 1 || minutes > 24 * 60) {
+        setFormError('총 시간은 1분 이상 24시간 이하로 입력해주세요')
+        return
+      }
     }
 
     const payload = {
@@ -297,7 +352,7 @@ export default function OvertimeRecordsPage() {
       type: form.type,
       startTime: form.startTime || null,
       endTime: form.endTime || null,
-      totalMinutes: form.totalMinutes ? Number(form.totalMinutes) : null,
+      totalMinutes: hasTotal ? Number(form.totalMinutes) : null,
       reason: form.reason,
     }
 
@@ -308,12 +363,12 @@ export default function OvertimeRecordsPage() {
       } else {
         await createOvertimeRecord(payload)
       }
-      // 다른 달에 등록했으면 그 달로 따라가야 방금 넣은 기록이 보인다
-      setMonth(form.workDate.slice(0, 7))
+      // 다른 달에 등록했으면 그 달로 이동해 방금 넣은 기록을 보여준다.
+      changeMonth(form.workDate.slice(0, 7))
       setSelectedDate(form.workDate)
       closeModal()
       setError('')
-      await load()
+      setReloadKey((key) => key + 1)
     } catch (e: any) {
       setFormError(e.message || '저장에 실패했습니다')
     } finally {
@@ -332,7 +387,7 @@ export default function OvertimeRecordsPage() {
     setError('')
     try {
       await deleteOvertimeRecord(id)
-      await load()
+      setReloadKey((key) => key + 1)
     } catch (e: any) {
       setError(e.message || '삭제에 실패했습니다')
     }
@@ -383,20 +438,53 @@ export default function OvertimeRecordsPage() {
   }
 
   const viewToggle = (
-    <div className="fl-seg">
+    <div className="fl-seg" role="group" aria-label="보기 방식">
       <button
+        type="button"
         className={`fl-seg-btn${view === 'list' ? ' is-active' : ''}`}
+        aria-pressed={view === 'list'}
         onClick={() => setView('list')}
       >
         목록
       </button>
       <button
+        type="button"
         className={`fl-seg-btn${view === 'calendar' ? ' is-active' : ''}`}
+        aria-pressed={view === 'calendar'}
         onClick={() => setView('calendar')}
       >
         달력
       </button>
     </div>
+  )
+
+  const statusFilterControls = (
+    <div className="fl-seg" role="group" aria-label="승인 상태 필터">
+      {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as StatusFilter[]).map((status) => (
+        <button
+          key={status}
+          type="button"
+          className={`fl-seg-btn${statusFilter === status ? ' is-active' : ''}`}
+          aria-pressed={statusFilter === status}
+          onClick={() => setStatusFilter(status)}
+        >
+          {status === 'ALL' ? '전체' : STATUS_LABEL[status]}
+        </button>
+      ))}
+    </div>
+  )
+
+  const typeFilterControl = (
+    <select
+      className="fl-input"
+      value={typeFilter}
+      onChange={(event) => setTypeFilter(event.target.value as TypeFilter)}
+      aria-label="구분 필터"
+    >
+      <option value="ALL">구분 전체</option>
+      <option value="OVERTIME">잔업</option>
+      <option value="SPECIAL">특근</option>
+    </select>
   )
 
   const duration = form ? durationOf(form.type, form.startTime, form.endTime) : null
@@ -414,8 +502,16 @@ export default function OvertimeRecordsPage() {
       </div>
 
       {error && (
-        <div className="fl-error" style={{ marginBottom: 16 }}>
+        <div className="fl-error" style={{ marginBottom: 16 }} role="alert">
           {error}
+        </div>
+      )}
+      {loadError && (
+        <div className="fl-error ot-load-error" role="alert">
+          <span>{loadError}</span>
+          <button className="fl-btn fl-btn-sm" onClick={() => setReloadKey((key) => key + 1)}>
+            다시 시도
+          </button>
         </div>
       )}
 
@@ -489,32 +585,13 @@ export default function OvertimeRecordsPage() {
               <span className="fl-card-count">총 {filtered.length}건</span>
             </div>
             <div className="ot-filters">
-              <div className="fl-seg">
-                {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as StatusFilter[]).map((s) => (
-                  <button
-                    key={s}
-                    className={`fl-seg-btn${statusFilter === s ? ' is-active' : ''}`}
-                    onClick={() => setStatusFilter(s)}
-                  >
-                    {s === 'ALL' ? '전체' : STATUS_LABEL[s]}
-                  </button>
-                ))}
-              </div>
-              <select
-                className="fl-input"
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as TypeFilter)}
-                aria-label="구분 필터"
-              >
-                <option value="ALL">구분 전체</option>
-                <option value="OVERTIME">잔업</option>
-                <option value="SPECIAL">특근</option>
-              </select>
+              {statusFilterControls}
+              {typeFilterControl}
               <input
                 type="month"
                 className="fl-input"
                 value={month}
-                onChange={(e) => e.target.value && setMonth(e.target.value)}
+                onChange={(e) => e.target.value && changeMonth(e.target.value)}
                 aria-label="조회 월"
               />
               {viewToggle}
@@ -532,7 +609,9 @@ export default function OvertimeRecordsPage() {
             </div>
 
             {loading ? (
-              <div className="fl-empty">불러오는 중...</div>
+              <div className="fl-empty" role="status" aria-live="polite">불러오는 중...</div>
+            ) : loadError ? (
+              <div className="fl-empty">기록을 불러오지 못했습니다. 위의 다시 시도를 눌러주세요.</div>
             ) : filtered.length === 0 ? (
               <div className="fl-empty">조건에 맞는 기록이 없습니다.</div>
             ) : (
@@ -557,15 +636,15 @@ export default function OvertimeRecordsPage() {
             <div className="ot-cal-nav">
               <button
                 className="fl-btn-icon fl-btn-sm"
-                onClick={() => setMonth(shiftMonth(month, -1))}
+                onClick={() => changeMonth(shiftMonth(month, -1))}
                 aria-label="이전 달"
               >
                 ◀
               </button>
-              <span className="ot-cal-month">{formatMonthLabel(month)}</span>
+              <span className="ot-cal-month" aria-live="polite">{formatMonthLabel(month)}</span>
               <button
                 className="fl-btn-icon fl-btn-sm"
-                onClick={() => setMonth(shiftMonth(month, 1))}
+                onClick={() => changeMonth(shiftMonth(month, 1))}
                 aria-label="다음 달"
               >
                 ▶
@@ -573,7 +652,7 @@ export default function OvertimeRecordsPage() {
               <button
                 className="fl-btn fl-btn-sm"
                 onClick={() => {
-                  setMonth(monthKey(new Date()))
+                  changeMonth(monthKey(new Date()))
                   setSelectedDate(todayYmd)
                 }}
               >
@@ -591,6 +670,10 @@ export default function OvertimeRecordsPage() {
               </span>
               {viewToggle}
             </div>
+            <div className="ot-filters">
+              {statusFilterControls}
+              {typeFilterControl}
+            </div>
           </div>
 
           <div className="ot-cal-body">
@@ -605,7 +688,7 @@ export default function OvertimeRecordsPage() {
               ))}
             </div>
             <div className="fl-cal-grid">
-              {calCells.map((cell) => {
+              {calendarCells.map((cell) => {
                 const dayRecords = recordsByDate[cell.date] || []
                 const cls = [
                   'fl-day',
@@ -622,10 +705,12 @@ export default function OvertimeRecordsPage() {
                   <button
                     key={cell.date}
                     className={cls}
+                    aria-label={formatLongDate(cell.date)}
+                    aria-pressed={cell.date === selectedDate}
                     onClick={() => {
-                      setSelectedDate(cell.date)
                       // 앞뒤 달 칸을 누르면 그 달로 넘어가야 선택한 날이 계속 보인다
-                      if (!cell.inMonth) setMonth(cell.date.slice(0, 7))
+                      if (!cell.inMonth) changeMonth(cell.date.slice(0, 7))
+                      setSelectedDate(cell.date)
                     }}
                   >
                     {cell.day}
@@ -653,7 +738,11 @@ export default function OvertimeRecordsPage() {
           </div>
 
           <div className="fl-card-body fl-flush" style={{ paddingBottom: 8 }}>
-            {selectedRecords.length === 0 ? (
+            {loading ? (
+              <div className="fl-empty" role="status" aria-live="polite">불러오는 중...</div>
+            ) : loadError ? (
+              <div className="fl-empty">기록을 불러오지 못했습니다. 위의 다시 시도를 눌러주세요.</div>
+            ) : selectedRecords.length === 0 ? (
               <div className="fl-empty">이 날짜에 등록된 기록이 없습니다.</div>
             ) : (
               selectedRecords.map((r) => (
@@ -734,7 +823,9 @@ export default function OvertimeRecordsPage() {
                   </span>
                   <input
                     type="number"
-                    min={0}
+                    min={1}
+                    max={24 * 60}
+                    step={1}
                     className="fl-input"
                     placeholder="예: 120분"
                     value={form.totalMinutes}

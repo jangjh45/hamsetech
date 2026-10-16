@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 import { getUsername as getMe, getRoles, onTokenExpired } from '../auth/token'
@@ -44,6 +44,8 @@ export default function AdminPage() {
   const [transientNotice, setTransientNotice] = useState('')
   const [tokenExpired, setTokenExpired] = useState(false)
   const [activeTab, setActiveTab] = useState<'users' | 'pending' | 'withdraw' | 'logs' | 'readLogs' | 'overtime' | 'performance'>('users')
+  const [overtimeSummaryQuery, setOvertimeSummaryQuery] = useState('')
+  const [overtimeSummarySort, setOvertimeSummarySort] = useState<'name' | 'overtime' | 'special' | 'total'>('name')
   const [logStats, setLogStats] = useState<any>(null)
   const navigate = useNavigate()
   const logsTab = useChangeLogsTab(activeTab === 'logs')
@@ -60,6 +62,8 @@ export default function AdminPage() {
     approvingIds,
     overtimeLoading,
     overtimeSummary,
+    overtimeSummaryLoading,
+    overtimeSummaryError,
     overtimeFilters,
     setOvertimeFilters,
     overtimePagination,
@@ -86,6 +90,22 @@ export default function AdminPage() {
     rejectOvertime,
     deleteOvertime,
   } = useOvertimeTab(activeTab === 'overtime', { onError: setError, onNotice: setTransientNotice })
+
+  const visibleOvertimeSummary = useMemo(() => {
+    const query = overtimeSummaryQuery.trim().toLocaleLowerCase()
+    const filtered = overtimeSummary.filter((summary) =>
+      !query || `${summary.displayName || ''} ${summary.username}`.toLocaleLowerCase().includes(query),
+    )
+    return filtered.sort((a, b) => {
+      const nameOrder = (a.displayName || a.username).localeCompare(b.displayName || b.username, 'ko')
+      if (overtimeSummarySort === 'overtime') return b.overtimeMinutes - a.overtimeMinutes || nameOrder
+      if (overtimeSummarySort === 'special') return b.specialMinutes - a.specialMinutes || nameOrder
+      if (overtimeSummarySort === 'total') {
+        return (b.overtimeMinutes + b.specialMinutes) - (a.overtimeMinutes + a.specialMinutes) || nameOrder
+      }
+      return nameOrder
+    })
+  }, [overtimeSummary, overtimeSummaryQuery, overtimeSummarySort])
 
   useEffect(() => {
     if (!transientNotice) return
@@ -805,21 +825,22 @@ export default function AdminPage() {
             </div>
 
             <div className="fl-card-body fl-flush">
-              <div className="fl-th ot-approve-head">
-                <div>직원</div>
-                <div>근무일</div>
-                <div>구분</div>
-                <div>시간</div>
-                <div>사유</div>
-                <div style={{ textAlign: 'right' }}>처리</div>
-              </div>
+              <div className="ot-approve-scroll" role="region" aria-label="승인 요청 목록" tabIndex={0}>
+                <div className="fl-th ot-approve-head">
+                  <div>직원</div>
+                  <div>근무일</div>
+                  <div>구분</div>
+                  <div>시간</div>
+                  <div>사유</div>
+                  <div style={{ textAlign: 'right' }}>처리</div>
+                </div>
 
-              {overtimeLoading ? (
-                <div className="fl-empty">불러오는 중...</div>
-              ) : overtimeRecords.length === 0 ? (
-                <div className="fl-empty">조건에 맞는 기록이 없습니다.</div>
-              ) : (
-                overtimeRecords.map((r) => (
+                {overtimeLoading ? (
+                  <div className="fl-empty" role="status" aria-live="polite">불러오는 중...</div>
+                ) : overtimeRecords.length === 0 ? (
+                  <div className="fl-empty">조건에 맞는 기록이 없습니다.</div>
+                ) : (
+                  overtimeRecords.map((r) => (
                   <div
                     key={r.id}
                     className={`fl-tr ot-approve-row${rejectingId === r.id ? ' is-open' : ''}`}
@@ -910,8 +931,9 @@ export default function AdminPage() {
                       </div>
                     )}
                   </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
 
             <Pager
@@ -1031,6 +1053,9 @@ export default function AdminPage() {
             <section className="fl-card">
               <div className="fl-card-head">
                 <span className="fl-card-title">월별 집계</span>
+                <span className="fl-card-count">
+                  {overtimeSummaryLoading ? '집계 중...' : `${overtimeSummary.length}명`}
+                </span>
                 <input
                   type="month"
                   className="fl-input"
@@ -1042,29 +1067,63 @@ export default function AdminPage() {
               </div>
 
               <div className="fl-card-body fl-flush">
-                <div className="fl-th ot-sum-head">
-                  <div>직원</div>
-                  <div style={{ textAlign: 'right' }}>잔업</div>
-                  <div style={{ textAlign: 'right' }}>특근</div>
+                <div className="ot-summary-controls">
+                  <input
+                    className="fl-input ot-summary-search"
+                    value={overtimeSummaryQuery}
+                    onChange={(event) => setOvertimeSummaryQuery(event.target.value)}
+                    placeholder="이름 · 사번 검색"
+                    aria-label="월별 집계 직원 검색"
+                  />
+                  <select
+                    className="fl-input ot-summary-sort"
+                    value={overtimeSummarySort}
+                    onChange={(event) => setOvertimeSummarySort(event.target.value as typeof overtimeSummarySort)}
+                    aria-label="월별 집계 정렬"
+                  >
+                    <option value="name">이름순</option>
+                    <option value="overtime">잔업 많은 순</option>
+                    <option value="special">특근 많은 순</option>
+                    <option value="total">총 시간 많은 순</option>
+                  </select>
                 </div>
 
-                {overtimeSummary.length === 0 ? (
-                  <div className="fl-empty">승인된 기록이 없습니다.</div>
-                ) : (
-                  overtimeSummary.map((s) => (
-                    <div key={s.username} className="fl-tr ot-sum-row">
-                      <span className="ot-sum-name">{s.displayName || s.username}</span>
-                      <span className="ot-sum-num">
-                        {(s.overtimeMinutes / 60).toFixed(1)}h
-                        <span className="ot-sum-days">{s.overtimeDays}일</span>
-                      </span>
-                      <span className="ot-sum-num">
-                        {(s.specialMinutes / 60).toFixed(1)}h
-                        <span className="ot-sum-days">{s.specialDays}일</span>
-                      </span>
+                <div className="ot-summary-scroll" role="region" aria-label="직원별 월별 집계" tabIndex={0}>
+                  <div className="fl-th ot-sum-head">
+                    <div>직원</div>
+                    <div style={{ textAlign: 'right' }}>잔업</div>
+                    <div style={{ textAlign: 'right' }}>특근</div>
+                  </div>
+
+                  {overtimeSummaryLoading ? (
+                    <div className="fl-empty" role="status" aria-live="polite">집계를 불러오는 중...</div>
+                  ) : overtimeSummaryError ? (
+                    <div className="fl-empty" role="alert">
+                      <p>{overtimeSummaryError}</p>
+                      <button className="fl-btn fl-btn-sm" onClick={() => void loadSummary()}>다시 시도</button>
                     </div>
-                  ))
-                )}
+                  ) : overtimeSummary.length === 0 ? (
+                    <div className="fl-empty">승인된 기록이 없습니다.</div>
+                  ) : visibleOvertimeSummary.length === 0 ? (
+                    <div className="fl-empty">검색 조건에 맞는 직원이 없습니다.</div>
+                  ) : (
+                    visibleOvertimeSummary.map((s) => (
+                      <div key={s.username} className="fl-tr ot-sum-row">
+                        <span className="ot-sum-name" title={`${s.displayName || s.username} · ${s.username}`}>
+                          {s.displayName || s.username}
+                        </span>
+                        <span className="ot-sum-num">
+                          {(s.overtimeMinutes / 60).toFixed(1)}h
+                          <span className="ot-sum-days">{s.overtimeDays}일</span>
+                        </span>
+                        <span className="ot-sum-num">
+                          {(s.specialMinutes / 60).toFixed(1)}h
+                          <span className="ot-sum-days">{s.specialDays}일</span>
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
 
               {/* 엑셀 내보내기 — 급여 주기가 달력 월과 어긋날 수 있어 위 월 선택기와 별개로 기간을 받는다 */}
