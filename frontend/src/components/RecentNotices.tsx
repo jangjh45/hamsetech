@@ -56,8 +56,6 @@ export default function RecentNotices() {
       </div>
 
       <div className="fl-card-body fl-flush">
-        {loading && <div className="fl-empty" role="status" aria-live="polite">불러오는 중...</div>}
-
         {!loading && error && (
           <div className="fl-empty" role="alert">
             <p>{error}</p>

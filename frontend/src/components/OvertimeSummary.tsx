@@ -28,7 +28,6 @@ export default function OvertimeSummary({ records, loading, error }: OvertimeSum
       </div>
 
       <div className="fl-card-body" style={{ justifyContent: 'center' }}>
-        {loading && <div className="fl-empty" role="status" aria-live="polite">잔업·특근 요약을 불러오는 중...</div>}
         {!loading && error && records === null && (
           <div className="fl-empty" role="alert">요약을 불러오지 못했습니다. 위에서 다시 시도해주세요.</div>
         )}

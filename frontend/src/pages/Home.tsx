@@ -218,12 +218,6 @@ function HomeDashboard() {
         </button>
       </div>
 
-      {summaryLoading && (
-        <div className="fl-empty" role="status" aria-live="polite" style={{ padding: '8px 0 16px' }}>
-          홈 정보를 불러오는 중...
-        </div>
-      )}
-
       {loadErrorLabels.length > 0 && (
         <div
           className="fl-error"
