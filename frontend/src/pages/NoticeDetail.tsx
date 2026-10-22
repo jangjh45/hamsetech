@@ -225,13 +225,7 @@ export default function NoticeDetailPage() {
   }
 
   if (noticeLoading) {
-    return (
-      <div className="fl-page">
-        <section className="fl-card">
-          <div className="fl-empty" role="status" aria-live="polite">공지사항을 불러오는 중...</div>
-        </section>
-      </div>
-    )
+    return <div className="fl-page" aria-busy="true" />
   }
 
   if (noticeError) {
@@ -357,8 +351,6 @@ export default function NoticeDetailPage() {
                 댓글을 작성하려면 <Link to="/login" state={{ from: location }}>로그인</Link>해주세요.
               </div>
             )}
-
-            {commentsLoading && <div className="fl-empty" role="status" aria-live="polite">댓글을 불러오는 중...</div>}
 
             {!commentsLoading && commentsError && (
               <div className="fl-empty" role="alert">

@@ -32,7 +32,7 @@ export default function NoticesPage() {
   const queryDraft = queryDraftState.query === q ? queryDraftState.value : q
   const [totalElements, setTotalElements] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [retryKey, setRetryKey] = useState(0)
 
@@ -158,7 +158,11 @@ export default function NoticesPage() {
           </div>
         </div>
 
-        <div className="fl-card-body fl-flush">
+        <div
+          className="fl-card-body fl-flush"
+          aria-busy={loading}
+          style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s' }}
+        >
           <div className="nt-table-head">
             <div>번호</div>
             <div>분류</div>
@@ -167,8 +171,6 @@ export default function NoticesPage() {
             <div style={{ textAlign: 'right' }}>조회</div>
             <div style={{ textAlign: 'right' }}>등록일</div>
           </div>
-
-          {loading && <div className="fl-empty" role="status" aria-live="polite">불러오는 중...</div>}
 
           {!loading && error && (
             <div className="fl-empty" role="alert">
@@ -179,7 +181,7 @@ export default function NoticesPage() {
             </div>
           )}
 
-          {!loading && !error && pinned.map((n) => (
+          {!error && pinned.map((n) => (
             <NoticeRow key={`pin-${n.id}`} notice={n} search={location.search} />
           ))}
 
@@ -187,7 +189,7 @@ export default function NoticesPage() {
             <div className="fl-empty">게시글이 없습니다.</div>
           )}
 
-          {!loading && !error && items.map((n, idx) => (
+          {!error && items.map((n, idx) => (
             <NoticeRow key={n.id} notice={n} number={startNumber - idx} search={location.search} />
           ))}
         </div>
