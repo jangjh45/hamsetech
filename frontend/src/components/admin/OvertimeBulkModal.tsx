@@ -317,9 +317,7 @@ export default function OvertimeBulkModal({
                     </button>
                   </div>
                   <div className="ot-bulk-list">
-                    {peopleLoading ? (
-                      <div className="fl-empty">불러오는 중...</div>
-                    ) : visible.length === 0 ? (
+                    {peopleLoading ? null : visible.length === 0 ? (
                       <div className="fl-empty">조건에 맞는 직원이 없습니다.</div>
                     ) : (
                       visible.map((p) => (

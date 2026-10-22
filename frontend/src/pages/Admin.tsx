@@ -811,9 +811,7 @@ export default function AdminPage() {
                   <div style={{ textAlign: 'right' }}>처리</div>
                 </div>
 
-                {overtimeLoading ? (
-                  <div className="fl-empty" role="status" aria-live="polite">불러오는 중...</div>
-                ) : overtimeRecords.length === 0 ? (
+                {overtimeLoading ? null : overtimeRecords.length === 0 ? (
                   <div className="fl-empty">조건에 맞는 기록이 없습니다.</div>
                 ) : (
                   overtimeRecords.map((r) => (
@@ -1019,9 +1017,7 @@ export default function AdminPage() {
                     </button>
                     {defaultsMsg && <div className="fl-stat-sub">{defaultsMsg}</div>}
                   </>
-                ) : (
-                  <div className="fl-empty">기본 근무시간을 불러오는 중...</div>
-                )}
+                ) : null}
               </div>
             </section>
 
@@ -1030,7 +1026,7 @@ export default function AdminPage() {
               <div className="fl-card-head">
                 <span className="fl-card-title">월별 집계</span>
                 <span className="fl-card-count">
-                  {overtimeSummaryLoading ? '집계 중...' : `${overtimeSummary.length}명`}
+                  {overtimeSummaryLoading ? null : `${overtimeSummary.length}명`}
                 </span>
                 <input
                   type="month"
@@ -1071,9 +1067,7 @@ export default function AdminPage() {
                     <div style={{ textAlign: 'right' }}>특근</div>
                   </div>
 
-                  {overtimeSummaryLoading ? (
-                    <div className="fl-empty" role="status" aria-live="polite">집계를 불러오는 중...</div>
-                  ) : overtimeSummaryError ? (
+                  {overtimeSummaryLoading ? null : overtimeSummaryError ? (
                     <div className="fl-empty" role="alert">
                       <p>{overtimeSummaryError}</p>
                       <button className="fl-btn fl-btn-sm" onClick={() => void loadSummary()}>다시 시도</button>

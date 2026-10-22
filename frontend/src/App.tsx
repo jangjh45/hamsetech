@@ -20,6 +20,7 @@ import { setupAutoLogout } from './auth/token'
 // 관리자 화면은 일반 사용자가 거의 열지 않으므로 초기 번들에서 분리한다.
 const AdminPage = lazy(() => import('./pages/Admin'))
 
+
 // 인증 화면은 AuthShell이 화면 전체를 좌우 2단으로 쓰고 왼쪽 브랜드 면에
 // 자체 로고와 테마 토글을 갖고 있어서 전역 Header를 렌더하지 않는다.
 const AUTH_ROUTES = ['/login', '/register', '/forgot-password']
@@ -57,15 +58,7 @@ export default function App() {
             path="/admin"
             element={
               <AdminRoute>
-                <Suspense
-                  fallback={(
-                    <div className="fl-page" role="status" aria-live="polite">
-                      <section className="fl-card">
-                        <div className="fl-empty">관리자 화면을 불러오는 중...</div>
-                      </section>
-                    </div>
-                  )}
-                >
+                <Suspense fallback={null}>
                   <AdminPage />
                 </Suspense>
               </AdminRoute>
