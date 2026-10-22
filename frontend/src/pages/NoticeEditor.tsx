@@ -167,7 +167,7 @@ export default function NoticeEditorPage() {
           <div className="nt-field">
             <span className="nt-field-label">내용</span>
             {ready && (
-              <Suspense fallback={<div className="nt-editor-loading">편집기를 불러오는 중...</div>}>
+              <Suspense fallback={null}>
                 <RichTextEditor
                   initialHtml={content}
                   onChange={setContent}
