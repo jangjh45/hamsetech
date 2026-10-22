@@ -412,9 +412,7 @@ export default function VendorsPage() {
               <button className="fl-btn fl-btn-primary" type="submit">분류 추가</button>
             </form>
             <div className="vd-category-list">
-              {categoriesLoading ? (
-                <div className="fl-empty" role="status">분류를 불러오는 중...</div>
-              ) : managedCategories.map((category) => (
+              {categoriesLoading ? null : managedCategories.map((category) => (
                 <div className={`vd-category-row${category.active ? '' : ' is-inactive'}`} key={category.id}>
                   <input
                     className="fl-input"
@@ -454,7 +452,7 @@ export default function VendorsPage() {
         <div className="fl-card-head vd-list-head">
           <span className="fl-card-title">업체 목록</span>
           <span className="fl-card-count">
-            {loading ? '불러오는 중...' : listError ? '조회 실패' : `전체 ${pageData?.totalElements ?? 0}개`}
+            {loading ? null : listError ? '조회 실패' : `전체 ${pageData?.totalElements ?? 0}개`}
           </span>
           <form className="vd-search" onSubmit={search}>
             <select
@@ -487,7 +485,6 @@ export default function VendorsPage() {
             <span>담당자</span>
             <span />
           </div>
-          {loading && <div className="fl-empty" role="status" aria-live="polite">업체 목록을 불러오는 중...</div>}
           {!loading && listError && <div className="fl-empty">목록을 불러오지 못했습니다. 다시 시도해주세요.</div>}
           {!loading && !listError && items.length === 0 && (
             <div className="fl-empty">{query || categoryId ? '검색 결과가 없습니다.' : '등록된 업체가 없습니다.'}</div>
@@ -496,12 +493,6 @@ export default function VendorsPage() {
         </div>
         <Pager page={page} totalPages={pageData?.totalPages ?? 0} onChange={goToPage} disabled={loading} />
       </section>
-
-      {detailsLoading && (
-        <div className="fl-modal-overlay" role="presentation">
-          <div className="fl-modal" role="status">업체 정보를 불러오는 중...</div>
-        </div>
-      )}
 
       {details && !formOpen && (
         <div className="fl-modal-overlay" onMouseDown={(event) => event.target === event.currentTarget && closeDetails()}>
