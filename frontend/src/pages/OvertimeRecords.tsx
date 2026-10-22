@@ -630,9 +630,7 @@ export default function OvertimeRecordsPage() {
               <div style={{ textAlign: 'right' }}>관리</div>
             </div>
 
-            {loading ? (
-              <div className="fl-empty" role="status" aria-live="polite">불러오는 중...</div>
-            ) : loadError ? (
+            {loading ? null : loadError ? (
               <div className="fl-empty">기록을 불러오지 못했습니다. 위의 다시 시도를 눌러주세요.</div>
             ) : filtered.length === 0 ? (
               <div className="fl-empty">조건에 맞는 기록이 없습니다.</div>
@@ -760,9 +758,7 @@ export default function OvertimeRecordsPage() {
           </div>
 
           <div className="fl-card-body fl-flush" style={{ paddingBottom: 8 }}>
-            {loading ? (
-              <div className="fl-empty" role="status" aria-live="polite">불러오는 중...</div>
-            ) : loadError ? (
+            {loading ? null : loadError ? (
               <div className="fl-empty">기록을 불러오지 못했습니다. 위의 다시 시도를 눌러주세요.</div>
             ) : selectedRecords.length === 0 ? (
               <div className="fl-empty">이 날짜에 등록된 기록이 없습니다.</div>
