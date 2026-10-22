@@ -131,10 +131,10 @@ describe('ProfilePage — 불러오기', () => {
     expect(overtime.listMyOvertimeRecords).toHaveBeenCalled()
   })
 
-  it('읽는 중에는 로딩 문구를 보인다', () => {
+  it('읽는 중에는 로딩 문구를 띄우지 않는다', () => {
     api.fetch.mockReturnValue(new Promise(() => {}))
     renderPage()
-    expect(screen.getByText('로딩 중...')).toBeTruthy()
+    expect(screen.queryByText('로딩 중...')).toBeNull()
   })
 
   it('프로필을 못 읽으면 사유를 보인다', async () => {

@@ -327,7 +327,7 @@ export default function ProfilePage() {
     setWithdrawOpen(true)
   }
 
-  if (loading) return <div className="fl-page">로딩 중...</div>
+  if (loading) return <div className="fl-page" aria-busy="true" />
 
   const role = profile?.roles?.[0] ?? 'USER'
   const profileLabel = profile?.displayName || profile?.username || '사용자'
