@@ -323,9 +323,7 @@ export default function CalendarWidget({
           )}
           {error && <div className="fl-error" role="alert">{error}</div>}
 
-          {eventsLoading ? (
-            <div className="fl-empty" role="status" aria-live="polite">일정을 불러오는 중...</div>
-          ) : monthEvents === null ? null : selectedEvents.length === 0 ? (
+          {eventsLoading || monthEvents === null ? null : selectedEvents.length === 0 ? (
             <div className="fl-empty">등록된 일정이 없습니다.</div>
           ) : (
             <div className="fl-list">

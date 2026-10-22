@@ -17,9 +17,9 @@ describe('RecentNotices', () => {
 
   afterEach(() => cleanup())
 
-  it('로딩 중임을 알리고 성공하면 공지가 없다는 상태를 표시한다', async () => {
+  it('로딩 중에는 안내 문구를 띄우지 않고 성공하면 공지가 없다는 상태를 표시한다', async () => {
     render(<StrictMode><MemoryRouter><RecentNotices /></MemoryRouter></StrictMode>)
-    expect(screen.getByRole('status').textContent).toContain('불러오는 중')
+    expect(screen.queryByText(/불러오는 중/)).toBeNull()
     expect(await screen.findByText('공지사항이 없습니다.')).toBeTruthy()
     expect(api.listNotices).toHaveBeenCalledTimes(1)
   })

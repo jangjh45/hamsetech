@@ -181,9 +181,7 @@ export default function TodoList({
         )}
         {error && <div className="fl-error" role="alert">{error}</div>}
 
-        {todosLoading ? (
-          <div className="fl-empty" role="status" aria-live="polite">할 일을 불러오는 중...</div>
-        ) : monthTodos === null ? null : visibleTodos.length === 0 ? (
+        {todosLoading || monthTodos === null ? null : visibleTodos.length === 0 ? (
           <div className="fl-empty">
             {filter === 'remaining' ? '남은 할 일이 없습니다.' : '할 일이 없습니다.'}
           </div>

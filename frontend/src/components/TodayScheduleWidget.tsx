@@ -27,7 +27,6 @@ export default function TodayScheduleWidget({ events, loading, error, onShowAll 
       </div>
 
       <div className="fl-card-body">
-        {loading && <div className="fl-empty" role="status" aria-live="polite">오늘 일정을 불러오는 중...</div>}
         {!loading && error && events === null && (
           <div className="fl-empty" role="alert">일정을 불러오지 못했습니다. 위에서 다시 시도해주세요.</div>
         )}
