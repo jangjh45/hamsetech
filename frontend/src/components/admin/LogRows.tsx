@@ -2,7 +2,7 @@ import { LOG_ACTION_TONE, type AdminLog } from './adminShared'
 
 /** 변경 이력·조회 이력 탭이 공유하는 로그 행 목록 */
 export default function LogRows({ logs, loading }: { logs: AdminLog[]; loading: boolean }) {
-  if (loading) return <div className="fl-empty">불러오는 중...</div>
+  if (loading) return null
   if (logs.length === 0) return <div className="fl-empty">로그가 없습니다.</div>
 
   return (

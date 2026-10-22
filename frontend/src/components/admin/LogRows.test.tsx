@@ -20,9 +20,9 @@ function log(over: Partial<AdminLog> = {}): AdminLog {
 }
 
 describe('LogRows', () => {
-  it('불러오는 중에는 안내만 보여 준다', () => {
-    render(<LogRows logs={[]} loading />)
-    expect(screen.getByText('불러오는 중...')).toBeTruthy()
+  it('불러오는 중에는 카드 안에 문구를 띄우지 않는다', () => {
+    const { container } = render(<LogRows logs={[]} loading />)
+    expect(container.textContent).toBe('')
   })
 
   it('비어 있으면 빈 상태 문구를 보여 준다', () => {
