@@ -82,7 +82,7 @@ class SchemaMigrationTest {
 				"SELECT version FROM flyway_schema_history WHERE success = true AND version IS NOT NULL "
 						+ "ORDER BY installed_rank", String.class);
 
-        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12");
+        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13");
 	}
 
 	@Test
@@ -95,7 +95,7 @@ class SchemaMigrationTest {
 				"users", "user_roles",
                 "notices", "notice_comments", "notice_attachments", "notice_views",
                 "calendar_events", "todos",
-                "packing_scenarios", "packing_items",
+                "packing_scenarios", "packing_items", "truck_presets",
                 "overtime_records", "overtime_default_times", "overtime_payroll_setting",
                 "vendors", "vendor_contacts", "vendor_categories",
                 "admin_logs", "admin_read_logs", "performance_snapshots", "performance_alert_settings",
@@ -112,6 +112,15 @@ class SchemaMigrationTest {
 
 		assertThat(categories).contains("운송·택배", "포장재", "원자재·부품", "장비·시설", "외주·용역", "기타");
 		assertThat(indexes).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("적재함 프리셋 기본값이 들어간다")
+	void truckPresetsAreSeeded() {
+		List<String> labels = jdbc.queryForList(
+				"SELECT label FROM truck_presets ORDER BY sort_order", String.class);
+
+		assertThat(labels).containsExactly("1톤 카고", "2.5톤 카고", "5톤 카고", "5톤 장축");
 	}
 
 	@Test
