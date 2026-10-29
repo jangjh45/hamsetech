@@ -22,6 +22,10 @@ import java.util.List;
 @Transactional
 public class PackingScenarioService {
 
+    /** 요청에 회전 여부나 마진이 빠졌을 때 쓰는 값. 화면 기본값과 맞춘다. */
+    static final boolean DEFAULT_ALLOW_ROTATE = true;
+    static final int DEFAULT_MARGIN = 0;
+
     private final PackingScenarioRepository scenarioRepository;
     private final SecurityUtils securityUtils;
 
@@ -113,8 +117,8 @@ public class PackingScenarioService {
         scenario.setDescription(description);
         scenario.setTruckWidth(truckWidth);
         scenario.setTruckHeight(truckHeight);
-        scenario.setAllowRotate(allowRotate != null ? allowRotate : true);
-        scenario.setMargin(margin != null ? margin : 0);
+        scenario.setAllowRotate(allowRotate != null ? allowRotate : DEFAULT_ALLOW_ROTATE);
+        scenario.setMargin(margin != null ? margin : DEFAULT_MARGIN);
         scenario.setPreserveOrder(preserveOrder);
     }
 
