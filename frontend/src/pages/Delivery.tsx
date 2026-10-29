@@ -4,7 +4,8 @@ import type { PackingScenario } from '../api/scenarios'
 import ScenarioRow from '../components/delivery/ScenarioRow'
 import TruckCard from '../components/delivery/TruckCard'
 import {
-  BIN_PRESETS,
+  DEFAULT_OPTIONS,
+  DEFAULT_TRUCK,
   DRAFT_KEY,
   TRUCK_PAGE,
   loadDraft,
@@ -16,18 +17,20 @@ import {
 import { useScenarios } from '../hooks/useScenarios'
 import { usePackingCalc, usePackingStats } from '../hooks/usePackingCalc'
 import { useItemRows } from '../hooks/useItemRows'
+import { useTruckPresets } from '../hooks/useTruckPresets'
 import { useConfirm } from '../components/ConfirmDialog'
 import '../styles/delivery.css'
 
 export default function DeliveryPage() {
   const { confirm } = useConfirm()
   const [initialDraft] = useState<Draft | null>(loadDraft)
+  const truckPresets = useTruckPresets()
 
-  const [binWStr, setBinWStr] = useState<string>(initialDraft?.binW ?? '1200')
-  const [binHStr, setBinHStr] = useState<string>(initialDraft?.binH ?? '800')
-  const [marginStr, setMarginStr] = useState<string>(initialDraft?.margin ?? '0')
-  const [allowRotate, setAllowRotate] = useState<boolean>(initialDraft?.allowRotate ?? true)
-  const [preserveOrder, setPreserveOrder] = useState<boolean>(initialDraft?.preserveOrder ?? false)
+  const [binWStr, setBinWStr] = useState<string>(initialDraft?.binW ?? String(DEFAULT_TRUCK.width))
+  const [binHStr, setBinHStr] = useState<string>(initialDraft?.binH ?? String(DEFAULT_TRUCK.height))
+  const [marginStr, setMarginStr] = useState<string>(initialDraft?.margin ?? String(DEFAULT_OPTIONS.margin))
+  const [allowRotate, setAllowRotate] = useState<boolean>(initialDraft?.allowRotate ?? DEFAULT_OPTIONS.allowRotate)
+  const [preserveOrder, setPreserveOrder] = useState<boolean>(initialDraft?.preserveOrder ?? DEFAULT_OPTIONS.preserveOrder)
 
   const [error, setError] = useState<string>('')
   const [showRestoredHint, setShowRestoredHint] = useState<boolean>(!!initialDraft)
@@ -166,11 +169,11 @@ export default function DeliveryPage() {
       variant: 'danger',
     })
     if (!ok) return
-    setBinWStr('1200')
-    setBinHStr('800')
-    setMarginStr('0')
-    setAllowRotate(true)
-    setPreserveOrder(false)
+    setBinWStr(String(DEFAULT_TRUCK.width))
+    setBinHStr(String(DEFAULT_TRUCK.height))
+    setMarginStr(String(DEFAULT_OPTIONS.margin))
+    setAllowRotate(DEFAULT_OPTIONS.allowRotate)
+    setPreserveOrder(DEFAULT_OPTIONS.preserveOrder)
     clearItems()
     setShowRestoredHint(false)
     try {
@@ -331,19 +334,19 @@ export default function DeliveryPage() {
         </div>
         <div className="fl-card-body">
           <div className="dl-presets">
-            {BIN_PRESETS.map((preset) => {
-              const isOn = preset.w === binW && preset.h === binH
+            {truckPresets.map((preset) => {
+              const isOn = preset.width === binW && preset.height === binH
               return (
                 <button
                   key={preset.label}
                   className={`dl-preset${isOn ? ' is-on' : ''}`}
                   onClick={() => {
-                    setBinWStr(String(preset.w))
-                    setBinHStr(String(preset.h))
+                    setBinWStr(String(preset.width))
+                    setBinHStr(String(preset.height))
                   }}
                 >
                   {preset.label}
-                  <span className="dl-preset-dim">{preset.w}×{preset.h}</span>
+                  <span className="dl-preset-dim">{preset.width}×{preset.height}</span>
                 </button>
               )
             })}
@@ -357,7 +360,8 @@ export default function DeliveryPage() {
                 inputMode="numeric"
                 value={binWStr}
                 onChange={(e) => setBinWStr(normalizeNumericInput(e.target.value))}
-                placeholder="1200"
+                placeholder={String(DEFAULT_TRUCK.width)}
+                aria-label="적재함 가로"
               />
             </label>
             <label className="fl-field dl-bin-field">
@@ -367,7 +371,8 @@ export default function DeliveryPage() {
                 inputMode="numeric"
                 value={binHStr}
                 onChange={(e) => setBinHStr(normalizeNumericInput(e.target.value))}
-                placeholder="800"
+                placeholder={String(DEFAULT_TRUCK.height)}
+                aria-label="적재함 세로"
               />
             </label>
             <label className="fl-field dl-bin-field">
@@ -379,7 +384,8 @@ export default function DeliveryPage() {
                 inputMode="numeric"
                 value={marginStr}
                 onChange={(e) => setMarginStr(normalizeNumericInput(e.target.value))}
-                placeholder="0"
+                placeholder={String(DEFAULT_OPTIONS.margin)}
+                aria-label="마진"
               />
             </label>
             <label className={`dl-toggle${allowRotate ? ' is-on' : ''}`}>
