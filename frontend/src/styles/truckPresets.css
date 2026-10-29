@@ -1,0 +1,47 @@
+/* 관리자 > 적재함 프리셋 전용 스타일. */
+
+.ad-preset-form {
+  display: grid;
+  grid-template-columns: minmax(160px, 2fr) repeat(3, minmax(90px, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.ad-preset-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.ad-preset-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ad-preset-table th,
+.ad-preset-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--fl-border);
+}
+
+.ad-preset-table tr.is-editing td {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.ad-preset-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.ad-preset-actions .fl-btn + .fl-btn {
+  margin-left: 6px;
+}
+
+@media (max-width: 720px) {
+  .ad-preset-form {
+    grid-template-columns: 1fr 1fr;
+  }
+}
