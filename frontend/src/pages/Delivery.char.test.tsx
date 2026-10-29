@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { MemoryRouter } from 'react-router-dom'
 import { ConfirmProvider } from '../components/ConfirmDialog'
 import DeliveryPage from './Delivery'
+import { DEFAULT_TRUCK } from '../components/delivery/deliveryShared'
 
 /**
  * 적재(패킹) 화면의 "지금 무엇을 보여주는가"를 고정한다.
@@ -28,10 +29,17 @@ const scenarioApi = vi.hoisted(() => ({
 
 vi.mock('../api/scenarios', () => scenarioApi)
 
+const truckPresetApi = vi.hoisted(() => ({
+  getTruckPresets: vi.fn(async () => []),
+}))
+
+vi.mock('../api/truckPresets', () => truckPresetApi)
+
 beforeEach(() => {
   localStorage.clear()
   scenarioApi.getAllScenarios.mockResolvedValue([])
   scenarioApi.getFavoriteScenarios.mockResolvedValue([])
+  truckPresetApi.getTruckPresets.mockResolvedValue([])
 })
 
 afterEach(() => {
@@ -67,7 +75,7 @@ describe('DeliveryPage — 초기 화면', () => {
     )
     renderPage()
     await waitFor(() => {
-      expect(document.querySelector<HTMLInputElement>('input[placeholder="1200"]')?.value).toBe('2000')
+      expect(document.querySelector<HTMLInputElement>('input[aria-label="적재함 가로"]')?.value).toBe('2000')
     })
   })
 
@@ -76,7 +84,9 @@ describe('DeliveryPage — 초기 화면', () => {
     renderPage()
     // 예외를 던지면 화면이 뜨지 않는다. 기본값으로 시작해야 한다.
     await waitFor(() => {
-      expect(document.querySelector<HTMLInputElement>('input[placeholder="1200"]')?.value).toBe('1200')
+      expect(document.querySelector<HTMLInputElement>('input[aria-label="적재함 가로"]')?.value).toBe(
+        String(DEFAULT_TRUCK.width),
+      )
     })
   })
 
@@ -90,7 +100,9 @@ describe('DeliveryPage — 물품 편집', () => {
   it('물품을 지운 뒤 되돌릴 수 있다', async () => {
     renderPage()
     await waitFor(() => {
-      expect(document.querySelector<HTMLInputElement>('input[placeholder="1200"]')?.value).toBe('1200')
+      expect(document.querySelector<HTMLInputElement>('input[aria-label="적재함 가로"]')?.value).toBe(
+        String(DEFAULT_TRUCK.width),
+      )
     })
 
     const addBtn = screen.getByRole('button', { name: /추가/ })
@@ -113,7 +125,7 @@ describe('DeliveryPage — 디바운스 계산', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     renderPage()
 
-    const w = document.querySelector<HTMLInputElement>('input[placeholder="1200"]')!
+    const w = document.querySelector<HTMLInputElement>('input[aria-label="적재함 가로"]')!
     fireEvent.change(w, { target: { value: '3000' } })
 
     vi.advanceTimersByTime(400)

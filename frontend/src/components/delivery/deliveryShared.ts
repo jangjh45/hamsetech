@@ -27,18 +27,32 @@ export const colorPalette = [
 
 export const getItemColor = (id: number) => colorPalette[id % colorPalette.length]
 
+export interface TruckDims {
+  label: string
+  width: number
+  height: number
+}
+
 /**
- * 적재함 프리셋 (차량 적재함 내측 치수).
- *
- * 5톤 장축은 현장에서 쓰는 실제 값을 받은 것이고, 나머지 세 개는 차종·제조사·
- * 바디 종류마다 달라 대표값을 넣어둔 것이다. (확인 필요)
+ * 프리셋 서버 조회가 실패했을 때 쓰는 목록. DB 초기 데이터(V13 마이그레이션)와 같은 값이다.
+ * 정상 상태에서는 서버 목록을 쓰고, 이 값은 화면이 빈 채로 멈추지 않게 하는 안전망이다.
  */
-export const BIN_PRESETS = [
-  { label: '1톤 카고', w: 2830, h: 1630 },
-  { label: '2.5톤 카고', w: 4300, h: 1850 },
-  { label: '5톤 카고', w: 6200, h: 2300 },
-  { label: '5톤 장축', w: 7400, h: 2200 },
+export const FALLBACK_TRUCK_PRESETS: TruckDims[] = [
+  { label: '1톤 카고', width: 2830, height: 1630 },
+  { label: '2.5톤 카고', width: 4300, height: 1850 },
+  { label: '5톤 카고', width: 6200, height: 2300 },
+  { label: '5톤 장축', width: 7400, height: 2200 },
 ]
+
+/** 처음 열었을 때와 초기화할 때 쓰는 적재함 치수. 첫 번째 프리셋을 쓴다. */
+export const DEFAULT_TRUCK = FALLBACK_TRUCK_PRESETS[0]
+
+/** 처음 열었을 때와 초기화할 때 쓰는 나머지 설정 */
+export const DEFAULT_OPTIONS = {
+  margin: 0,
+  allowRotate: true,
+  preserveOrder: false,
+}
 
 /** 한 번에 그리는 트럭 수. 결과가 수백 대여도 화면이 버티게 한다. */
 export const TRUCK_PAGE = 20
