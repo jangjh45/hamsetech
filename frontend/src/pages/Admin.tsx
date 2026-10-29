@@ -17,6 +17,7 @@ import LogRows from '../components/admin/LogRows'
 import PerformancePanel from '../components/admin/PerformancePanel'
 import OvertimeBulkModal from '../components/admin/OvertimeBulkModal'
 import TempPasswordModal from '../components/admin/TempPasswordModal'
+import TruckPresetPanel from '../components/admin/TruckPresetPanel'
 import {
   LOG_ENTITY_OPTIONS,
   OVERTIME_STATUS_LABEL,
@@ -46,7 +47,7 @@ export default function AdminPage() {
     if (message) notify({ message, tone: 'error' })
   }, [notify])
   const showNotice = useCallback((message: string) => notify({ message, tone: 'info' }), [notify])
-  const [activeTab, setActiveTab] = useState<'users' | 'pending' | 'withdraw' | 'logs' | 'readLogs' | 'overtime' | 'performance'>('users')
+  const [activeTab, setActiveTab] = useState<'users' | 'pending' | 'withdraw' | 'logs' | 'readLogs' | 'overtime' | 'truckPresets' | 'performance'>('users')
   const [overtimeSummaryQuery, setOvertimeSummaryQuery] = useState('')
   const [overtimeSummarySort, setOvertimeSummarySort] = useState<'name' | 'overtime' | 'special' | 'total'>('name')
   const [logStats, setLogStats] = useState<any>(null)
@@ -196,6 +197,12 @@ export default function AdminPage() {
             onClick={() => changeTab('overtime')}
           >
             잔업특근
+          </button>
+          <button
+            className={`fl-seg-btn${activeTab === 'truckPresets' ? ' is-active' : ''}`}
+            onClick={() => changeTab('truckPresets')}
+          >
+            적재함 프리셋
           </button>
           <button
             className={`fl-seg-btn${activeTab === 'performance' ? ' is-active' : ''}`}
@@ -1145,6 +1152,8 @@ export default function AdminPage() {
           )}
         </div>
       )}
+      {activeTab === 'truckPresets' && <TruckPresetPanel onError={showError} onNotice={showNotice} />}
+
       {activeTab === 'performance' && <PerformancePanel />}
       {userTabs.tempPassword && (
         <TempPasswordModal

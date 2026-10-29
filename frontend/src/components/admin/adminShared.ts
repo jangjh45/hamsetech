@@ -42,6 +42,7 @@ export const LOG_ENTITY_OPTIONS = [
   { value: 'NOTICE', label: '공지사항' },
   { value: 'NOTICE_COMMENT', label: '댓글' },
   { value: 'SCENARIO', label: '적재 시뮬레이션' },
+  { value: 'TRUCK_PRESET', label: '적재함 프리셋' },
   { value: 'OVERTIME_RECORD', label: '잔업/특근' },
   { value: 'VENDOR', label: '업체 주소록' },
   { value: 'VENDOR_CATEGORY', label: '업체 분류' },
