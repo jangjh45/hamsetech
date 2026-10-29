@@ -131,8 +131,8 @@ public class AdminInitializer {
         scenario2.setName("소형 화물차");
         scenario2.setDescription("소형 화물차(1톤) 적재를 위한 설정입니다.");
         scenario2.setUser(admin);
-        scenario2.setTruckWidth(1800);
-        scenario2.setTruckHeight(1200);
+        scenario2.setTruckWidth(2830);
+        scenario2.setTruckHeight(1630);
         scenario2.setAllowRotate(true);
         scenario2.setMargin(20);
 
@@ -158,8 +158,8 @@ public class AdminInitializer {
         scenario3.setName("대형 화물차");
         scenario3.setDescription("대형 화물차(5톤) 적재를 위한 설정입니다.");
         scenario3.setUser(admin);
-        scenario3.setTruckWidth(2400);
-        scenario3.setTruckHeight(1600);
+        scenario3.setTruckWidth(6200);
+        scenario3.setTruckHeight(2300);
         scenario3.setAllowRotate(false);
         scenario3.setMargin(30);
 
