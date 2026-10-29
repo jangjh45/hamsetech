@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -30,7 +31,7 @@ public class PackingScenarioController {
             @NotNull(message = "트럭 가로 크기를 입력해주세요") @Positive(message = "트럭 가로 크기는 양수여야 합니다") Integer truckWidth,
             @NotNull(message = "트럭 세로 크기를 입력해주세요") @Positive(message = "트럭 세로 크기는 양수여야 합니다") Integer truckHeight,
             Boolean allowRotate,
-            Integer margin,
+            @PositiveOrZero(message = "마진은 0 이상이어야 합니다") Integer margin,
             Boolean preserveOrder,
             @NotNull(message = "아이템 목록을 입력해주세요") List<ItemRequest> items
     ) {}
@@ -48,7 +49,7 @@ public class PackingScenarioController {
             @NotNull(message = "트럭 가로 크기를 입력해주세요") @Positive(message = "트럭 가로 크기는 양수여야 합니다") Integer truckWidth,
             @NotNull(message = "트럭 세로 크기를 입력해주세요") @Positive(message = "트럭 세로 크기는 양수여야 합니다") Integer truckHeight,
             Boolean allowRotate,
-            Integer margin,
+            @PositiveOrZero(message = "마진은 0 이상이어야 합니다") Integer margin,
             Boolean preserveOrder,
             @NotNull(message = "아이템 목록을 입력해주세요") List<ItemRequest> items
     ) {}
