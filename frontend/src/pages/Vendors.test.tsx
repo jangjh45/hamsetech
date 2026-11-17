@@ -4,16 +4,12 @@ import VendorsPage from './Vendors'
 
 const api = vi.hoisted(() => ({
   createVendor: vi.fn(),
-  createVendorCategory: vi.fn(),
   getVendor: vi.fn(),
-  listAllVendorCategories: vi.fn(),
   listVendorCategories: vi.fn(),
   listVendors: vi.fn(),
   updateVendor: vi.fn(),
-  updateVendorCategory: vi.fn(),
 }))
 
-vi.mock('../auth/token', () => ({ isAdmin: () => false }))
 vi.mock('../api/vendors', () => api)
 
 const emptyPage = {
@@ -37,7 +33,9 @@ describe('업체 주소록', () => {
   it('일반 사용자가 업체를 등록할 수 있고 사업자번호·주소 없이 저장한다', async () => {
     render(<VendorsPage />)
 
-    fireEvent.click(await screen.findByRole('button', { name: '업체 등록' }))
+    const createButton = await screen.findByRole('button', { name: '업체 등록' })
+    await waitFor(() => expect((createButton as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(createButton)
     fireEvent.change(screen.getByRole('textbox', { name: '업체명' }), { target: { value: '새길 운송' } })
     fireEvent.click(screen.getByRole('button', { name: '저장' }))
 

@@ -922,3 +922,58 @@
   color: var(--fl-faint);
   font-size: 13px;
 }
+
+/* ── 업체 분류 탭 ────────────────────────────────────────────── */
+
+.ad-category-body {
+  gap: 18px;
+}
+
+.ad-category-add {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 560px;
+}
+
+.ad-category-add .fl-field {
+  flex: 1;
+}
+
+.ad-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ad-category-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--fl-divider);
+  border-radius: 10px;
+  background: var(--fl-sunken);
+}
+
+.ad-category-row > .fl-input {
+  flex: 1;
+}
+
+.ad-category-row.is-inactive {
+  opacity: 0.7;
+}
+
+@media (max-width: 680px) {
+  .ad-category-row {
+    flex-wrap: wrap;
+  }
+
+  .ad-category-row > .fl-input {
+    flex: 1 1 100%;
+  }
+
+  .ad-category-row .fl-btn {
+    flex: 1;
+  }
+}
