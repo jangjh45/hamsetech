@@ -1,15 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { isAdmin } from '../auth/token'
 import Pager from '../components/Pager'
 import {
   createVendor,
-  createVendorCategory,
   getVendor,
-  listAllVendorCategories,
   listVendorCategories,
   listVendors,
   updateVendor,
-  updateVendorCategory,
   type Vendor,
   type VendorCategory,
   type VendorContactInput,
@@ -66,10 +62,8 @@ function websiteHref(value: string): string | null {
 }
 
 export default function VendorsPage() {
-  const admin = isAdmin()
   const [pageData, setPageData] = useState<VendorPage | null>(null)
   const [categories, setCategories] = useState<VendorCategory[]>([])
-  const [managedCategories, setManagedCategories] = useState<VendorCategory[]>([])
   const [query, setQuery] = useState('')
   const [categoryId, setCategoryId] = useState<number | ''>('')
   const [page, setPage] = useState(0)
@@ -88,10 +82,6 @@ export default function VendorsPage() {
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
-  const [showCategoryManager, setShowCategoryManager] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [categoryDrafts, setCategoryDrafts] = useState<Record<number, string>>({})
-  const [savingCategoryId, setSavingCategoryId] = useState<number | null>(null)
   const returnFocusRef = useRef<HTMLElement | null>(null)
   const detailDialogRef = useRef<HTMLElement | null>(null)
   const formDialogRef = useRef<HTMLFormElement | null>(null)
@@ -120,19 +110,13 @@ export default function VendorsPage() {
     setCategoriesLoading(true)
     setCategoryError('')
     try {
-      const active = await listVendorCategories()
-      setCategories(active)
-      if (admin) {
-        const all = await listAllVendorCategories()
-        setManagedCategories(all)
-        setCategoryDrafts(Object.fromEntries(all.map((category) => [category.id, category.name])))
-      }
+      setCategories(await listVendorCategories())
     } catch (err) {
       setCategoryError(err instanceof Error ? err.message : '분류 목록을 불러오지 못했습니다.')
     } finally {
       setCategoriesLoading(false)
     }
-  }, [admin])
+  }, [])
 
   useEffect(() => {
     // 초기 진입 시 서버 목록을 동기화한다.
@@ -320,34 +304,6 @@ export default function VendorsPage() {
     })
   }
 
-  async function addCategory(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setError('')
-    try {
-      await createVendorCategory(newCategoryName)
-      setNewCategoryName('')
-      await refreshCategories()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '분류를 추가하지 못했습니다.')
-    }
-  }
-
-  async function saveCategory(category: VendorCategory, active = category.active) {
-    setSavingCategoryId(category.id)
-    setError('')
-    try {
-      await updateVendorCategory(category.id, {
-        name: categoryDrafts[category.id] ?? category.name,
-        active,
-      })
-      await refreshCategories()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '분류를 저장하지 못했습니다.')
-    } finally {
-      setSavingCategoryId(null)
-    }
-  }
-
   const items = pageData?.content ?? []
 
   return (
@@ -358,14 +314,6 @@ export default function VendorsPage() {
           <p>업체와 담당자 연락처를 검색하고 함께 관리합니다.</p>
         </div>
         <div className="vd-title-actions">
-          {admin && (
-            <button
-              className={`fl-btn${showCategoryManager ? ' fl-btn-primary' : ''}`}
-              onClick={() => setShowCategoryManager((visible) => !visible)}
-            >
-              {showCategoryManager ? '분류 관리 닫기' : '분류 관리'}
-            </button>
-          )}
           <button
             className="fl-btn fl-btn-primary"
             onClick={openCreate}
@@ -388,64 +336,6 @@ export default function VendorsPage() {
           <span>{listError}</span>
           <button className="fl-btn fl-btn-sm" onClick={() => void load(page, query, categoryId)}>다시 시도</button>
         </div>
-      )}
-
-      {showCategoryManager && admin && (
-        <section className="fl-card vd-category-card">
-          <div className="fl-card-head">
-            <span className="fl-card-title">업체 분류 관리</span>
-            <span className="fl-card-count">업체 등록 화면에는 사용 중인 분류만 표시됩니다.</span>
-          </div>
-          <div className="fl-card-body">
-            <form className="vd-category-add" onSubmit={addCategory}>
-              <label className="fl-field">
-                <span className="fl-field-label">새 분류</span>
-                <input
-                  className="fl-input"
-                  value={newCategoryName}
-                  onChange={(event) => setNewCategoryName(event.target.value)}
-                  maxLength={80}
-                  placeholder="예: 안전용품"
-                  required
-                />
-              </label>
-              <button className="fl-btn fl-btn-primary" type="submit">분류 추가</button>
-            </form>
-            <div className="vd-category-list">
-              {categoriesLoading ? null : managedCategories.map((category) => (
-                <div className={`vd-category-row${category.active ? '' : ' is-inactive'}`} key={category.id}>
-                  <input
-                    className="fl-input"
-                    aria-label={`${category.name} 분류명`}
-                    value={categoryDrafts[category.id] ?? category.name}
-                    onChange={(event) =>
-                      setCategoryDrafts((current) => ({ ...current, [category.id]: event.target.value }))
-                    }
-                    maxLength={80}
-                  />
-                  {!category.active && <span className="fl-badge">사용 중지</span>}
-                  <button
-                    className="fl-btn fl-btn-sm"
-                    onClick={() => void saveCategory(category)}
-                    disabled={savingCategoryId === category.id}
-                  >
-                    이름 저장
-                  </button>
-                  <button
-                    className="fl-btn fl-btn-sm"
-                    onClick={() => void saveCategory(category, !category.active)}
-                    disabled={savingCategoryId === category.id}
-                  >
-                    {category.active ? '사용 중지' : '다시 사용'}
-                  </button>
-                </div>
-              ))}
-              {!categoriesLoading && !categoryError && managedCategories.length === 0 && (
-                <div className="fl-empty">등록된 분류가 없습니다.</div>
-              )}
-            </div>
-          </div>
-        </section>
       )}
 
       <section className="fl-card">

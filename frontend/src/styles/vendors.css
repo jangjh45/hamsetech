@@ -6,8 +6,7 @@
 
 .vd-title-actions,
 .vd-search,
-.vd-row-actions,
-.vd-category-add {
+.vd-row-actions {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -98,34 +97,6 @@
 
 .vd-mobile-sub { display: none; }
 .vd-row-actions { justify-content: flex-end; }
-
-.vd-category-card .fl-card-body { gap: 18px; }
-
-.vd-category-add {
-  align-items: flex-end;
-  max-width: 560px;
-}
-
-.vd-category-add .fl-field { flex: 1; }
-
-.vd-category-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.vd-category-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  border: 1px solid var(--fl-divider);
-  border-radius: 10px;
-  background: var(--fl-sunken);
-}
-
-.vd-category-row > .fl-input { flex: 1; }
-.vd-category-row.is-inactive { opacity: 0.7; }
 
 .vd-detail-modal { max-width: 720px; }
 .vd-form-modal { max-width: 760px; }
@@ -231,9 +202,6 @@
   .vd-category-cell { position: static; align-self: flex-start; }
   .vd-contact-cell { max-width: 100%; }
   .vd-row-actions { justify-content: flex-start; }
-  .vd-category-row { flex-wrap: wrap; }
-  .vd-category-row > .fl-input { flex: 1 1 100%; }
-  .vd-category-row .fl-btn { flex: 1; }
   .vd-detail-grid,
   .vd-form-grid { grid-template-columns: 1fr; }
   .vd-form-wide { grid-column: auto; }
