@@ -72,10 +72,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    # wget은 alpine busybox 내장이라 jre-alpine에도 있다.
+    # Corretto headless 이미지에 포함된 curl로 애플리케이션 헬스체크를 한다.
     # /actuator/health는 application.yml에서 노출 범위에 못 박혀 있다.
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/actuator/health >/dev/null || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3

@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────
 # Stage 1: Build (Gradle + Java 25)
 # ─────────────────────────────────────────────
-FROM eclipse-temurin:25-jdk-alpine AS builder
+FROM amazoncorretto:25-alpine-jdk AS builder
 
 WORKDIR /app
 
@@ -29,7 +29,7 @@ RUN ./gradlew bootJar --no-daemon -x test \
 # ─────────────────────────────────────────────
 # Stage 2: Dev (Gradle bootRun + DevTools 자동 재시작)
 # ─────────────────────────────────────────────
-FROM eclipse-temurin:25-jdk-alpine AS dev
+FROM amazoncorretto:25-alpine-jdk AS dev
 
 WORKDIR /app
 
@@ -54,27 +54,25 @@ ENTRYPOINT ["./docker/backend-dev-entrypoint.sh"]
 # ─────────────────────────────────────────────
 # Stage 3: Prod (최적화된 경량 이미지)
 # ─────────────────────────────────────────────
-FROM eclipse-temurin:25-jre-alpine AS prod
+FROM amazoncorretto:25-al2023-headless AS prod
 
 WORKDIR /app
 
-# 업로드 디렉터리를 root 권한일 때 미리 만들고 소유권을 넘긴다.
-# 도커는 이미지에 이미 있는 경로에 볼륨을 처음 붙일 때만 그 소유권을 볼륨에 복사한다.
-# 이 mkdir/chown 없이 볼륨을 붙이면 볼륨이 root 소유로 만들어져,
-# 비root(spring)로 뜬 앱이 파일을 쓰지 못한다.
-RUN addgroup -S spring && adduser -S spring -G spring \
- && mkdir -p /app/uploads \
- && chown -R spring:spring /app/uploads
+# 업로드 디렉터리를 미리 만들고 비root UID/GID에 소유권을 넘긴다.
+# 도커는 이미지에 이미 있는 경로에 볼륨을 처음 붙일 때 소유권을 볼륨에 복사한다.
+# 따라서 named volume도 앱 UID(10001)가 쓸 수 있다.
+RUN mkdir -p /app/uploads \
+ && chown -R 10001:10001 /app/uploads
 
 # 변경 빈도가 낮은 순서로 복사해야 레이어 캐시가 산다.
 # dependencies는 build.gradle이 바뀔 때만, application은 코드가 바뀔 때마다 갱신된다.
-COPY --from=builder --chown=spring:spring /app/extracted/dependencies/ ./
-COPY --from=builder --chown=spring:spring /app/extracted/spring-boot-loader/ ./
-COPY --from=builder --chown=spring:spring /app/extracted/snapshot-dependencies/ ./
-COPY --from=builder --chown=spring:spring /app/extracted/application/ ./
+COPY --from=builder --chown=10001:10001 /app/extracted/dependencies/ ./
+COPY --from=builder --chown=10001:10001 /app/extracted/spring-boot-loader/ ./
+COPY --from=builder --chown=10001:10001 /app/extracted/snapshot-dependencies/ ./
+COPY --from=builder --chown=10001:10001 /app/extracted/application/ ./
 
-# COPY 뒤에 둬야 위 파일들이 spring 소유로 들어온다
-USER spring
+# COPY 뒤에 non-root UID로 실행한다
+USER 10001:10001
 
 EXPOSE 8080
 
