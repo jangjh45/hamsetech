@@ -37,7 +37,7 @@ import static org.mockito.Mockito.verify;
  * 특히 다음을 본다.
  * - username은 남는다. 지우면 같은 아이디로 재가입한 사람이 옛 사용자의 근로 기록을
  *   물려받는다.
- * - 토큰 세대가 올라간다. 안 오르면 탈퇴 직전 발급된 토큰이 만료(24시간)까지 살아 있다.
+ * - 인증 버전이 올라간다. 안 오르면 탈퇴 확정 뒤에도 기존 세션이 계속 유효할 수 있다.
  * - SUPER_ADMIN은 탈퇴할 수 없다. 스스로 나가면 아무도 승인할 수 없다.
  * - 개인 콘텐츠(할일·시나리오)는 지운다. 근로 기록(잔업·공지·캘린더)은 남긴다.
  */
@@ -73,7 +73,7 @@ class UserWithdrawalServiceTest {
         u.setRoles(new java.util.HashSet<>(java.util.Arrays.asList(roles)));
         u.setStatus(UserStatus.WITHDRAW_REQUESTED);
         u.setWithdrawReason("이직");
-        ReflectionTestUtils.setField(u, "tokenVersion", 3);
+        ReflectionTestUtils.setField(u, "authVersion", 3);
         return u;
     }
 
@@ -119,27 +119,25 @@ class UserWithdrawalServiceTest {
     }
 
     @Test
-    @DisplayName("토큰 세대를 올려 이미 발급된 토큰을 무효화한다")
-    void bumpsTokenVersion() {
+    @DisplayName("인증 버전을 올려 기존 세션을 무효화한다")
+    void bumpsAuthVersion() {
         UserAccount u = user(UserRole.USER);
-        assertThat(u.getTokenVersion()).isEqualTo(3);
+        assertThat(u.getAuthVersion()).isEqualTo(3);
 
         service.confirmWithdraw(u, UserWithdrawalService.ACTOR_SELF, null);
 
-        // 안 올리면 탈퇴 직전 토큰이 만료(기본 24시간)까지 API를 계속 쓴다.
-        assertThat(u.getTokenVersion()).isEqualTo(4);
+        assertThat(u.getAuthVersion()).isEqualTo(4);
     }
 
     @Test
-    @DisplayName("백필 전 token_version이 null이어도 1만 올린다")
-    void handlesNullTokenVersion() {
+    @DisplayName("기존 auth_version이 null이어도 1만 올린다")
+    void handlesNullAuthVersion() {
         UserAccount u = user(UserRole.USER);
-        ReflectionTestUtils.setField(u, "tokenVersion", null);
+        ReflectionTestUtils.setField(u, "authVersion", null);
 
         service.confirmWithdraw(u, UserWithdrawalService.ACTOR_SELF, null);
 
-        // null로 두면 인증 필터가 숫자 비교에서 죽는다.
-        assertThat(u.getTokenVersion()).isEqualTo(1);
+        assertThat(u.getAuthVersion()).isEqualTo(1);
     }
 
     @Test
@@ -296,15 +294,15 @@ class UserWithdrawalServiceTest {
     }
 
     @Test
-    @DisplayName("취소해도 토큰 세대를 올리지 않는다 — 계정이 계속 쓰이기 때문이다")
-    void cancelDoesNotBumpTokenVersion() {
+    @DisplayName("취소해도 인증 버전을 올리지 않는다 — 계정이 계속 쓰이기 때문이다")
+    void cancelDoesNotBumpAuthVersion() {
         UserAccount u = user(UserRole.USER);
         u.setStatus(UserStatus.WITHDRAW_REQUESTED);
-        int before = u.getTokenVersion();
+        int before = u.getAuthVersion();
 
         service.cancelWithdrawRequest(u);
 
         // 올리면 로그인한 탭이 통째로 튕겨 나간다. 신청 취소에서 그건 아니다.
-        assertThat(u.getTokenVersion()).isEqualTo(before);
+        assertThat(u.getAuthVersion()).isEqualTo(before);
     }
 }

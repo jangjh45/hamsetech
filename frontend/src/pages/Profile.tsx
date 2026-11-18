@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch, apiUpload } from '../api/client'
 import { listMyOvertimeRecords } from '../api/overtimeRecords'
-import { clearToken, saveAvatarUrl, saveDisplayName } from '../auth/token'
+import { clearAuth, saveAvatarUrl, saveDisplayName } from '../auth/session'
 import { useConfirm } from '../components/ConfirmDialog'
 import PasswordStrength from '../components/PasswordStrength'
 import UserAvatar from '../components/UserAvatar'
@@ -257,8 +257,8 @@ export default function ProfilePage() {
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
-      // 서버는 비밀번호 변경 직후 발급된 모든 토큰을 무효화한다.
-      clearToken()
+      // 서버는 비밀번호 변경 직후 현재 세션을 종료하고 다른 세션도 무효화한다.
+      clearAuth()
       navigate('/login', { replace: true, state: { notice } })
     } catch (e: any) {
       setPwError(e.message || '비밀번호 변경 실패')
@@ -275,9 +275,15 @@ export default function ProfilePage() {
     setShowPasswords(false)
   }
 
-  function handleLogout() {
-    clearToken()
-    navigate('/')
+  async function handleLogout() {
+    try {
+      await apiFetch('/api/auth/logout', { method: 'POST' })
+    } catch {
+      // 네트워크 오류가 나도 현재 탭은 로그아웃 상태로 전환한다.
+    } finally {
+      clearAuth()
+      navigate('/')
+    }
   }
 
   // 신청만 남기고 로그아웃하지 않는다. 관리자가 확정하기 전까지 본인이 취소할 수 있어야 한다.

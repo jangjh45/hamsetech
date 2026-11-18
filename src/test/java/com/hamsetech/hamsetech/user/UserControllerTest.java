@@ -1,8 +1,7 @@
 package com.hamsetech.hamsetech.user;
 
 import com.hamsetech.hamsetech.config.SecurityConfig;
-import com.hamsetech.hamsetech.security.JwtAuthenticationFilter;
-import com.hamsetech.hamsetech.security.JwtService;
+import com.hamsetech.hamsetech.security.SessionAuthenticationFilter;
 import com.hamsetech.hamsetech.security.SecurityUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,7 +31,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.testSecurityContext;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 /**
  * 본인 계정 엔드포인트 테스트.
@@ -49,9 +49,18 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
  * - 표시 이름을 바꿀 때 자기 이름을 그대로 넣는 건 충돌이 아니다.
  */
 @WebMvcTest(controllers = UserController.class)
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class})
+@Import({SecurityConfig.class, SessionAuthenticationFilter.class})
 @ActiveProfiles("test")
 class UserControllerTest {
+
+    /** Controller security assertions use a real CSRF token as well as a test principal. */
+    private static RequestPostProcessor testSecurityContext() {
+        return request -> {
+            var authenticated = org.springframework.security.test.web.servlet.request
+                    .SecurityMockMvcRequestPostProcessors.testSecurityContext().postProcessRequest(request);
+            return csrf().postProcessRequest(authenticated);
+        };
+    }
 
     // 스캐너가 실제 비밀번호로 오인하지 않게, 해시 문자열과 비밀번호 문자열을
     // 한 곳에 모아 둔다. 실제 비밀번호와는 무관한 값이다.
@@ -65,8 +74,6 @@ class UserControllerTest {
     @MockitoBean private PasswordEncoder passwordEncoder;
     @MockitoBean private UserWithdrawalService withdrawalService;
     @MockitoBean private UserAvatarService avatarService;
-    // SecurityConfig를 끌어오면 인증 필터가 같이 올라와 JwtService를 요구한다.
-    @MockitoBean private JwtService jwtService;
 
     /** 현재 로그인한 사용자. 테스트마다 갈아 끼운다. */
     @MockitoBean private SecurityUtils securityUtils;
@@ -267,9 +274,9 @@ class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.requested").value(true));
 
-        // 신청이지 확정이 아니다. 토큰 세대가 그대로여야 확정 전까지 쓸 수 있다.
+        // 신청이지 확정이 아니다. 인증 버전이 그대로여야 확정 전까지 쓸 수 있다.
         assert u.getStatus() == UserStatus.WITHDRAW_REQUESTED;
-        assert u.getTokenVersion() == 0;
+        assert u.getAuthVersion() == 0;
         // 앞뒤 공백은 제거한다.
         assert u.getWithdrawReason().equals("이직");
         assert u.getWithdrawRequestedAt() != null;

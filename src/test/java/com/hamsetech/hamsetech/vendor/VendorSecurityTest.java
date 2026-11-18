@@ -1,8 +1,7 @@
 package com.hamsetech.hamsetech.vendor;
 
 import com.hamsetech.hamsetech.config.SecurityConfig;
-import com.hamsetech.hamsetech.security.JwtAuthenticationFilter;
-import com.hamsetech.hamsetech.security.JwtService;
+import com.hamsetech.hamsetech.security.SessionAuthenticationFilter;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,20 +19,28 @@ import java.util.List;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.testSecurityContext;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 @WebMvcTest(controllers = {VendorController.class, VendorCategoryController.class})
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class})
+@Import({SecurityConfig.class, SessionAuthenticationFilter.class})
 @ActiveProfiles("test")
 class VendorSecurityTest {
+
+    private static RequestPostProcessor testSecurityContext() {
+        return request -> {
+            var authenticated = org.springframework.security.test.web.servlet.request
+                    .SecurityMockMvcRequestPostProcessors.testSecurityContext().postProcessRequest(request);
+            return csrf().postProcessRequest(authenticated);
+        };
+    }
     @Autowired private MockMvc mvc;
 
     @MockitoBean private VendorService vendorService;
     @MockitoBean private VendorCategoryService categoryService;
     @MockitoBean private UserAccountRepository userAccountRepository;
-    @MockitoBean private JwtService jwtService;
 
     @Test
     @WithMockUser(roles = "USER")

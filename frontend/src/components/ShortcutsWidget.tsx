@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { getUsername, isAdmin } from '../auth/token'
+import { getUsername, isAdmin } from '../auth/session'
 import {
   loadShortcutSettings,
   moveShortcut,

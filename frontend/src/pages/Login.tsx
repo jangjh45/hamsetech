@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import type { Path } from 'react-router-dom'
 import { apiFetch } from '../api/client'
-import { saveAuth, saveDisplayName } from '../auth/token'
+import { saveAuth } from '../auth/session'
 import AuthShell from '../components/AuthShell'
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   // 원래 목적지. 라우트 가드(ProtectedRoute/AdminRoute)는 location 객체를,
-  // 토큰 만료 처리(App의 setupAutoLogout)는 pathname/search/hash만 넘기므로
+  // 세션 만료 처리(App의 setupAutoLogout)는 pathname/search/hash만 넘기므로
   // 둘 다 받는 Partial<Path>로 읽는다. 역할과 무관하게 여기로 돌아가고,
   // 없으면 모두 메인 페이지로 들어온다.
   const locationState = location.state as { from?: Partial<Path>; notice?: string } | null
@@ -30,10 +30,9 @@ export default function LoginPage() {
         method: 'POST',
         body: JSON.stringify({ username, password }),
       })
-      const { token, roles, username: uname, displayName, avatarUrl } = data as any
+      const { roles, username: uname, displayName, avatarUrl } = data as any
       const roleList: string[] = roles ?? []
-      saveAuth(token, roleList, uname, avatarUrl ?? null)
-      if (displayName) saveDisplayName(displayName)
+      saveAuth(roleList, uname, displayName ?? '', avatarUrl ?? null)
       // replace로 이동해야 로그인 성공 후 뒤로 가기가 로그인 폼으로 돌아가지 않는다
       navigate(redirectTo, { replace: true })
     } catch (err: any) {

@@ -22,7 +22,7 @@ import ProfilePage from './Profile'
 
 const api = vi.hoisted(() => ({ fetch: vi.fn(), upload: vi.fn() }))
 const auth = vi.hoisted(() => ({
-  clearToken: vi.fn(),
+  clearAuth: vi.fn(),
   saveDisplayName: vi.fn(),
   saveAvatarUrl: vi.fn(),
 }))
@@ -30,7 +30,7 @@ const overtime = vi.hoisted(() => ({ listMyOvertimeRecords: vi.fn() }))
 
 vi.mock('../api/client', () => ({ apiFetch: api.fetch, apiUpload: api.upload }))
 vi.mock('../api/overtimeRecords', () => overtime)
-vi.mock('../auth/token', () => auth)
+vi.mock('../auth/session', () => auth)
 
 /**
  * 테스트에서 입력하는 비밀번호. 한 곳에 모아 둔다.
@@ -78,7 +78,7 @@ beforeEach(() => {
     }
     return Promise.resolve({})
   })
-  auth.clearToken.mockClear()
+  auth.clearAuth.mockClear()
   auth.saveDisplayName.mockClear()
   auth.saveAvatarUrl.mockClear()
   api.upload.mockReset()
@@ -407,7 +407,7 @@ describe('ProfilePage — 비밀번호 변경', () => {
     expect((screen.getByPlaceholderText('8자 이상') as HTMLInputElement).value).toBe('')
     expect((screen.getByPlaceholderText('현재 비밀번호') as HTMLInputElement).value).toBe('')
     expect((screen.getByPlaceholderText('한 번 더 입력') as HTMLInputElement).value).toBe('')
-    expect(auth.clearToken).toHaveBeenCalledOnce()
+    expect(auth.clearAuth).toHaveBeenCalledOnce()
   })
 
   it('보기/숨기기가 세 칸을 함께 다룬다', async () => {
@@ -514,7 +514,7 @@ describe('ProfilePage — 회원 탈퇴', () => {
 
     await waitFor(() => expect(screen.getByText(/탈퇴를 신청했습니다/)).toBeTruthy())
     // 여기서 로그아웃하면 관리자 확정 전에 계정을 잃는다.
-    expect(auth.clearToken).not.toHaveBeenCalled()
+    expect(auth.clearAuth).not.toHaveBeenCalled()
     fireEvent.click(screen.getByRole('button', { name: '상세 보기' }))
     expect(screen.getByRole('button', { name: '탈퇴 신청 취소' })).toBeTruthy()
   })
@@ -558,10 +558,10 @@ describe('ProfilePage — 회원 탈퇴', () => {
     await waitFor(() => expect(screen.getByText('비밀번호가 맞지 않습니다')).toBeTruthy())
   })
 
-  it('로그아웃은 토큰을 지운다', async () => {
+  it('로그아웃은 서버 세션을 종료하고 화면 인증 상태를 비운다', async () => {
     renderPage()
     await waitFor(loaded)
     fireEvent.click(screen.getByRole('button', { name: '로그아웃' }))
-    expect(auth.clearToken).toHaveBeenCalled()
+    await waitFor(() => expect(auth.clearAuth).toHaveBeenCalled())
   })
 })

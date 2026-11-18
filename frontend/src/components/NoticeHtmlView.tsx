@@ -43,8 +43,7 @@ export default function NoticeHtmlView({ content, contentFormat }: Props) {
     return [...new Set(content.match(ATTACHMENT_SRC) ?? [])]
   }, [content, contentFormat])
 
-  // 첨부 이미지는 인증이 필요한데 <img src>에는 Authorization 헤더를 붙일 수 없다.
-  // 그래서 직접 받아 blob 주소로 바꿔 끼운다 (엑셀 다운로드와 같은 방식).
+  // 첨부 이미지는 세션 쿠키를 포함한 API 요청으로 blob을 받아 주소를 바꿔 끼운다.
   //
   // 렌더된 DOM을 건드리지 않고 HTML 문자열을 먼저 고쳐서 넣는다. dangerouslySetInnerHTML로
   // 그린 DOM은 React 소유라, 리렌더나 StrictMode의 재마운트가 일어나면 손댄 내용이
@@ -82,8 +81,7 @@ export default function NoticeHtmlView({ content, contentFormat }: Props) {
     }
   }, [imagePaths])
 
-  // 이미지를 다 받기 전에는 src를 비워 둔다. 상대 경로 그대로 두면 브라우저가
-  // 토큰 없이 먼저 요청해 401이 찍힌다.
+  // API base가 달라질 수 있으므로 이미지를 apiFetchBlob으로 받은 뒤에만 src를 넣는다.
   const html = useMemo(() => {
     if (contentFormat !== 'HTML') return content
     if (imagePaths.length === 0) return content

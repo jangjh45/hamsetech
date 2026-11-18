@@ -59,7 +59,7 @@ public class AdminPasswordResetService {
     }
 
     /**
-     * 임시 비밀번호를 발급하고 대상 계정의 기존 토큰을 무효화한다.
+     * 임시 비밀번호를 발급하고 대상 계정의 기존 세션을 무효화한다.
      *
      * @return 평문 임시 비밀번호. 응답에 한 번 실어 보내는 것이 전부이고
      *         어디에도 저장하지 않는다.
@@ -77,9 +77,9 @@ public class AdminPasswordResetService {
 
         String tempPassword = generateTempPassword();
         target.setPasswordHash(passwordEncoder.encode(tempPassword));
-        // 초기화의 목적이 대개 "계정을 되찾는 것"이다. 남이 쓰고 있던 세션이
-        // 그대로 살아 있으면 초기화의 의미가 없다.
-        target.bumpTokenVersion();
+        // 초기화의 목적이 대개 "계정을 되찾는 것"이다. 기존 로그인 세션도 모두
+        // 다음 요청에서 무효화한다.
+        target.bumpAuthVersion();
         userRepository.save(target);
         // 임시 비밀번호를 발급했으면 기존 로그인 잠금과 실패 횟수도 해제한다.
         loginAttemptService.unlock(target.getUsername());

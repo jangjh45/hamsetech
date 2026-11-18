@@ -7,7 +7,7 @@ import {
   type NoticeCategory,
   type NoticeSummary,
 } from '../api/notices'
-import { isAdmin } from '../auth/token'
+import { isAdmin } from '../auth/session'
 import { formatDate } from '../utils/formatDate'
 import Pager from '../components/Pager'
 import { CommentIcon, PaperclipIcon } from '../components/NoticeIcons'

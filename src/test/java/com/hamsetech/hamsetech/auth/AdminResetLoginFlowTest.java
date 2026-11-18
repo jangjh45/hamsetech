@@ -2,7 +2,6 @@ package com.hamsetech.hamsetech.auth;
 
 import com.hamsetech.hamsetech.admin.AdminLogService;
 import com.hamsetech.hamsetech.admin.AdminPasswordResetService;
-import com.hamsetech.hamsetech.security.JwtService;
 import com.hamsetech.hamsetech.security.LoginAttemptService;
 import com.hamsetech.hamsetech.security.LoginProperties;
 import com.hamsetech.hamsetech.security.SecurityUtils;
@@ -15,6 +14,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.time.Clock;
 import java.util.Map;
@@ -33,7 +35,6 @@ class AdminResetLoginFlowTest {
     void canLogInWithTemporaryPasswordImmediatelyAfterReset() {
         UserAccountRepository userRepository = mock(UserAccountRepository.class);
         AdminLogService adminLogService = mock(AdminLogService.class);
-        JwtService jwtService = mock(JwtService.class);
         SecurityUtils securityUtils = mock(SecurityUtils.class);
         PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
         LoginProperties properties = new LoginProperties();
@@ -48,7 +49,6 @@ class AdminResetLoginFlowTest {
         when(userRepository.findByUsername("kim")).thenReturn(Optional.of(user));
         when(userRepository.save(any(UserAccount.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(securityUtils.isSuperAdmin()).thenReturn(false);
-        when(jwtService.generateToken(any(UserAccount.class))).thenReturn("test.jwt.token");
 
         for (int i = 0; i < properties.getMaxAttempts(); i++) {
             loginAttemptService.recordFailure("kim");
@@ -56,9 +56,12 @@ class AdminResetLoginFlowTest {
         assertThat(loginAttemptService.isLocked("kim")).isTrue();
 
         AuthController authController = new AuthController(
-                passwordEncoder, userRepository, jwtService, adminLogService, loginAttemptService);
+                passwordEncoder, userRepository, adminLogService, loginAttemptService,
+                new HttpSessionSecurityContextRepository());
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
         ResponseEntity<?> lockedResponse = authController.login(
-                new AuthController.LoginRequest("kim", "old-password"));
+                new AuthController.LoginRequest("kim", "old-password"), request, response);
         assertThat(lockedResponse.getStatusCode().value()).isEqualTo(429);
 
         AdminPasswordResetService resetService = new AdminPasswordResetService(
@@ -66,9 +69,12 @@ class AdminResetLoginFlowTest {
         String temporaryPassword = resetService.resetPassword(user);
 
         ResponseEntity<?> loginResponse = authController.login(
-                new AuthController.LoginRequest("kim", temporaryPassword));
+                new AuthController.LoginRequest("kim", temporaryPassword), request, response);
         assertThat(loginResponse.getStatusCode().value()).isEqualTo(200);
-        assertThat(((Map<?, ?>) loginResponse.getBody()).get("token")).isEqualTo("test.jwt.token");
+        assertThat(((Map<?, ?>) loginResponse.getBody()).get("token")).isNull();
+        assertThat(request.getSession(false)).isNotNull();
+        assertThat(request.getSession(false).getAttribute(
+                HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY)).isNotNull();
         assertThat(loginAttemptService.isLocked("kim")).isFalse();
     }
 }

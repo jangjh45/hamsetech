@@ -22,7 +22,7 @@ vi.mock('../api/notices', () => ({
     FACILITY: '설비·시설', EVENT: '행사·경조', SYSTEM: '전산·시스템',
   },
 }))
-vi.mock('../auth/token', () => ({
+vi.mock('../auth/session', () => ({
   isAuthenticated: () => false,
   isAdmin: () => false,
   getUsername: () => null,

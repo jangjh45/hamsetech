@@ -1,8 +1,7 @@
 package com.hamsetech.hamsetech.web;
 
 import com.hamsetech.hamsetech.config.SecurityConfig;
-import com.hamsetech.hamsetech.security.JwtAuthenticationFilter;
-import com.hamsetech.hamsetech.security.JwtService;
+import com.hamsetech.hamsetech.security.SessionAuthenticationFilter;
 import com.hamsetech.hamsetech.user.UserAccountRepository;
 import com.hamsetech.hamsetech.web.ApiExceptions.ConflictException;
 import com.hamsetech.hamsetech.web.ApiExceptions.ForbiddenException;
@@ -31,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 오류 응답의 모양.
  *
  * 이건 취향 문제가 아니라 계약이다. client.ts는 403 본문에 code=FORBIDDEN이 있는지로
- * "권한 거부"와 "토큰 만료"를 가른다. code가 없으면 토큰을 지우고 사용자를
+ * "권한 거부"와 "세션 만료"를 가른다. code가 없으면 인증 상태를 지우고 사용자를
  * 로그아웃시킨다.
  *
  * 실제로 잔업 수정·삭제는 {"error":"forbidden"}을, 시나리오는 빈 본문을 돌려주고
@@ -39,7 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 여기서 그 모양을 고정해 다시 어긋나지 않게 한다.
  */
 @WebMvcTest(controllers = ErrorResponseContractTest.ThrowingController.class)
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class, GlobalExceptionHandler.class,
+@Import({SecurityConfig.class, SessionAuthenticationFilter.class, GlobalExceptionHandler.class,
         ErrorResponseContractTest.ThrowingController.class})
 @ActiveProfiles("test")
 class ErrorResponseContractTest {
@@ -83,7 +82,6 @@ class ErrorResponseContractTest {
     private MockMvc mvc;
 
     @MockitoBean private UserAccountRepository userAccountRepository;
-    @MockitoBean private JwtService jwtService;
 
     @Test
     @WithMockUser

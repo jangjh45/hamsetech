@@ -29,7 +29,7 @@ import java.util.Map;
  * 두면 다음 수정자는 죽은 쪽을 고치게 된다. 원본은 지웠고, 여기만 남긴다.
  *
  * 응답 본문은 {"error": 메시지} 하나로 통일한다. 권한 거부만 code=FORBIDDEN을
- * 더한다. client.ts가 code로 "권한 거부"와 "토큰 만료"를 구분하기 때문이다.
+ * 더한다. client.ts가 code로 "권한 거부"와 "세션 만료"를 구분하기 때문이다.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -44,7 +44,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * code=FORBIDDEN을 빠뜨리면 client.ts가 이 응답을 토큰 만료로 읽고 멀쩡히
+     * code=FORBIDDEN을 빠뜨리면 client.ts가 이 응답을 세션 만료로 읽고 멀쩡히
      * 로그인한 사용자를 로그아웃시킨다. SecurityConfig의 accessDeniedHandler도
      * 같은 모양으로 응답한다.
      */

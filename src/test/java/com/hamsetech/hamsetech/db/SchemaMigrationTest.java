@@ -135,11 +135,11 @@ class SchemaMigrationTest {
 	}
 
 	@Test
-	@DisplayName("토큰 세대 컬럼이 만들어진다")
-	void tokenVersionColumnExists() {
+	@DisplayName("세션 인증 버전 컬럼이 만들어진다")
+	void authVersionColumnExists() {
 		Integer count = jdbc.queryForObject(
 				"SELECT count(*) FROM information_schema.columns "
-						+ "WHERE table_name = 'users' AND column_name = 'token_version'", Integer.class);
+						+ "WHERE table_name = 'users' AND column_name = 'auth_version'", Integer.class);
 
 		assertThat(count).isEqualTo(1);
 	}

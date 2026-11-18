@@ -7,7 +7,7 @@ const api = vi.hoisted(() => ({ useDashboardData: vi.fn(), useHomeMonthData: vi.
 vi.mock('../hooks/useDashboardData', () => ({ default: api.useDashboardData }))
 vi.mock('../hooks/useHomeMonthData', () => ({ useHomeMonthData: api.useHomeMonthData }))
 vi.mock('../components/HomeMonthDataProvider', () => ({ default: ({ children }: { children: ReactNode }) => children }))
-vi.mock('../auth/token', () => ({ getUsername: () => 'kim' }))
+vi.mock('../auth/session', () => ({ getUsername: () => 'kim' }))
 vi.mock('../components/Clock', () => ({ default: () => null }))
 vi.mock('../components/CalendarWidget', () => ({
   default: ({ selected }: { selected: string }) => <div data-testid="calendar-date">{selected}</div>,
