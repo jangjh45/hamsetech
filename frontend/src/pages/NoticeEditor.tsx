@@ -8,7 +8,7 @@ import {
   type NoticeCategory,
 } from '../api/notices'
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom'
-import { isAdmin, getDisplayName } from '../auth/token'
+import { isAdmin, getDisplayName } from '../auth/session'
 import { uploadAttachment, type NoticeAttachment } from '../api/noticeAttachments'
 import { isEmptyHtml, plainTextToHtml } from '../utils/noticeHtml'
 import NoticeAttachmentList from '../components/NoticeAttachmentList'

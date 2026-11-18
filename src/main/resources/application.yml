@@ -51,11 +51,7 @@ logging:
       springframework:
         security: WARN
 
-# JWT
 security:
-  jwt:
-    secret: ${JWT_SECRET}
-    expiration-seconds: ${JWT_EXPIRATION_SECONDS:86400}
   # 로그인 시도 제한. 연속 실패가 max-attempts에 닿으면 lockout-minutes 동안 잠근다.
   # 잠긴 뒤의 시도는 비밀번호 대조 전에 끊기므로 감사 로그도 더 쌓이지 않는다.
   login:
@@ -119,6 +115,12 @@ app:
 # Character encoding
 server:
   servlet:
+    session:
+      timeout: 24h
+      cookie:
+        http-only: true
+        secure: ${SESSION_COOKIE_SECURE:true}
+        same-site: lax
     encoding:
       charset: UTF-8
       enabled: true

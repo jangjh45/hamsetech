@@ -278,7 +278,7 @@ public class OvertimeRecordService {
      * 본인 기록이거나 관리자여야 한다.
      *
      * 예전에는 code 없는 403을 직접 만들어 돌려줬다. client.ts는 code 없는 403을
-     * 토큰 만료로 보고 자동 로그아웃하므로, 남의 기록을 건드린 사용자가 "권한 없음"
+     * 세션 만료로 보고 자동 로그아웃하므로, 남의 기록을 건드린 사용자가 "권한 없음"
      * 대신 로그아웃당했다. 이제 전역 핸들러가 code=FORBIDDEN을 붙인다.
      */
     private void requireOwnerOrAdmin(OvertimeRecord record) {

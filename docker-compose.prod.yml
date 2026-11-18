@@ -48,7 +48,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-hamsetech}
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-hamsetech}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?.env에 DB_PASSWORD를 설정하세요}
-      JWT_SECRET: ${JWT_SECRET:?.env에 JWT_SECRET을 설정하세요}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
       # ADMIN_*은 일부러 :? 를 걸지 않는다. 최초 기동 뒤
       # ADMIN_BOOTSTRAP_ENABLED=false로 내리면 정당하게 비어 있어도 되기 때문이다.
       ADMIN_USERNAME: ${ADMIN_USERNAME}

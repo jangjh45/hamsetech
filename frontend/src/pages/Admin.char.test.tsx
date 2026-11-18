@@ -47,12 +47,11 @@ const overtimeApi = vi.hoisted(() => ({
 
 vi.mock('../api/overtimeRecords', () => overtimeApi)
 
-vi.mock('../auth/token', () => ({
-  getToken: () => 'test-token',
+vi.mock('../auth/session', () => ({
   getUsername: () => 'admin',
   getRoles: () => ['ADMIN'],
   saveAuth: vi.fn(),
-  onTokenExpired: () => () => {},
+  onAuthExpired: () => () => {},
 }))
 
 /** 호출된 경로들만 뽑는다. 순서 비교에 쓴다. */

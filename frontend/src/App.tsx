@@ -15,7 +15,15 @@ import DeliveryPage from './pages/Delivery'
 import ProfilePage from './pages/Profile'
 import OvertimeRecordsPage from './pages/OvertimeRecords'
 import VendorsPage from './pages/Vendors'
-import { setupAutoLogout } from './auth/token'
+import {
+  getAuthSnapshot,
+  saveAuth,
+  setAuthError,
+  setAuthLoading,
+  setupAutoLogout,
+  useAuthSession,
+} from './auth/session'
+import { apiFetch } from './api/client'
 
 // 관리자 화면은 일반 사용자가 거의 열지 않으므로 초기 번들에서 분리한다.
 const AdminPage = lazy(() => import('./pages/Admin'))
@@ -28,9 +36,10 @@ const AUTH_ROUTES = ['/login', '/register', '/forgot-password']
 export default function App() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
+  useAuthSession()
   const hideHeader = AUTH_ROUTES.includes(pathname)
 
-  // 전역 토큰 만료 처리 설정.
+  // 전역 세션 만료 처리 설정.
   // 만료 시점에 보던 위치를 state.from으로 넘겨 로그인 후 그 화면으로 돌아간다.
   useEffect(() => {
     const cleanup = setupAutoLogout((from) => {
@@ -38,6 +47,31 @@ export default function App() {
     })
     return cleanup
   }, [navigate])
+
+  // localStorage 토큰이 아니라 서버 세션이 유효한지 확인한 뒤 보호 화면을 연다.
+  useEffect(() => {
+    if (AUTH_ROUTES.includes(window.location.pathname)) {
+      setAuthLoading()
+      return
+    }
+
+    let active = true
+    setAuthLoading()
+    const pendingSnapshot = getAuthSnapshot()
+    apiFetch('/api/users/me')
+      .then((user: any) => {
+        if (active && getAuthSnapshot() === pendingSnapshot) {
+          saveAuth(user.roles ?? [], user.username, user.displayName ?? '', user.avatarUrl ?? null)
+        }
+      })
+      .catch((error: any) => {
+        if (!active || getAuthSnapshot() !== pendingSnapshot || error?.message?.includes('세션이 만료')) return
+        setAuthError()
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   return (
     <div>

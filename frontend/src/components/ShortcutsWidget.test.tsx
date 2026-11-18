@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import ShortcutsWidget from './ShortcutsWidget'
 
 const auth = vi.hoisted(() => ({ admin: false }))
-vi.mock('../auth/token', () => ({
+vi.mock('../auth/session', () => ({
   getUsername: () => 'kim',
   isAdmin: () => auth.admin,
 }))

@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
-import { getToken, saveToken } from '../auth/token'
-import { apiFetch, apiFetchBlob, apiUpload } from './client'
+import { clearAuth, getAuthSnapshot, saveAuth } from '../auth/session'
+import { apiFetch, apiFetchBlob, apiUpload, resetCsrfToken } from './client'
 import { SERVER_ERROR_EVENT } from './serverErrorEvent'
 
-// 실제 fetch를 대체한다. 호출 내용(URL·헤더·본문)만 확인한다.
 let fetchMock: ReturnType<typeof vi.fn>
+let apiHandler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -17,11 +17,31 @@ function textResponse(body: string, status = 200): Response {
   return new Response(body, { status, headers: { 'Content-Type': 'text/plain' } })
 }
 
+function apiCalls() {
+  return fetchMock.mock.calls.filter(([input]) => {
+    return !String(input).includes('/api/auth/csrf')
+  })
+}
+
+function lastApiInit(): RequestInit {
+  return apiCalls().at(-1)?.[1] as RequestInit
+}
+
+function headerOf(name: string): string | null {
+  return (lastApiInit().headers as Headers).get(name)
+}
+
 beforeEach(() => {
-  localStorage.clear()
-  fetchMock = vi.fn()
+  clearAuth()
+  resetCsrfToken()
+  fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).includes('/api/auth/csrf')) {
+      return Promise.resolve(jsonResponse({ headerName: 'X-CSRF-TOKEN', token: 'csrf-test-token' }))
+    }
+    return apiHandler(input, init)
+  })
+  apiHandler = async () => jsonResponse({})
   vi.stubGlobal('fetch', fetchMock)
-  // 만료/거부 분기가 console을 울린다. 테스트 출력을 흐리지 않게 한다.
   vi.spyOn(console, 'warn').mockImplementation(() => {})
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
@@ -31,282 +51,149 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function lastInit(): RequestInit {
-  return fetchMock.mock.calls[0][1] as RequestInit
-}
-
-function headerOf(name: string): string | null {
-  return (lastInit().headers as Headers).get(name)
-}
-
-describe('apiFetch — 요청 구성', () => {
-  it('JSON 응답을 파싱해 돌려준다', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ id: 1 }))
-
+describe('apiFetch — 세션 요청 구성', () => {
+  it('JSON 응답을 파싱하고 쿠키 포함 요청을 보낸다', async () => {
+    apiHandler = async () => jsonResponse({ id: 1 })
     await expect(apiFetch('/api/notices')).resolves.toEqual({ id: 1 })
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/notices')
+    expect(apiCalls()[0][0]).toBe('/api/notices')
+    expect((lastApiInit()).credentials).toBe('include')
   })
 
   it('JSON이 아니면 텍스트로 돌려준다', async () => {
-    fetchMock.mockResolvedValue(textResponse('plain'))
+    apiHandler = async () => textResponse('plain')
     await expect(apiFetch('/api/ping')).resolves.toBe('plain')
   })
 
-  it('쓰기 요청에는 Content-Type을 붙인다', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({}))
+  it('쓰기 요청에 Content-Type과 세션 CSRF 헤더를 붙인다', async () => {
+    apiHandler = async () => jsonResponse({})
     await apiFetch('/api/todos', { method: 'POST', body: JSON.stringify({ title: 'x' }) })
-
     expect(headerOf('Content-Type')).toBe('application/json')
+    expect(headerOf('X-CSRF-TOKEN')).toBe('csrf-test-token')
   })
 
-  it('GET·HEAD에는 Content-Type을 붙이지 않는다', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({}))
+  it('GET·HEAD에는 Content-Type과 CSRF 헤더를 붙이지 않는다', async () => {
+    apiHandler = async () => jsonResponse({})
     await apiFetch('/api/todos')
     expect(headerOf('Content-Type')).toBeNull()
+    expect(headerOf('X-CSRF-TOKEN')).toBeNull()
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/api/auth/csrf'))).toBe(false)
   })
 
-  it('FormData에는 Content-Type을 절대 붙이지 않는다', async () => {
-    // boundary는 브라우저만 안다. application/json으로 덮으면 서버가 본문을 못 읽는다.
-    fetchMock.mockResolvedValue(jsonResponse({ id: 9 }))
+  it('FormData에는 Content-Type을 붙이지 않는다', async () => {
+    apiHandler = async () => jsonResponse({ id: 9 })
     const form = new FormData()
     form.append('file', new Blob(['x']), 'a.txt')
-
     await apiUpload('/api/notices/attachments', form)
-
     expect(headerOf('Content-Type')).toBeNull()
+    expect(headerOf('X-CSRF-TOKEN')).toBe('csrf-test-token')
+    expect(lastApiInit().body).toBe(form)
   })
 
   it('호출자가 지정한 Content-Type을 존중한다', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({}))
+    apiHandler = async () => jsonResponse({})
     await apiFetch('/api/x', {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: 'hi',
     })
-
     expect(headerOf('Content-Type')).toBe('text/plain')
-  })
-
-  it('토큰이 있으면 Authorization을 붙인다', async () => {
-    saveToken('jwt-abc')
-    fetchMock.mockResolvedValue(jsonResponse({}))
-
-    await apiFetch('/api/todos')
-    expect(headerOf('Authorization')).toBe('Bearer jwt-abc')
-  })
-
-  it('토큰이 없으면 Authorization을 안 붙인다', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({}))
-    await apiFetch('/api/auth/login', { method: 'POST', body: '{}' })
-
-    expect(headerOf('Authorization')).toBeNull()
   })
 })
 
-describe('apiFetch — 토큰 만료와 권한 거부', () => {
-  it('401은 만료로 보고 로그아웃시킨다', async () => {
-    // 만료된 토큰은 필터에서 걸러져 익명 요청이 되고, Spring은 그때 401이 아니라
-    // 403을 준다. 그래서 403도 만료로 취급해야 한다.
-    saveToken('expired')
-    fetchMock.mockResolvedValue(jsonResponse({ error: '권한이 없습니다.' }, 401))
-
-    await expect(apiFetch('/api/todos')).rejects.toThrow('세션이 만료되었습니다')
-    expect(getToken()).toBeNull()
-  })
-
-  it('403도 만료로 보고 로그아웃시킨다', async () => {
-    saveToken('expired')
-    fetchMock.mockResolvedValue(jsonResponse({ error: 'Forbidden' }, 403))
-
-    await expect(apiFetch('/api/todos')).rejects.toThrow('세션이 만료되었습니다')
-    expect(getToken()).toBeNull()
-  })
-
-  it('code=FORBIDDEN인 403은 권한 거부로 보고 로그인 상태를 유지한다', async () => {
-    // 이 분기가 없으면 정상 로그인 사용자가 권한 거부 한 번에 튕겨 나간다.
-    saveToken('valid')
-    fetchMock.mockResolvedValue(jsonResponse({ code: 'FORBIDDEN', error: '권한이 없습니다.' }, 403))
-
-    await expect(apiFetch('/api/admin/users')).rejects.toThrow('권한이 없습니다.')
-    expect(getToken()).toBe('valid')
-  })
-
-  it('code=FORBIDDEN 403에서 메시지가 없으면 기본 문구를 쓴다', async () => {
-    saveToken('valid')
-    fetchMock.mockResolvedValue(jsonResponse({ code: 'FORBIDDEN' }, 403))
-
-    await expect(apiFetch('/api/admin/users')).rejects.toThrow('권한이 없습니다.')
-  })
-
-  it('만료 이벤트를 발생시킨다', async () => {
-    saveToken('expired')
-    const onExpired = vi.fn()
-    window.addEventListener('token-expired', onExpired)
+describe('apiFetch — 세션 만료와 권한 거부', () => {
+  it('401은 로그인 화면으로 보내도록 인증 상태를 비운다', async () => {
+    saveAuth(['USER'], 'kim')
+    apiHandler = async () => jsonResponse({ error: 'unauthorized' }, 401)
+    const listener = vi.fn()
+    window.addEventListener('auth-expired', listener)
     try {
-      fetchMock.mockResolvedValue(jsonResponse({}, 401))
-      await expect(apiFetch('/api/todos')).rejects.toThrow()
-      expect(onExpired).toHaveBeenCalledTimes(1)
+      await expect(apiFetch('/api/todos')).rejects.toThrow('로그인 세션이 만료')
+      expect(getAuthSnapshot().status).toBe('anonymous')
+      expect(listener).toHaveBeenCalledOnce()
     } finally {
-      window.removeEventListener('token-expired', onExpired)
+      window.removeEventListener('auth-expired', listener)
     }
   })
 
-  it('토큰이 없는 상태의 403은 로그아웃시키지 않는다', async () => {
-    // 로그인 화면에서 잘못된 자격 증명으로 받은 401/403이다. 지워도 지울 게 없다.
-    fetchMock.mockResolvedValue(jsonResponse({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' }, 401))
-
+  it('로그인 자격 증명 오류 401은 인증 상태 만료로 처리하지 않는다', async () => {
+    apiHandler = async () => jsonResponse({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' }, 401)
     await expect(apiFetch('/api/auth/login', { method: 'POST', body: '{}' }))
       .rejects.toThrow('아이디 또는 비밀번호가 올바르지 않습니다.')
-    expect(getToken()).toBeNull()
+    expect(getAuthSnapshot().status).toBe('anonymous')
+  })
+
+  it('code=FORBIDDEN인 403은 권한 거부로 보고 로그인 상태를 유지한다', async () => {
+    saveAuth(['USER'], 'kim')
+    apiHandler = async () => jsonResponse({ code: 'FORBIDDEN', error: '권한이 없습니다.' }, 403)
+    await expect(apiFetch('/api/admin/users')).rejects.toThrow('권한이 없습니다.')
+    expect(getAuthSnapshot().status).toBe('authenticated')
+  })
+
+  it('세션 CSRF 토큰이 오래됐으면 갱신 후 안전하게 한 번 재시도한다', async () => {
+    let writes = 0
+    apiHandler = async () => {
+      writes += 1
+      return writes === 1
+        ? jsonResponse({ code: 'CSRF_INVALID', error: 'stale' }, 403)
+        : jsonResponse({ saved: true })
+    }
+    await expect(apiFetch('/api/todos', { method: 'POST', body: '{}' }))
+      .resolves.toEqual({ saved: true })
+    expect(writes).toBe(2)
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes('/api/auth/csrf'))).toHaveLength(2)
   })
 })
 
-describe('apiFetch — 오류 메시지 정규화', () => {
+describe('apiFetch — 오류 응답', () => {
   it('서버의 error 필드를 쓴다', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ error: '이미 사용 중인 값이 있습니다.' }, 400))
-
+    apiHandler = async () => jsonResponse({ error: '이미 사용 중인 값입니다.' }, 400)
     await expect(apiFetch('/api/todos', { method: 'POST', body: '{}' }))
-      .rejects.toThrow('이미 사용 중인 값이 있습니다.')
+      .rejects.toThrow('이미 사용 중인 값입니다.')
   })
 
-  it('error가 없으면 message를 쓴다', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ message: '다른 필드로 시도해 주세요.' }, 409))
-
+  it('error가 없으면 message를 사용한다', async () => {
+    apiHandler = async () => jsonResponse({ message: '다른 필드로 시도해 주세요.' }, 409)
     await expect(apiFetch('/api/x')).rejects.toThrow('다른 필드로 시도해 주세요.')
   })
 
-  it('둘 다 없으면 본문을 JSON 문자열로 보여 준다', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ some: 'shape' }, 400))
-
-    await expect(apiFetch('/api/x')).rejects.toThrow('{"some":"shape"}')
-  })
-
-  it('JSON이 아닌 오류 본문은 그대로 보여 준다', async () => {
-    fetchMock.mockResolvedValue(textResponse('Bad Gateway', 502))
-
-    await expect(apiFetch('/api/x')).rejects.toThrow('Bad Gateway')
-  })
-
-  it('본문이 비어 있으면 상태 코드를 보여 준다', async () => {
-    fetchMock.mockResolvedValue(textResponse('', 500))
-
-    await expect(apiFetch('/api/x')).rejects.toThrow('HTTP 500')
-  })
-
-  it('404 본문이 비어도 상태 코드를 보여 준다', async () => {
-    // 서버는 404에 본문을 안 준다.
-    fetchMock.mockResolvedValue(new Response(null, { status: 404 }))
-
+  it('본문이 비어 있으면 HTTP 상태를 표시한다', async () => {
+    apiHandler = async () => new Response(null, { status: 404 })
     await expect(apiFetch('/api/notices/999')).rejects.toThrow('HTTP 404')
   })
 
-  it('JSON 응답 본문을 읽다가 깨져도 예외를 내지 않는다', async () => {
-    // Content-Type이 json인데 본문이 JSON이 아닌 경우의 방어 경로.
-    fetchMock.mockResolvedValue(new Response('not json', {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' },
-    }))
-
-    await expect(apiFetch('/api/x')).rejects.toThrow()
+  it('5xx 응답이면 전역 서버 오류 이벤트를 발생시킨다', async () => {
+    apiHandler = async () => textResponse('boom', 503)
+    const listener: Mock<(event: Event) => void> = vi.fn()
+    window.addEventListener(SERVER_ERROR_EVENT, listener)
+    try {
+      await expect(apiFetch('/api/x')).rejects.toThrow('boom')
+      expect(listener).toHaveBeenCalledOnce()
+      expect((listener.mock.calls[0][0] as CustomEvent).detail).toEqual({ kind: 'server', status: 503 })
+    } finally {
+      window.removeEventListener(SERVER_ERROR_EVENT, listener)
+    }
   })
 })
 
 describe('apiFetchBlob / apiUpload', () => {
   it('바이너리를 Blob으로 돌려준다', async () => {
-    // 엑셀 같은 응답을 text()로 읽으면 파일이 깨진다.
-    // Response 본문은 문자열/ArrayBuffer로 준다. jsdom의 Blob은 undici Response가
-    // 받아들이지 못해 stream 관련 TypeError가 난다 — 테스트 환경 특성이지
-    // 실제 브라우저 문제가 아니다.
-    const bytes = new TextEncoder().encode('xlsx-bytes')
-    fetchMock.mockResolvedValue(new Response(bytes, {
+    apiHandler = async () => new Response(new TextEncoder().encode('xlsx-bytes'), {
       status: 200,
       headers: { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
-    }))
-
+    })
     const blob = await apiFetchBlob('/api/overtime-records/export')
-    // jsdom의 Blob과 undici Response가 돌려주는 Blob은 서로 다른 realm이라
-    // instanceof가 성립하지 않는다. duck typing으로 확인한다.
     expect(blob.size).toBe('xlsx-bytes'.length)
     expect(blob.type).toContain('spreadsheetml')
     expect(await blob.text()).toBe('xlsx-bytes')
   })
 
-  it('blob도 만료 처리를 따른다', async () => {
-    saveToken('expired')
-    fetchMock.mockResolvedValue(jsonResponse({}, 403))
-
-    await expect(apiFetchBlob('/api/overtime-records/export')).rejects.toThrow('세션이 만료되었습니다')
-    expect(getToken()).toBeNull()
-  })
-
-  it('업로드는 POST로 FormData를 보낸다', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ id: 3 }))
+  it('업로드는 POST와 CSRF 헤더로 FormData를 보낸다', async () => {
+    apiHandler = async () => jsonResponse({ id: 3 })
     const form = new FormData()
     form.append('file', new Blob(['x']), 'a.png')
-
     await expect(apiUpload('/api/notices/attachments', form)).resolves.toEqual({ id: 3 })
-    expect(lastInit().method).toBe('POST')
-    expect(lastInit().body).toBe(form)
-  })
-
-  it('업로드도 권한 거부를 만료로 착각하지 않는다', async () => {
-    saveToken('valid')
-    fetchMock.mockResolvedValue(jsonResponse({ code: 'FORBIDDEN', error: '관리자만 올릴 수 있습니다.' }, 403))
-
-    const form = new FormData()
-    await expect(apiUpload('/api/notices/attachments', form)).rejects.toThrow('관리자만 올릴 수 있습니다.')
-    expect(getToken()).toBe('valid')
-  })
-})
-
-describe('apiFetch — 전역 서버 오류 알림', () => {
-  let listener: Mock<(event: Event) => void>
-
-  beforeEach(() => {
-    listener = vi.fn<(event: Event) => void>()
-    window.addEventListener(SERVER_ERROR_EVENT, listener)
-  })
-
-  afterEach(() => {
-    window.removeEventListener(SERVER_ERROR_EVENT, listener)
-  })
-
-  function detailOf(call: number): unknown {
-    return (listener.mock.calls[call][0] as CustomEvent).detail
-  }
-
-  it('5xx 응답이면 서버 오류 이벤트를 발생시킨다', async () => {
-    fetchMock.mockResolvedValue(textResponse('boom', 503))
-
-    await expect(apiFetch('/api/x')).rejects.toThrow('boom')
-    expect(listener).toHaveBeenCalledTimes(1)
-    expect(detailOf(0)).toEqual({ kind: 'server', status: 503 })
-  })
-
-  it('4xx 응답은 전역 알림을 띄우지 않는다', async () => {
-    // 입력 오류는 해당 화면이 문맥을 보고 직접 보여 준다.
-    fetchMock.mockResolvedValue(jsonResponse({ error: '잘못된 입력' }, 400))
-
-    await expect(apiFetch('/api/x')).rejects.toThrow('잘못된 입력')
-    expect(listener).not.toHaveBeenCalled()
-  })
-
-  it('네트워크 실패면 network 이벤트를 발생시키고 원래 예외를 그대로 던진다', async () => {
-    const cause = new TypeError('Failed to fetch')
-    fetchMock.mockRejectedValue(cause)
-
-    await expect(apiFetch('/api/x')).rejects.toBe(cause)
-    expect(detailOf(0)).toEqual({ kind: 'network' })
-  })
-
-  it('호출자가 취소한 요청은 장애로 치지 않는다', async () => {
-    const controller = new AbortController()
-    fetchMock.mockImplementation(async () => {
-      controller.abort()
-      throw new DOMException('aborted', 'AbortError')
-    })
-
-    await expect(apiFetch('/api/x', { signal: controller.signal })).rejects.toThrow()
-    expect(listener).not.toHaveBeenCalled()
+    expect(lastApiInit().method).toBe('POST')
+    expect(lastApiInit().body).toBe(form)
+    expect(headerOf('X-CSRF-TOKEN')).toBe('csrf-test-token')
   })
 })

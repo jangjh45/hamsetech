@@ -10,10 +10,6 @@
 #   - SchemaMigrationTest: Testcontainers가 @ServiceConnection으로 주입한다.
 # 둘 다 환경변수보다 우선순위가 높다.
 
-security:
-  jwt:
-    secret: test-only-secret-that-is-long-enough-for-hmac-sha
-
 admin:
   bootstrap:
     enabled: false

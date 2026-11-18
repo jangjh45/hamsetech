@@ -31,7 +31,7 @@ import static org.mockito.Mockito.when;
  * 그 과정에서 남은 것이 소유권 확인과 이Integrity 두 가지다.
  *
  * 특히 여섯 가지를 본다.
- * - 남의 시나리오가 403을 받는다. 본문 없는 403이면 client.ts가 토큰 만료로 읽고
+  * - 남의 시나리오가 403을 받는다. 본문 없는 403이면 client.ts가 세션 만료로 읽고
  *   사용자를 로그아웃시켰다. 지금은 code=FORBIDDEN이 실린다.
  * - 없는 시나리오는 404다. 존재 여부를 숨기려면 404가 맞지만 여기선 403을 유지한다.
  * - 이름은 사용자 안에서만 겹칠 수 있다.
@@ -79,7 +79,7 @@ class PackingScenarioServiceTest {
         when(scenarioRepository.findById(1L)).thenReturn(Optional.of(scenario(user(2, "lee"), "남의")));
         when(securityUtils.currentUser()).thenReturn(user(1, "kim"));
 
-        // 본문 없는 403이면 client.ts가 토큰 만료로 읽어 사용자를 로그아웃시킨다.
+        // 본문 없는 403이면 client.ts가 세션 만료로 읽어 사용자를 로그아웃시킨다.
         assertThatThrownBy(() -> service.get(1L)).isInstanceOf(ForbiddenException.class);
     }
 

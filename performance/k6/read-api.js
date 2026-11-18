@@ -126,6 +126,8 @@ export const options = {
 }
 
 const baseUrl = (__ENV.BASE_URL || '').replace(/\/+$/, '')
+let vuSessionReady = false
+let csrfHeaders = null
 const currentMonth = new Date()
 const monthStart = new Date(Date.UTC(currentMonth.getUTCFullYear(), currentMonth.getUTCMonth(), 1))
 const monthEnd = new Date(Date.UTC(currentMonth.getUTCFullYear(), currentMonth.getUTCMonth() + 1, 0))
@@ -146,19 +148,39 @@ export function setup() {
     fail('PERF_USERNAME과 PERF_PASSWORD 환경변수를 지정하세요.')
   }
 
+  // k6 setup runs once, but browser cookies are scoped to each VU. Each VU logs
+  // in separately on its first iteration below.
+  return { session: true }
+}
+
+function fetchCsrfHeaders() {
+  const response = http.get(`${baseUrl}/api/auth/csrf`, {
+    timeout: '10s',
+    tags: { request_type: 'csrf' },
+  })
+  const csrf = response.status === 200 ? response.json() : null
+  const valid = check(response, {
+    'CSRF endpoint returned a token': (res) =>
+      res.status === 200 && csrf && csrf.headerName && csrf.token,
+  })
+  if (!valid) fail(`CSRF 토큰 조회 실패(status=${response.status}).`)
+  return { [csrf.headerName]: csrf.token }
+}
+
+function loginForVu() {
+  csrfHeaders = fetchCsrfHeaders()
   const response = http.post(
     `${baseUrl}/api/auth/login`,
-    JSON.stringify({ username, password }),
+    JSON.stringify({ username: __ENV.PERF_USERNAME, password: __ENV.PERF_PASSWORD }),
     {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...csrfHeaders },
       timeout: '10s',
-      tags: { request_type: 'setup_login' },
+      tags: { request_type: 'vu_login' },
     },
   )
 
-  const token = response.status === 200 ? response.json('token') : null
   const loginSucceeded = check(response, {
-    'setup login returned a token': (res) => res.status === 200 && typeof token === 'string' && token.length > 0,
+    'VU login created a session': (res) => res.status === 200,
   })
   if (!loginSucceeded) {
     fail(`로그인 실패(status=${response.status}). 테스트 계정의 승인 상태와 자격 증명을 확인하세요.`)
@@ -172,12 +194,11 @@ export function setup() {
     }
   }
 
-  return { token }
+  vuSessionReady = true
 }
 
-function getApi(path, endpoint, token) {
+function getApi(path, endpoint, session) {
   const response = http.get(`${baseUrl}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
     timeout: '15s',
     tags: { endpoint },
   })
@@ -185,10 +206,10 @@ function getApi(path, endpoint, token) {
   return response
 }
 
-function writeApi(method, path, endpoint, token, body) {
+function writeApi(method, path, endpoint, session, body) {
   const response = http.request(method, `${baseUrl}${path}`, body == null ? null : JSON.stringify(body), {
     headers: {
-      Authorization: `Bearer ${token}`,
+      ...csrfHeaders,
       ...(body == null ? {} : { 'Content-Type': 'application/json' }),
     },
     timeout: '15s',
@@ -220,9 +241,9 @@ function responseId(response, endpoint) {
   return id
 }
 
-function runTodoCrud(token) {
+function runTodoCrud(session) {
   const title = `__k6_test_todo_${Date.now()}_${__VU}_${__ITER}`
-  const created = writeApi('POST', '/api/todos', 'todo_create', token, {
+  const created = writeApi('POST', '/api/todos', 'todo_create', session, {
     date: dateString(new Date()),
     title,
     description: 'Temporary k6 test record; should be deleted in the same iteration.',
@@ -232,13 +253,13 @@ function runTodoCrud(token) {
   if (id == null || created.status < 200 || created.status >= 300) return
 
   try {
-    writeApi('PUT', `/api/todos/${id}`, 'todo_update', token, {
+    writeApi('PUT', `/api/todos/${id}`, 'todo_update', session, {
       title: `${title}_updated`,
       completed: true,
       priority: 2,
     })
   } finally {
-    writeApi('DELETE', `/api/todos/${id}`, 'todo_delete', token)
+    writeApi('DELETE', `/api/todos/${id}`, 'todo_delete', session)
   }
 }
 
@@ -255,20 +276,20 @@ function scenarioPayload(name) {
   }
 }
 
-function runScenarioCrud(token) {
+function runScenarioCrud(session) {
   const name = `__k6_test_scenario_${Date.now()}_${__VU}_${__ITER}`
-  const created = writeApi('POST', '/api/scenarios', 'scenario_create', token, scenarioPayload(name))
+  const created = writeApi('POST', '/api/scenarios', 'scenario_create', session, scenarioPayload(name))
   const id = responseId(created, 'scenario_create')
   if (id == null || created.status < 200 || created.status >= 300) return
 
   try {
-    writeApi('PUT', `/api/scenarios/${id}`, 'scenario_update', token, scenarioPayload(`${name}_updated`))
+    writeApi('PUT', `/api/scenarios/${id}`, 'scenario_update', session, scenarioPayload(`${name}_updated`))
   } finally {
-    writeApi('DELETE', `/api/scenarios/${id}`, 'scenario_delete', token)
+    writeApi('DELETE', `/api/scenarios/${id}`, 'scenario_delete', session)
   }
 }
 
-function runOvertimeCrud(token) {
+function runOvertimeCrud(session) {
   const reason = `__k6_test_overtime_${Date.now()}_${__VU}_${__ITER}`
   const payload = {
     workDate: dateString(new Date()),
@@ -277,21 +298,21 @@ function runOvertimeCrud(token) {
     endTime: '17:00',
     reason,
   }
-  const created = writeApi('POST', '/api/overtime-records', 'overtime_create', token, payload)
+  const created = writeApi('POST', '/api/overtime-records', 'overtime_create', session, payload)
   const id = responseId(created, 'overtime_create')
   if (id == null || created.status < 200 || created.status >= 300) return
 
   try {
-    writeApi('PUT', `/api/overtime-records/${id}`, 'overtime_update', token, {
+    writeApi('PUT', `/api/overtime-records/${id}`, 'overtime_update', session, {
       ...payload,
       reason: `${reason}_updated`,
     })
   } finally {
-    writeApi('DELETE', `/api/overtime-records/${id}`, 'overtime_delete', token)
+    writeApi('DELETE', `/api/overtime-records/${id}`, 'overtime_delete', session)
   }
 }
 
-function runCalendarCrud(token) {
+function runCalendarCrud(session) {
   const title = `__k6_test_calendar_${Date.now()}_${__VU}_${__ITER}`
   const payload = {
     date: dateString(new Date()),
@@ -299,17 +320,17 @@ function runCalendarCrud(token) {
     title,
     scope: 'PRIVATE',
   }
-  const created = writeApi('POST', '/api/calendar', 'calendar_create', token, payload)
+  const created = writeApi('POST', '/api/calendar', 'calendar_create', session, payload)
   const id = responseId(created, 'calendar_create')
   if (id == null || created.status < 200 || created.status >= 300) return
 
   try {
-    writeApi('PUT', `/api/calendar/${id}`, 'calendar_update', token, {
+    writeApi('PUT', `/api/calendar/${id}`, 'calendar_update', session, {
       ...payload,
       title: `${title}_updated`,
     })
   } finally {
-    writeApi('DELETE', `/api/calendar/${id}`, 'calendar_delete', token)
+    writeApi('DELETE', `/api/calendar/${id}`, 'calendar_delete', session)
   }
 }
 
@@ -323,13 +344,13 @@ function noticePayload(title, content) {
   }
 }
 
-function runNoticeCrud(token) {
+function runNoticeCrud(session) {
   const title = `__k6_test_notice_${Date.now()}_${__VU}_${__ITER}`
   const created = writeApi(
     'POST',
     '/api/notices',
     'notice_create',
-    token,
+    session,
     noticePayload(title, 'Temporary k6 notice.'),
   )
   const noticeId = responseId(created, 'notice_create')
@@ -340,12 +361,12 @@ function runNoticeCrud(token) {
       'PUT',
       `/api/notices/${noticeId}`,
       'notice_update',
-      token,
+      session,
       noticePayload(`${title}_updated`, 'Updated temporary k6 notice.'),
     )
 
     const commentText = `__k6_test_comment_${Date.now()}_${__VU}_${__ITER}`
-    const comment = writeApi('POST', `/api/notices/${noticeId}/comments`, 'notice_comment_create', token, {
+    const comment = writeApi('POST', `/api/notices/${noticeId}/comments`, 'notice_comment_create', session, {
       content: commentText,
       parentId: null,
     })
@@ -357,7 +378,7 @@ function runNoticeCrud(token) {
           'PUT',
           `/api/notices/${noticeId}/comments/${commentId}`,
           'notice_comment_update',
-          token,
+          session,
           { content: `${commentText}_updated` },
         )
       } finally {
@@ -365,23 +386,23 @@ function runNoticeCrud(token) {
           'DELETE',
           `/api/notices/${noticeId}/comments/${commentId}`,
           'notice_comment_delete',
-          token,
+          session,
         )
       }
     }
   } finally {
-    writeApi('DELETE', `/api/notices/${noticeId}`, 'notice_delete', token)
+    writeApi('DELETE', `/api/notices/${noticeId}`, 'notice_delete', session)
   }
 }
 
-function runCrudMix(token, includeNotice) {
+function runCrudMix(session, includeNotice) {
   const actions = [runTodoCrud, runScenarioCrud, runOvertimeCrud, runCalendarCrud]
   if (includeNotice) actions.push(runNoticeCrud)
   const selectedAction = actions[Math.floor(Math.random() * actions.length)]
-  selectedAction(token)
+  selectedAction(session)
 }
 
-function runBusinessMix(token) {
+function runBusinessMix(session) {
   // 비율: 공지 40%, 잔업 15%, 업체 15%, 시나리오 10%, 일정 10%, 할 일 10%.
   const sample = Math.random()
   const route = sample < 0.4
@@ -395,42 +416,44 @@ function runBusinessMix(token) {
           : sample < 0.9
             ? workloadRoutes.calendar
             : workloadRoutes.todos
-  getApi(route.path, route.endpoint, token)
+  getApi(route.path, route.endpoint, session)
 }
 
-export default function ({ token }) {
+export default function ({ session }) {
+  if (!vuSessionReady) loginForVu()
+
   if (workloadName === 'notices') {
-    getApi(workloadRoutes.notices.path, workloadRoutes.notices.endpoint, token)
+    getApi(workloadRoutes.notices.path, workloadRoutes.notices.endpoint, session)
   } else if (workloadName === 'overtime') {
-    getApi(workloadRoutes.overtime.path, workloadRoutes.overtime.endpoint, token)
+    getApi(workloadRoutes.overtime.path, workloadRoutes.overtime.endpoint, session)
   } else if (workloadName === 'mixed') {
     const route = Math.random() < 0.7 ? workloadRoutes.notices : workloadRoutes.overtime
-    getApi(route.path, route.endpoint, token)
+    getApi(route.path, route.endpoint, session)
   } else if (workloadName === 'business-mix') {
-    runBusinessMix(token)
+    runBusinessMix(session)
   } else if (workloadName === 'todo-crud') {
-    runTodoCrud(token)
+    runTodoCrud(session)
   } else if (workloadName === 'scenario-crud') {
-    runScenarioCrud(token)
+    runScenarioCrud(session)
   } else if (workloadName === 'overtime-crud') {
-    runOvertimeCrud(token)
+    runOvertimeCrud(session)
   } else if (workloadName === 'calendar-crud') {
-    runCalendarCrud(token)
+    runCalendarCrud(session)
   } else if (workloadName === 'notice-crud') {
-    runNoticeCrud(token)
+    runNoticeCrud(session)
   } else if (workloadName === 'crud-mix-user') {
-    runCrudMix(token, false)
+    runCrudMix(session, false)
   } else if (workloadName === 'crud-mix') {
-    runCrudMix(token, true)
+    runCrudMix(session, true)
   } else if (workloadName === 'business-crud-mix') {
     if (Math.random() < 0.5) {
-      runBusinessMix(token)
+      runBusinessMix(session)
     } else {
-      runCrudMix(token, true)
+      runCrudMix(session, true)
     }
   } else {
     const route = workloadRoutes[workloadName]
-    getApi(route.path, route.endpoint, token)
+    getApi(route.path, route.endpoint, session)
   }
 
   // VU마다 실제 사용자의 간격을 흉내 내고 NAS로 순간 요청이 몰리지 않게 한다.

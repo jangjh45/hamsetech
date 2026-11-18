@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import CommentNode, { type CommentNodeData } from './CommentNode'
 
-vi.mock('../auth/token', () => ({
-  isAuthenticated: () => Boolean(localStorage.getItem('auth_token')),
+vi.mock('../auth/session', () => ({
+  isAuthenticated: () => Boolean(localStorage.getItem('test_session_authenticated')),
   isAdmin: () => false,
-  getUsername: () => localStorage.getItem('auth_username'),
+  getUsername: () => localStorage.getItem('test_session_username'),
 }))
 
 afterEach(() => {
@@ -60,8 +60,8 @@ describe('CommentNode 아바타', () => {
   })
 
   it('작성자 본인이 댓글을 수정하고 저장할 수 있다', async () => {
-    localStorage.setItem('auth_token', 'token')
-    localStorage.setItem('auth_username', 'kim')
+    localStorage.setItem('test_session_authenticated', 'true')
+    localStorage.setItem('test_session_username', 'kim')
     const onEdit = vi.fn(async () => {})
     render(
       <CommentNode

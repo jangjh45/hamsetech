@@ -4,10 +4,11 @@ spring:
     username: ${DB_USERNAME:hamsetech}
     password: ${DB_PASSWORD:hamsetech}
 
-security:
-  # 개발 전용 키다. 운영 환경에서는 반드시 JWT_SECRET을 주입한다.
-  jwt:
-    secret: ${JWT_SECRET:development-only-secret-must-never-be-used-in-production}
+server:
+  servlet:
+    session:
+      cookie:
+        secure: false
 
 admin:
   bootstrap:

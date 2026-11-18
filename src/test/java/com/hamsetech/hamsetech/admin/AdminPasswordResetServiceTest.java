@@ -66,7 +66,7 @@ class AdminPasswordResetServiceTest {
     }
 
     @Test
-    @DisplayName("거부된 초기화는 비밀번호와 토큰 세대를 건드리지 않는다")
+    @DisplayName("거부된 초기화는 비밀번호와 인증 버전을 건드리지 않는다")
     void rejectedResetLeavesAccountUntouched() {
         when(securityUtils.isSuperAdmin()).thenReturn(false);
         UserAccount target = account(UserStatus.APPROVED, UserRole.SUPER_ADMIN);
@@ -76,7 +76,7 @@ class AdminPasswordResetServiceTest {
                 .isInstanceOf(AdminPasswordResetService.ResetNotAllowedException.class);
 
         assertThat(target.getPasswordHash()).isEqualTo(originalHash);
-        assertThat(target.getTokenVersion()).isZero();
+        assertThat(target.getAuthVersion()).isZero();
     }
 
     @Test
@@ -128,15 +128,15 @@ class AdminPasswordResetServiceTest {
     }
 
     @Test
-    @DisplayName("초기화하면 대상 계정의 기존 토큰이 무효화된다")
-    void bumpsTokenVersion() {
+    @DisplayName("초기화하면 대상 계정의 기존 세션이 무효화된다")
+    void bumpsAuthVersion() {
         when(securityUtils.isSuperAdmin()).thenReturn(false);
         UserAccount target = account(UserStatus.APPROVED, UserRole.USER);
 
         service.resetPassword(target);
 
         // 계정을 되찾으려고 초기화했는데 남이 쓰던 세션이 살아 있으면 의미가 없다
-        assertThat(target.getTokenVersion()).isEqualTo(1);
+        assertThat(target.getAuthVersion()).isEqualTo(1);
     }
 
     @Test

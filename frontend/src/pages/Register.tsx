@@ -80,7 +80,7 @@ export default function RegisterPage() {
     setError('')
     setBusy(true)
     try {
-      // 가입은 신청까지다. 관리자가 승인해야 로그인할 수 있으므로 토큰이 오지 않는다.
+      // 가입은 신청까지다. 관리자가 승인해야 로그인할 수 있으므로 세션이 만들어지지 않는다.
       const data = await apiFetch('/api/auth/register', {
         method: 'POST',
         body: JSON.stringify({ username, email, password, displayName }),

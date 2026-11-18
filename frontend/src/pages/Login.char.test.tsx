@@ -4,9 +4,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import LoginPage from './Login'
 
 vi.mock('../api/client', () => ({ apiFetch: vi.fn() }))
-vi.mock('../auth/token', () => ({
+vi.mock('../auth/session', () => ({
   saveAuth: vi.fn(),
-  saveDisplayName: vi.fn(),
 }))
 
 afterEach(cleanup)

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../api/client'
-import { getUsername as getMe, getRoles, onTokenExpired } from '../auth/token'
+import { getUsername as getMe, getRoles, onAuthExpired } from '../auth/session'
 import type { OvertimeRecord } from '../api/overtimeRecords'
 import { formatTime } from '../utils/formatDate'
 
@@ -130,9 +130,9 @@ export default function AdminPage() {
     }
   }, [])
 
-  // 토큰 만료 이벤트 리스너 설정
+  // 세션 만료 이벤트 리스너 설정
   useEffect(() => {
-    const unsubscribe = onTokenExpired(() => {
+    const unsubscribe = onAuthExpired(() => {
       showError('세션이 만료되었습니다. 잠시 후 로그인 페이지로 이동됩니다.')
     })
     

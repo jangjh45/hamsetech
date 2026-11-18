@@ -6,7 +6,7 @@ package com.hamsetech.hamsetech.web;
  * 예전에는 서비스가 ResponseEntity를 직접 만들어 돌려줬다. 도메인 로직이 HTTP
  * 상태 코드와 응답 본문을 알아야 했고, 그래서 같은 "권한 없음"이 곳마다 다른
  * 모양으로 나갔다 — 공지는 {code, error}, 잔업은 {error:"forbidden"},
- * 시나리오는 본문 없음. 프론트(client.ts)는 code가 없는 403을 토큰 만료로 보고
+ * 시나리오는 본문 없음. 프론트(client.ts)는 code가 없는 403을 세션 만료로 보고
  * 자동 로그아웃하므로, 뒤의 둘은 권한 거부가 로그아웃으로 둔갑했다.
  *
  * 서비스는 이제 이 예외들만 던지고, HTTP로 옮기는 일은 GlobalExceptionHandler가

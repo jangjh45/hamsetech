@@ -16,7 +16,7 @@ import {
   type NoticeComment,
 } from '../api/notices'
 import { ApiError } from '../api/client'
-import { isAuthenticated, isAdmin, getUsername } from '../auth/token'
+import { isAuthenticated, isAdmin, getUsername } from '../auth/session'
 import { formatDateTime } from '../utils/formatDate'
 import CommentNode, { type CommentNodeData } from '../components/CommentNode'
 import { useConfirm } from '../components/ConfirmDialog'

@@ -82,7 +82,8 @@ class SchemaMigrationTest {
 				"SELECT version FROM flyway_schema_history WHERE success = true AND version IS NOT NULL "
 						+ "ORDER BY installed_rank", String.class);
 
-        assertThat(applied).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13");
+        assertThat(applied).containsExactly(
+                "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14");
 	}
 
 	@Test
@@ -135,11 +136,11 @@ class SchemaMigrationTest {
 	}
 
 	@Test
-	@DisplayName("토큰 세대 컬럼이 만들어진다")
-	void tokenVersionColumnExists() {
+	@DisplayName("세션 인증 버전 컬럼이 만들어진다")
+	void authVersionColumnExists() {
 		Integer count = jdbc.queryForObject(
 				"SELECT count(*) FROM information_schema.columns "
-						+ "WHERE table_name = 'users' AND column_name = 'token_version'", Integer.class);
+						+ "WHERE table_name = 'users' AND column_name = 'auth_version'", Integer.class);
 
 		assertThat(count).isEqualTo(1);
 	}

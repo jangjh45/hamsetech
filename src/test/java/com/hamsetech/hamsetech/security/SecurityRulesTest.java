@@ -44,13 +44,14 @@ import java.time.Instant;
 import java.util.function.Supplier;
 
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.testSecurityContext;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 /**
  * 인증·인가 규칙의 회귀 테스트.
@@ -72,15 +73,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(controllers = {NoticeController.class, AdminController.class, AuthController.class,
         PerformanceMetricsController.class,
         OvertimeRecordController.class})
-@Import({SecurityConfig.class, JwtAuthenticationFilter.class})
+@Import({SecurityConfig.class, SessionAuthenticationFilter.class})
 @ActiveProfiles("test")
 class SecurityRulesTest {
+
+    /** 테스트 사용자 인증과 CSRF 토큰을 함께 붙인다. GET에서도 CSRF 토큰은 무해하다. */
+    private static RequestPostProcessor testSecurityContext() {
+        return request -> {
+            var authenticated = org.springframework.security.test.web.servlet.request
+                    .SecurityMockMvcRequestPostProcessors.testSecurityContext().postProcessRequest(request);
+            return csrf().postProcessRequest(authenticated);
+        };
+    }
 
     @Autowired
     private MockMvc mvc;
 
-    // 인증 필터는 진짜를 쓴다. 목 필터는 doFilter가 아무 일도 하지 않아 체인이 끊긴다.
-    // 이 테스트는 Authorization 헤더를 보내지 않으므로 필터는 그냥 통과시킨다.
+    // 테스트 컨텍스트 principal은 SessionPrincipal이 아니므로 필터가 DB 재검증을 건너뛴다.
     @MockitoBean private NoticeService noticeService;
     @MockitoBean private OvertimeRecordService overtimeRecordService;
     @MockitoBean private UserAccountRepository userAccountRepository;
@@ -96,7 +105,6 @@ class SecurityRulesTest {
     @MockitoBean private PerformanceAlertSettingsService performanceAlertSettingsService;
     @MockitoBean private PerformanceAlertService performanceAlertService;
     @MockitoBean private org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
-    @MockitoBean private JwtService jwtService;
 
     @BeforeEach
     void runLoginInsideTestLock() {
@@ -110,7 +118,7 @@ class SecurityRulesTest {
     @Test
     @DisplayName("익명 요청은 403이 아니라 401을 받는다")
     void anonymousRequestGets401() throws Exception {
-        // 기본 동작은 익명 요청에 403을 주는데, 그러면 클라이언트가 "토큰 만료"와
+        // 기본 동작은 익명 요청에 403을 주는데, 그러면 클라이언트가 "세션 만료"와
         // "권한 거부"를 상태 코드로 구분할 수 없다. HttpStatusEntryPoint 설정이 살아 있어야 한다.
         mvc.perform(get("/api/notices"))
                 .andExpect(status().isUnauthorized());
@@ -137,13 +145,23 @@ class SecurityRulesTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    @DisplayName("CSRF 토큰 없는 쓰기 요청은 컨트롤러에 도달하지 않는다")
+    void rejectsWriteWithoutCsrfToken() throws Exception {
+        mvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"kim\",\"password\":\"secret12\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CSRF_INVALID"));
+    }
+
     // ── 로그인은 됐지만 권한이 없는 요청 ──────────────────────────────
 
     @Test
     @WithMockUser(roles = "USER")
     @DisplayName("일반 사용자의 관리자 경로 접근은 code=FORBIDDEN이 실린 403이다")
     void userCannotReachAdminApi() throws Exception {
-        // code를 빼먹으면 client.ts가 이 403을 토큰 만료로 오인해
+        // code를 빼먹으면 client.ts가 이 403을 세션 만료로 오인해
         // 멀쩡히 로그인한 사용자를 로그아웃시킨다.
         mvc.perform(get("/api/admin/users").with(testSecurityContext()))
                 .andExpect(status().isForbidden())
@@ -383,6 +401,7 @@ class SecurityRulesTest {
         // 본문까지 확인해야 "시큐리티가 막은 401"과 구분된다. 이 메시지는
         // 컨트롤러까지 도달했을 때만 나온다.
         mvc.perform(post("/api/auth/login")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"kim\",\"password\":\"secret12\"}"))
                 .andExpect(status().isUnauthorized())
@@ -397,6 +416,7 @@ class SecurityRulesTest {
         // 인증 없이 호출 가능하고 이메일 소유를 확인하지 않아 계정 탈취 경로였다.
         // 되살아나면 이 테스트가 깨진다.
         mvc.perform(post("/api/auth/reset-by-identity")
+                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"kim\",\"email\":\"kim@example.com\",\"newPassword\":\"newpass12\"}"))
                 .andExpect(status().isNotFound());

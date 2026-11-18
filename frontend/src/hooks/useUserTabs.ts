@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { apiFetch } from '../api/client'
-import { getToken, getUsername, getRoles, saveAuth } from '../auth/token'
+import { getUsername, getRoles, updateSessionRoles } from '../auth/session'
 import { useConfirm } from '../components/ConfirmDialog'
 
 /**
@@ -183,9 +183,8 @@ export function useUserTabs(opts: {
       const me = getUsername()
       const target = users.find((u) => u.id === id)
       if (target && me && target.username === me) {
-        const token = getToken()
         const roles = getRoles().filter((r) => r !== 'ADMIN')
-        if (token) saveAuth(token, roles, me)
+        updateSessionRoles(roles)
         opts.onSelfRevoked()
       }
     } catch (e: any) {

@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import { getUsername, isAdmin } from '../auth/token'
+import { getUsername, isAdmin } from '../auth/session'
 
 /** COMPANY: 전 직원이 보는 사내 일정 / PRIVATE: 등록한 본인만 보는 개인 일정 */
 export type CalendarScope = 'COMPANY' | 'PRIVATE'

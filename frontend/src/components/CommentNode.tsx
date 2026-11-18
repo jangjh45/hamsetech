@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { NoticeComment } from '../api/notices'
-import { isAuthenticated, isAdmin, getUsername } from '../auth/token'
+import { isAuthenticated, isAdmin, getUsername } from '../auth/session'
 import { formatDateTime } from '../utils/formatDate'
 import UserAvatar from './UserAvatar'
 

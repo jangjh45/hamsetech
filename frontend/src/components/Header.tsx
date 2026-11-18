@@ -1,29 +1,21 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { clearToken, getToken, onAuthChange, isAdmin, getDisplayName, getAvatarUrl } from '../auth/token'
+import { clearAuth, isAdmin, useAuthSession } from '../auth/session'
 import { useEffect, useState } from 'react'
 import useIsMobile from '../hooks/useIsMobile'
 import useTheme from '../hooks/useTheme'
 import UserAvatar from './UserAvatar'
+import { apiFetch } from '../api/client'
 
 export default function Header() {
   const navigate = useNavigate()
-  const [authed, setAuthed] = useState(!!getToken())
-  const [admin, setAdmin] = useState(isAdmin())
-  const [displayName, setDisplayName] = useState<string | null>(getDisplayName())
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(getAvatarUrl())
+  const session = useAuthSession()
+  const authed = session.status === 'authenticated'
+  const admin = isAdmin()
+  const displayName = session.user?.displayName ?? null
+  const avatarUrl = session.user?.avatarUrl ?? null
   const { theme, toggle: toggleTheme } = useTheme()
   const isMobile = useIsMobile()
   const [showMobileMenu, setShowMobileMenu] = useState<boolean>(false)
-
-  useEffect(() => {
-    const off = onAuthChange(() => {
-      setAuthed(!!getToken())
-      setAdmin(isAdmin())
-      setDisplayName(getDisplayName())
-      setAvatarUrl(getAvatarUrl())
-    })
-    return () => off()
-  }, [])
 
   // 데스크톱으로 넓어지면 열려 있던 모바일 메뉴를 닫는다
   useEffect(() => {
@@ -40,9 +32,15 @@ export default function Header() {
     return () => window.removeEventListener('keydown', onKey)
   }, [showMobileMenu])
 
-  function handleLogout() {
-    clearToken()
-    navigate('/')
+  async function handleLogout() {
+    try {
+      await apiFetch('/api/auth/logout', { method: 'POST' })
+    } catch {
+      // UI에서도 즉시 로그아웃한다. 서버 무효화는 응답이 도달한 경우 완료된다.
+    } finally {
+      clearAuth()
+      navigate('/')
+    }
   }
 
   const navLinks = [

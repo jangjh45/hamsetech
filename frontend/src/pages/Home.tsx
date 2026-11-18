@@ -10,7 +10,7 @@ import HomeEditPanel from '../components/HomeEditPanel'
 import HomeMonthDataProvider from '../components/HomeMonthDataProvider'
 import useDashboardData from '../hooks/useDashboardData'
 import { useHomeMonthData } from '../hooks/useHomeMonthData'
-import { getUsername } from '../auth/token'
+import { getUsername } from '../auth/session'
 import { toYmd } from '../utils/formatDate'
 import {
   canImportLegacyLayout,

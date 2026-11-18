@@ -73,17 +73,12 @@ public class UserAccount {
     private String withdrawnBy;
 
     /**
-     * 발급된 토큰의 세대. 비밀번호가 바뀌거나 탈퇴가 확정되면 1 올린다.
-     *
-     * JWT는 서버가 회수할 수 없어, 만료(기본 24시간) 전까지는 비밀번호를 바꿔도
-     * 옛 토큰이 그대로 통했다. 인증 필터가 요청마다 이 값과 토큰의 tv 클레임을
-     * 대조하므로, 값을 올리는 순간 그 계정의 기존 토큰이 전부 무효가 된다.
-     *
-     * 기존 행을 위해 nullable로 둔다. ddl-auto=update는 NOT NULL 컬럼을 기존
-     * 테이블에 붙이지 못한다. 게터에서 NULL을 0으로 흡수한다.
+     * Version captured in each authenticated session. Password resets and
+     * confirmed withdrawals increment it so the request filter can revoke all
+     * sessions for the account without maintaining a separate session registry.
      */
-    @Column(name = "token_version")
-    private Integer tokenVersion = 0;
+    @Column(name = "auth_version")
+    private Integer authVersion = 0;
 
     public Long getId() { return id; }
     public String getUsername() { return username; }
@@ -113,11 +108,11 @@ public class UserAccount {
     public String getWithdrawnBy() { return withdrawnBy; }
     public void setWithdrawnBy(String withdrawnBy) { this.withdrawnBy = withdrawnBy; }
 
-    /** 백필 전 NULL을 0으로 읽는다. */
-    public int getTokenVersion() { return tokenVersion == null ? 0 : tokenVersion; }
+    /** 기존 행의 NULL은 최초 버전 0으로 읽는다. */
+    public int getAuthVersion() { return authVersion == null ? 0 : authVersion; }
 
-    /** 이 계정으로 이미 발급된 토큰을 전부 무효화한다. */
-    public void bumpTokenVersion() { this.tokenVersion = getTokenVersion() + 1; }
+    /** 이 계정의 기존 세션을 다음 요청에서 전부 무효화한다. */
+    public void bumpAuthVersion() { this.authVersion = getAuthVersion() + 1; }
 
     /** 백필 전 행은 status가 null로 읽힌다. 승인되지 않은 것으로 본다. */
     public boolean isApproved() { return status == UserStatus.APPROVED; }

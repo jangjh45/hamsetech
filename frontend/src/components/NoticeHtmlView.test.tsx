@@ -93,7 +93,7 @@ describe('NoticeHtmlView — 저장 형식에 따른 렌더', () => {
 
 describe('NoticeHtmlView — 첨부 이미지 인증', () => {
   it('blob을 받기 전에는 src를 비워 둔다', () => {
-    // 상대 경로를 그대로 두면 브라우저가 토큰 없이 먼저 요청해 401이 찍힌다.
+    // API base가 다른 개발 환경에서도 첨부를 API 클라이언트로 받아 표시한다.
     mockFetch.mockReturnValue(new Promise(() => {})) // 영원히 대기
     const { container } = render(
       <NoticeHtmlView content={htmlWithImages(1)} contentFormat="HTML" />,

@@ -4,11 +4,13 @@
 
 ## 기술 스택
 
-- **백엔드**: Java 25 (LTS), Spring Boot 4.1, Spring Security (JWT + OAuth2 Client), Spring Data JPA / JDBC, PostgreSQL, Flyway
+- **백엔드**: Java 25 (LTS), Spring Boot 4.1, Spring Security (HTTP 세션), Spring Data JPA / JDBC, PostgreSQL, Flyway
 - **프론트엔드**: React 19, TypeScript, Vite, React Router, Vitest
 - **인프라**: Docker / Docker Compose, GitHub Actions (CI, Docker 빌드, Trivy 이미지 스캔)
 
 > Redis 의존성(`spring-boot-starter-data-redis`)이 빌드에 들어 있지만 아직 실제로 쓰지 않습니다. Compose에 컨테이너가 없고 Actuator 헬스체크에서도 제외돼 있으며, 로그인 시도 제한은 인메모리로 동작합니다. 백엔드를 여러 인스턴스로 늘릴 때 Redis 도입이 선결 과제입니다.
+
+로그인은 서버 세션(`JSESSIONID`)을 사용합니다. 쿠키는 HttpOnly·SameSite=Lax이며 HTTPS 운영에서는 Secure로 설정되고, 상태 변경 요청은 세션에 묶인 CSRF 토큰을 요구합니다. 세션은 현재 백엔드 메모리에 저장되므로 백엔드 재시작 시 재로그인이 필요하고, 다중 인스턴스 운영 전에는 Spring Session 같은 공유 저장소를 구성해야 합니다. 유휴 만료 시간은 기본 24시간입니다. JWT에서 전환하는 첫 배포 후에는 한 번 다시 로그인해야 합니다.
 
 ## 주요 기능
 
@@ -22,7 +24,7 @@
 | `scenario` | 적재(패킹) 시나리오 계산 |
 | `user` | 회원 계정, 권한(Role), 상태, 탈퇴 처리 |
 | `admin` | 관리자 로그, 조회 로그, 보관 정책(retention) |
-| `auth` / `security` | JWT 기반 인증, 로그인/검증 |
+| `auth` / `security` | 세션 기반 인증, 로그인/검증 |
 
 ## 시작하기
 
@@ -38,7 +40,7 @@
 cp .env.example .env
 ```
 
-`.env` 파일을 열어 DB 접속 정보, 32자 이상의 JWT 시크릿, 관리자 초기 계정 등을 채워주세요. `.env` 파일은 Git에 커밋하지 않습니다. 운영 환경에서는 `ADMIN_BOOTSTRAP_ENABLED=true`을 최초 기동 때만 사용하고, 계정 생성 뒤에는 `false`로 바꾸세요.
+`.env` 파일을 열어 DB 접속 정보, 관리자 초기 계정 등을 채워주세요. 운영에서 HTTPS 역방향 프록시를 사용하면 `SESSION_COOKIE_SECURE=true`를 유지하세요. `.env` 파일은 Git에 커밋하지 않습니다. 운영 환경에서는 `ADMIN_BOOTSTRAP_ENABLED=true`을 최초 기동 때만 사용하고, 계정 생성 뒤에는 `false`로 바꾸세요.
 
 비밀번호를 잊은 사용자는 관리자 화면에서 초기화합니다. 관리자 → 사용자 목록 → **비밀번호 초기화**를 누르면 임시 비밀번호가 한 번 표시되며, 그 계정의 기존 로그인은 모두 해제됩니다. 임시 비밀번호는 다시 볼 수 없으므로 그 자리에서 본인에게 전달하세요.
 
@@ -46,14 +48,7 @@ cp .env.example .env
 
 실제 시크릿은 전부 `.env`에서 옵니다. `.env`는 `.gitignore`에 있고 저장소에 커밋되지 않습니다. `.env.example`은 값이 비어 있는 **양식**이므로, 채운 실제 값을 이 파일에 복사하지 마세요.
 
-테스트에 실제처럼 보이는 값이 필요하면 재사용되는 상수에 두세요.
-
-- 백엔드 JWT 서명 키: `src/test/java/com/hamsetech/hamsetech/TestJwtSecrets.java`
-- 프론트 비밀번호: 각 `*.test.tsx` 파일 안의 상수
-
-이렇게 하면 시크릿 스캐너(GitGuardian 등)가 실제 키로 오인하는 일이 줄어듭니다. 다만 **스캐너는 값의 형태만 보고 "테스트 중"이라는 사실을 알 수 없으므로**, 이러한 값이 있다는 사실 자체를 대시보드에서 **false positive로 마킹**해야 경고가 사라집니다. 마킹할 주장은 "Test fixture value — production secret comes from `JWT_SECRET` env var, never committed" 입니다.
-
-한 가지 주의할 것은, 서로 다른 테스트가 같은 문자열을 각자 상수로 복사해 두면 스캐너는 "한 키를 두 코드가 공유"한 것처럼 봅니다. 같은 값이 두 곳에 필요하면 한 곳에 두고 import 하세요.
+테스트용 비밀번호는 각 `*.test.tsx` 파일 안의 상수로 둡니다. 세션 인증에는 저장소에 JWT 서명 키를 둘 필요가 없습니다.
 
 ### 데이터베이스 스키마
 
@@ -109,10 +104,12 @@ NAS에 이미 같은 이미지가 있는 업데이트라면 인자에서 빼도 
 #### 첫 기동 (최초 1회)
 
 1. `/volume1/docker/hamsetech/`에 네 개를 넣습니다 — `hamsetech-nas.tar`,
-   `docker-compose.prod.yml`, `docker-compose.nas.yml`, `.env`.
-   `.env`는 NAS용으로 새로 씁니다. 저장소의 개발용 기본값을 그대로 올리면 안 됩니다.
-   `DB_PASSWORD`, `JWT_SECRET`(64자 이상), `ADMIN_PASSWORD`를 실제 값으로 채우고
-   `FRONTEND_HOST_PORT=8080`, `ADMIN_BOOTSTRAP_ENABLED=true`를 둡니다.
+    `docker-compose.prod.yml`, `docker-compose.nas.yml`, `.env`.
+    `.env`는 NAS용으로 새로 씁니다. 저장소의 개발용 기본값을 그대로 올리면 안 됩니다.
+    `DB_PASSWORD`, `ADMIN_PASSWORD`를 실제 값으로 채우고
+    `FRONTEND_HOST_PORT=8080`, `ADMIN_BOOTSTRAP_ENABLED=true`를 둡니다.
+    HTTPS 역방향 프록시를 쓰면 `SESSION_COOKIE_SECURE=true`를 유지하세요.
+    사설망에서 HTTP로 직접 접속하는 경우에만 `false`로 설정합니다(HTTPS 사용 권장).
 
 2. SSH로 접속해 이미지를 적재하고, 태그가 다 들어왔는지 확인합니다.
 
@@ -138,7 +135,8 @@ sudo docker compose -f docker-compose.prod.yml -f docker-compose.nas.yml up -d -
 sudo docker compose -f docker-compose.prod.yml -f docker-compose.nas.yml logs -f backend
 ```
 
-5. `http://<나스IP>:8080`으로 접속해 관리자로 로그인한 뒤, `.env`의
+5. HTTPS 역방향 프록시 도메인(권장) 또는 `SESSION_COOKIE_SECURE=false`로 설정한
+   사설망 HTTP 주소로 접속해 관리자 로그인합니다. 초기 로그인 뒤에는 `.env`의
    `ADMIN_BOOTSTRAP_ENABLED`를 `false`로 내리고 backend를 재기동합니다.
 
 #### 업데이트 기동 (2회차 이후)
@@ -256,7 +254,7 @@ src/main/java/com/hamsetech/hamsetech/
 ├── config/     # 보안·CORS 등 공통 설정
 ├── notice/     # 공지사항
 ├── scenario/   # 적재 시나리오
-├── security/   # JWT 발급/검증
+├── security/   # 세션 인증 및 권한 검증
 ├── todo/       # 할 일 목록
 ├── user/       # 회원 계정
 ├── vendor/     # 업체 주소록 및 분류

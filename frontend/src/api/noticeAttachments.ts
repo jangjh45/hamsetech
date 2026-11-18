@@ -25,8 +25,8 @@ export async function deleteAttachment(id: number): Promise<void> {
 /**
  * 첨부 내려받기.
  *
- * 토큰이 localStorage에 있어 <a href>로 바로 걸 수 없다. blob으로 받아서
- * objectURL로 링크를 만든다 (Admin.tsx의 엑셀 다운로드와 같은 방식).
+ * API 클라이언트가 세션 쿠키와 개발용 API base를 처리하도록 blob으로 받은 뒤
+ * objectURL을 만든다 (Admin.tsx의 엑셀 다운로드와 같은 방식).
  * 개발 환경은 교차 출처라 서버가 준 Content-Disposition을 읽을 수 없으므로
  * 파일명은 응답 대신 DTO의 originalFilename을 쓴다.
  */
