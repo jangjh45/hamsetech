@@ -6,7 +6,7 @@ import { clearAuth, saveAvatarUrl, saveDisplayName } from '../auth/session'
 import { useConfirm } from '../components/ConfirmDialog'
 import PasswordStrength from '../components/PasswordStrength'
 import UserAvatar from '../components/UserAvatar'
-import { formatMinutes, toYmd } from '../utils/formatDate'
+import { formatDateTime, formatMinutes, toYmd } from '../utils/formatDate'
 import '../styles/profile.css'
 
 interface UserProfile {
@@ -345,7 +345,7 @@ export default function ProfilePage() {
   const isSuperAdmin = profile?.roles?.includes('SUPER_ADMIN') ?? false
   const withdrawRequested = profile?.status === 'WITHDRAW_REQUESTED'
   const requestedAtText = profile?.withdrawRequestedAt
-    ? new Date(profile.withdrawRequestedAt).toLocaleString('ko-KR')
+    ? formatDateTime(profile.withdrawRequestedAt)
     : ''
 
   const toggleButton = (

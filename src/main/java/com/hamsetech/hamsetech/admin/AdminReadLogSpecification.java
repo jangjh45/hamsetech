@@ -31,7 +31,7 @@ public class AdminReadLogSpecification {
                 predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("timestamp"), startDate));
             }
             if (endDate != null) {
-                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("timestamp"), endDate));
+                predicates.add(criteriaBuilder.lessThan(root.get("timestamp"), endDate));
             }
 
             // 정렬은 호출부의 Pageable(Sort)에서 지정한다.

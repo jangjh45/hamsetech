@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { apiFetch } from '../api/client'
 import { getUsername as getMe, getRoles, onAuthExpired } from '../auth/session'
 import type { OvertimeRecord } from '../api/overtimeRecords'
-import { formatTime } from '../utils/formatDate'
+import { formatDateTime, formatTime } from '../utils/formatDate'
 
 import Pager from '../components/Pager'
 import { useNotify } from '../components/Toast'
@@ -504,7 +504,7 @@ export default function AdminPage() {
                   <span>
                     <span className="ad-label">신청 일시</span>
                     {u.withdrawRequestedAt
-                      ? new Date(u.withdrawRequestedAt).toLocaleString('ko-KR')
+                      ? formatDateTime(u.withdrawRequestedAt)
                       : '-'}
                   </span>
 
