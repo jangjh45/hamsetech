@@ -1,15 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { listNotices, type NoticeSummary } from '../api/notices'
-
-// 목록에는 MM.DD만 노출한다 (연도와 작성자는 공지사항 페이지에서 확인)
-function formatShortDate(iso: string): string {
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return ''
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${m}.${day}`
-}
+import { formatMonthDay } from '../utils/formatDate'
 
 export default function RecentNotices() {
   const [notices, setNotices] = useState<NoticeSummary[]>([])
@@ -72,7 +64,7 @@ export default function RecentNotices() {
             <Link key={notice.id} to={`/notice/${notice.id}`} className="fl-linkrow">
               <span className="fl-dot" />
               <span className="fl-linkrow-title">{notice.title}</span>
-              <span className="fl-linkrow-date">{formatShortDate(notice.createdAt)}</span>
+              <span className="fl-linkrow-date">{formatMonthDay(notice.createdAt)}</span>
             </Link>
           ))}
       </div>

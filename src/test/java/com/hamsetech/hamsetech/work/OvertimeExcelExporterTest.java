@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.HashMap;
@@ -119,6 +120,20 @@ class OvertimeExcelExporterTest {
         assertThat(sheet.getRow(0).getCell(0).getStringCellValue())
                 .isEqualTo("2026-07-15 ~ 2026-08-14 · 승인된 기록만 집계");
         assertThat(sheet.getRow(1).getCell(0).getStringCellValue()).isEqualTo("직원");
+    }
+
+    @Test
+    @DisplayName("승인 일시는 서버 시간대와 무관하게 한국시간으로 내보낸다")
+    void approvedAtUsesKoreaTime() throws IOException {
+        OvertimeRecord approved = record("kim", "김한세", LocalDate.of(2026, 8, 3), OvertimeType.OVERTIME,
+                LocalTime.of(16, 0), LocalTime.of(19, 0), 150, OvertimeRecord.Status.APPROVED);
+        approved.setApprovedAt(Instant.parse("2026-10-13T15:00:00Z"));
+
+        try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(
+                exporter.build(FROM, TO, List.of(approved), List.of())))) {
+            assertThat(workbook.getSheetAt(0).getRow(1).getCell(11).getStringCellValue())
+                    .isEqualTo("2026-10-14 00:00");
+        }
     }
 
     @Test

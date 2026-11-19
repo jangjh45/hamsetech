@@ -1,22 +1,47 @@
+export const KOREA_TIME_ZONE = 'Asia/Seoul'
+
 export function formatDate(iso: string): string {
   if (!iso) return ''
   try {
-    return new Date(iso).toLocaleDateString()
+    const date = new Date(iso)
+    if (Number.isNaN(date.getTime())) return iso
+    return date.toLocaleDateString('ko-KR', { timeZone: KOREA_TIME_ZONE })
   } catch {
     return iso
   }
 }
 
-export function formatDateTime(iso: string): string {
+export function formatDateTime(iso: string, options: Intl.DateTimeFormatOptions = {}): string {
   if (!iso) return ''
   try {
-    return new Date(iso).toLocaleString()
+    const date = new Date(iso)
+    if (Number.isNaN(date.getTime())) return iso
+    return date.toLocaleString('ko-KR', { ...options, timeZone: KOREA_TIME_ZONE })
   } catch {
     return iso
   }
 }
 
-// 로컬 타임존 기준 YYYY-MM-DD. 서버 API가 쓰는 날짜 포맷.
+/** 타임스탬프에서 한국시간 기준 MM.DD를 만든다. */
+export function formatMonthDay(iso: string): string {
+  if (!iso) return ''
+  try {
+    const date = new Date(iso)
+    if (Number.isNaN(date.getTime())) return ''
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: KOREA_TIME_ZONE,
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date)
+    const month = parts.find((part) => part.type === 'month')?.value
+    const day = parts.find((part) => part.type === 'day')?.value
+    return month && day ? `${month}.${day}` : ''
+  } catch {
+    return ''
+  }
+}
+
+// 브라우저 로컬 타임존 기준 YYYY-MM-DD. 서버 API가 쓰는 날짜 포맷.
 export function toYmd(date: Date): string {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')

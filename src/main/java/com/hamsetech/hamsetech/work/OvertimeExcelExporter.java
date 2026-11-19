@@ -38,6 +38,7 @@ public class OvertimeExcelExporter {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
     private static final DateTimeFormatter APPROVED_AT_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
 
     private static final String[] DETAIL_HEADERS = {
             "근무일", "요일", "직원", "사번", "구분", "시작", "종료", "총 시간(h)", "사유", "상태", "승인자", "승인일시"
@@ -209,7 +210,7 @@ public class OvertimeExcelExporter {
     }
 
     private String formatInstant(Instant instant) {
-        return instant == null ? "" : APPROVED_AT_FORMAT.format(instant.atZone(ZoneId.systemDefault()));
+        return instant == null ? "" : APPROVED_AT_FORMAT.format(instant.atZone(KOREA_ZONE));
     }
 
     /** 화면(Admin.tsx OVERTIME_TYPE_LABEL)과 같은 표기 */

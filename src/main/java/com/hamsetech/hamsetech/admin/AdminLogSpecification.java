@@ -46,7 +46,7 @@ public class AdminLogSpecification {
 
             // 종료 날짜 필터
             if (endDate != null) {
-                predicates.add(criteriaBuilder.lessThanOrEqualTo(
+                predicates.add(criteriaBuilder.lessThan(
                     root.get("timestamp"), 
                     endDate
                 ));

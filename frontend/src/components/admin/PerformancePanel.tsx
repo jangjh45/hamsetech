@@ -13,6 +13,7 @@ import {
   type PerformanceHistoryPoint,
   type PerformanceThresholds,
 } from '../../api/performance'
+import { formatDateTime } from '../../utils/formatDate'
 
 const REFRESH_MS = 5_000
 const HISTORY_REFRESH_MS = 60_000
@@ -105,7 +106,7 @@ function TrendChart({
   const hasTrend = segments.some((pointsInSegment) => pointsInSegment.length > 1)
   const average = valid.reduce((sum, entry) => sum + entry, 0) / valid.length
   const formatPointTime = (index: number) => points[index]
-    ? new Date(points[index].capturedAt).toLocaleString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+    ? formatDateTime(points[index].capturedAt, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
     : ''
 
   return (
@@ -301,7 +302,7 @@ function AlertHistory({ events, error }: { events: PerformanceAlertEvent[]; erro
                   <td>{number(event.observedValue)} {event.unit}{event.thresholdValue == null
                     ? ''
                     : ` / ${number(event.thresholdValue)} ${event.unit}`}</td>
-                  <td>{new Date(event.occurredAt).toLocaleString('ko-KR')}</td>
+                  <td>{formatDateTime(event.occurredAt)}</td>
                 </tr>
               ))}
               {!events.length && <tr><td colSpan={4} className="ad-perf-empty-row">{error ? '경고 이력을 불러오지 못했습니다.' : '아직 기록된 경고가 없습니다.'}</td></tr>}
@@ -604,7 +605,9 @@ export default function PerformancePanel() {
             <span className="fl-card-title">서비스 성능</span>
             <div className="ad-perf-subtitle">
               최근 API 요청 기준 · 현재 지표 5초마다 갱신
-              {snapshot && <span> · 마지막 갱신 {new Date(snapshot.capturedAt).toLocaleTimeString('ko-KR')}</span>}
+              {snapshot && <span> · 마지막 갱신 {formatDateTime(snapshot.capturedAt, {
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+              })}</span>}
             </div>
           </div>
           <div className="ad-perf-head-actions">
@@ -688,7 +691,7 @@ export default function PerformancePanel() {
             </div>
           ))}
         </div>
-        {history?.oldestAvailable && <div className="ad-perf-history-note">표시 가능한 가장 오래된 기록: {new Date(history.oldestAvailable).toLocaleString('ko-KR')}</div>}
+        {history?.oldestAvailable && <div className="ad-perf-history-note">표시 가능한 가장 오래된 기록: {formatDateTime(history.oldestAvailable)}</div>}
       </section>
 
       <div className="ad-perf-grid ad-perf-grid-secondary">

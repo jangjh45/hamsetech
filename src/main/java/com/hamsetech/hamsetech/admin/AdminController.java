@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 public class AdminController {
 
     private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
+    private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
 
     private final UserAccountRepository userRepo;
     private final AdminLogRepository adminLogRepo;
@@ -386,7 +387,7 @@ public class AdminController {
 
     private String formatTimestamp(Instant timestamp) {
         if (timestamp == null) return "";
-        return LocalDateTime.ofInstant(timestamp, ZoneId.systemDefault())
+        return LocalDateTime.ofInstant(timestamp, KOREA_ZONE)
                 .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
     }
 
@@ -397,7 +398,7 @@ public class AdminController {
     private Instant parseStartDate(String startDate) {
         if (blankToNull(startDate) == null) return null;
         try {
-            return LocalDate.parse(startDate.trim()).atStartOfDay(ZoneId.systemDefault()).toInstant();
+            return LocalDate.parse(startDate.trim()).atStartOfDay(KOREA_ZONE).toInstant();
         } catch (Exception e) {
             logger.warn("Invalid startDate format: '{}' (will be ignored)", startDate);
             return null;
@@ -407,7 +408,8 @@ public class AdminController {
     private Instant parseEndDate(String endDate) {
         if (blankToNull(endDate) == null) return null;
         try {
-            return LocalDate.parse(endDate.trim()).atTime(23, 59, 59).atZone(ZoneId.systemDefault()).toInstant();
+            // 종료일 다음 날 00:00(KST)을 배타적 경계로 사용해 하루의 마지막 소수 초까지 포함한다.
+            return LocalDate.parse(endDate.trim()).plusDays(1).atStartOfDay(KOREA_ZONE).toInstant();
         } catch (Exception e) {
             logger.warn("Invalid endDate format: '{}' (will be ignored)", endDate);
             return null;
