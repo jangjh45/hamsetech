@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────
 # Stage 1: Build (Gradle + Java 25)
 # ─────────────────────────────────────────────
-FROM amazoncorretto:25-alpine-jdk AS builder
+FROM amazoncorretto:27-alpine-jdk AS builder
 
 WORKDIR /app
 
@@ -29,7 +29,7 @@ RUN ./gradlew bootJar --no-daemon -x test \
 # ─────────────────────────────────────────────
 # Stage 2: Dev (Gradle bootRun + DevTools 자동 재시작)
 # ─────────────────────────────────────────────
-FROM amazoncorretto:25-alpine-jdk AS dev
+FROM amazoncorretto:27-alpine-jdk AS dev
 
 WORKDIR /app
 
@@ -54,7 +54,7 @@ ENTRYPOINT ["./docker/backend-dev-entrypoint.sh"]
 # ─────────────────────────────────────────────
 # Stage 3: Prod (최적화된 경량 이미지)
 # ─────────────────────────────────────────────
-FROM amazoncorretto:25-al2023-headless AS prod
+FROM amazoncorretto:27-al2023-headless AS prod
 
 WORKDIR /app
 
